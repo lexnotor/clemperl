@@ -82,6 +82,9 @@ consignées ici pour servir de référence aux tranches suivantes.
 | `apps/admin` | `@clemperl/admin` | Next 16 | 3002 | Back-office plateforme |
 | `apps/api` | `@clemperl/api` | NestJS 12 | 3003 | Socket.IO, workers BullMQ, webhooks |
 
+Ces ports ne sont pas exposés à l'extérieur : un reverse proxy Caddy est le seul
+point d'entrée, en 443 (voir §5.3).
+
 NestJS ne remplace pas Next : il prend en charge ce que Next ne sait pas faire —
 connexions persistantes, traitements de fond, réception de webhooks. Les trois
 applications Next accèdent à Postgres directement via leurs server actions et
@@ -104,12 +107,14 @@ clemperl/
 │   ├── eslint-config/      @clemperl/eslint-config
 │   └── tsconfig/           @clemperl/tsconfig
 ├── docker/
+│   └── proxy/              Caddy : Dockerfile + Caddyfile
 ├── docs/superpowers/specs/
 ├── .github/workflows/
 ├── turbo.json
 ├── pnpm-workspace.yaml
 ├── docker-compose.yml
 ├── .env.example
+├── README.md
 └── package.json
 ```
 
@@ -268,23 +273,94 @@ Chaque service déclare un `healthcheck`. Les applications attendent que Postgre
 et Redis soient sains (`depends_on: condition: service_healthy`) avant de
 démarrer, ce qui évite les échecs de connexion au premier lancement.
 
-### 5.3 Domaines de développement
+### 5.3 Accès réseau, domaines et TLS en développement
 
-Les trois fronts partageront en T1 un cookie de session sur un domaine parent.
-Pour que ce soit testable dès le départ et non découvert tardivement, le
-développement utilise des sous-domaines réels plutôt que des ports sur
-`localhost` :
+Trois exigences se combinent ici : les trois fronts doivent partager un cookie de
+session sur un domaine parent (T1), l'environnement doit être joignable depuis un
+**smartphone du réseau local** pour tester la réactivité de l'interface, et le
+tout doit être en HTTPS — un cookie de session marqué `Secure` ne se teste pas en
+clair.
 
-| Application | URL de développement |
+#### Prérequis machine : réseau WSL2
+
+WSL2 fonctionne par défaut en **mode NAT** : son adresse (`172.25.x.x`) n'existe
+pas sur le réseau local et aucun appareil externe ne peut l'atteindre. C'est un
+prérequis bloquant, indépendant du reste du design.
+
+Correctif retenu : activer le réseau en miroir dans `C:\Users\<utilisateur>\.wslconfig`,
+puis `wsl --shutdown`.
+
+```ini
+[wsl2]
+networkingMode=mirrored
+firewall=true
+hostAddressLoopback=true
+```
+
+WSL partage alors l'adresse de l'hôte Windows et ses ports deviennent joignables
+depuis le réseau local. Une règle de pare-feu Windows autorisant le port 443 en
+entrée reste nécessaire.
+
+À défaut (Windows 10, ou mode miroir indisponible), le repli est
+`netsh interface portproxy` côté Windows — à refaire après chaque redémarrage,
+puisque l'adresse WSL change. Le mode miroir est donc fortement préférable.
+
+L'adresse locale de la machine doit être **réservée dans le routeur** (bail DHCP
+statique) : toute la configuration en dépend.
+
+#### Résolution de noms : sslip.io
+
+`*.localhost` est écarté : ce n'est pas un vrai DNS, chaque appareil le résout
+vers lui-même. Un smartphone chercherait le storefront sur son propre système.
+
+`sslip.io` est un service DNS public qui résout tout nom contenant une adresse IP
+vers cette adresse, y compris avec un préfixe arbitraire. Aucune configuration
+DNS, aucun fichier `hosts`, et cela fonctionne depuis n'importe quel appareil du
+réseau.
+
+La notation à tirets est retenue (un seul label, donc un unique certificat
+wildcard suffit, et elle reste valide si un wildcard `*.sslip.io` était un jour
+ajouté à la Public Suffix List) :
+
+| Application | Nom de développement |
 |---|---|
-| storefront | `http://clemperl.localhost:3000` |
-| vendor | `http://vendeur.clemperl.localhost:3001` |
-| admin | `http://admin.clemperl.localhost:3002` |
-| api | `http://api.clemperl.localhost:3003` |
+| storefront | `192-168-1-42.sslip.io` |
+| vendor | `vendeur.192-168-1-42.sslip.io` |
+| admin | `admin.192-168-1-42.sslip.io` |
+| api | `api.192-168-1-42.sslip.io` |
 
-Les navigateurs modernes résolvent `*.localhost` vers `127.0.0.1` sans
-configuration. Un cookie posé sur `.clemperl.localhost` est donc partagé par les
-trois fronts, exactement comme `.clemperl.com` le sera en production.
+Vérifié le 2026-09-17 : `sslip.io` **n'est pas** dans la Public Suffix List. Un
+cookie posé sur `.192-168-1-42.sslip.io` est donc bien partagé par les trois
+fronts — ce qui est précisément ce que T1 exige, et ce que ce choix doit garantir.
+
+L'adresse n'est écrite qu'à un seul endroit, la variable `DEV_HOST`. Toutes les
+URL en dérivent, et un futur basculement vers un vrai domaine
+(`*.dev.clemperl.com`) ne coûte que le changement de cette variable et la
+régénération du certificat.
+
+#### Terminaison TLS : Caddy et mkcert
+
+Un reverse proxy **Caddy** devient le point d'entrée unique en 443 et route par
+nom d'hôte vers les quatre applications. Les ports 3000 à 3003 ne sont plus
+publiés : ils restent internes au réseau Docker. L'intérêt dépasse le
+développement — c'est la topologie réelle de la production, éprouvée dès T0 au
+lieu d'être découverte au déploiement.
+
+Le proxy a son propre `Dockerfile` dans `docker/proxy/`, qui part de l'image
+Caddy amont et intègre le `Caddyfile` : la règle « une image se construit, elle
+ne se déclare pas » s'applique à lui comme aux applications.
+
+**mkcert** (déjà installé, v1.4.4) génère l'autorité locale et un certificat
+wildcard couvrant `192-168-1-42.sslip.io` et `*.192-168-1-42.sslip.io`. Un script
+`pnpm dev:certs` encapsule la génération pour qu'elle soit reproductible.
+
+Conséquence assumée : le smartphone doit faire confiance à l'autorité mkcert.
+Le fichier `rootCA.pem` (localisable via `mkcert -CAROOT`) s'installe une fois
+sur l'appareil — sur Android comme autorité utilisateur, que le navigateur
+respecte pour la navigation web ; sur iOS via un profil, avec activation
+explicite dans Réglages → Général → Informations → Certificats. La procédure est
+documentée dans le README, avec la commande servant le fichier sur le réseau
+local pour le récupérer depuis le téléphone.
 
 ### 5.4 Environnement
 
@@ -303,10 +379,16 @@ Variables de T0 :
 NODE_ENV
 DATABASE_URL
 REDIS_URL
-NEXT_PUBLIC_STOREFRONT_URL
-NEXT_PUBLIC_VENDOR_URL
-NEXT_PUBLIC_ADMIN_URL
-NEXT_PUBLIC_API_URL
+
+# Adresse locale réservée de la machine, notation à tirets.
+# Unique source de vérité : toutes les URL ci-dessous en dérivent.
+DEV_HOST=192-168-1-42.sslip.io
+
+NEXT_PUBLIC_STOREFRONT_URL=https://${DEV_HOST}
+NEXT_PUBLIC_VENDOR_URL=https://vendeur.${DEV_HOST}
+NEXT_PUBLIC_ADMIN_URL=https://admin.${DEV_HOST}
+NEXT_PUBLIC_API_URL=https://api.${DEV_HOST}
+
 # WATCHPACK_POLLING=true   # décommenter si le hot reload ne réagit pas
 ```
 
@@ -389,6 +471,24 @@ chaque front répond et affiche son écran d'accueil.
 pré-commit exécutant lint et typecheck sur les fichiers modifiés. Conventional
 Commits.
 
+**Dépôt public.** Le dépôt est public sur GitHub dès le premier commit. Ce choix
+donne des exécutions GitHub Actions gratuites et illimitées — indispensable, la
+construction de quatre images Docker et la suite Playwright à chaque proposition
+de modification épuiseraient rapidement le quota d'un dépôt privé.
+
+Il impose en retour trois garde-fous, mis en place en T0 et non après :
+
+1. **Push Protection** et **Secret Scanning** activés sur le dépôt (par défaut
+   sur les dépôts publics, à vérifier explicitement)
+2. **`gitleaks` en pré-commit** — le scan côté GitHub intervient après coup, le
+   pré-commit empêche le secret d'entrer dans l'historique
+3. **Aucun fichier `.env` versionné**, jamais ; seul `.env.example` l'est, avec
+   des valeurs factices
+
+La raison d'être de ces garde-fous est que l'historique git est définitif : un
+secret commité puis « supprimé » reste lisible dans l'historique public. Le
+seul remède est de ne jamais l'y mettre.
+
 **Intégration continue.** GitHub Actions, avec les tâches suivantes :
 
 1. `lint` — ESLint et Prettier
@@ -409,8 +509,8 @@ T0 est terminée quand, et seulement quand, ces sept points sont vérifiés :
 
 1. `docker compose up` démarre Postgres, Redis et les quatre applications ;
    tous les healthchecks passent au vert
-2. Les quatre applications répondent sur leurs sous-domaines de développement
-   (ports 3000, 3001, 3002, 3003)
+2. Les quatre applications répondent en HTTPS derrière Caddy sur leurs noms de
+   développement, certificat mkcert accepté ; aucun port applicatif n'est publié
 3. `docker build` de chaque application produit **isolément** une image `runner`
    fonctionnelle, sans dépendre d'un build préalable hors Docker
 4. La migration initiale et le seed s'exécutent ; un compte administrateur de
@@ -420,6 +520,8 @@ T0 est terminée quand, et seulement quand, ces sept points sont vérifiés :
 6. Le storefront bascule entre français et anglais
 7. `pnpm lint`, `pnpm typecheck`, `pnpm test` et `pnpm test:e2e` passent en
    local **et** en intégration continue
+8. Le storefront s'affiche correctement **depuis un smartphone du réseau local**,
+   autorité mkcert installée, sans avertissement de sécurité
 
 ---
 
@@ -433,6 +535,11 @@ T0 est terminée quand, et seulement quand, ces sept points sont vérifiés :
 | **Logique métier dupliquée entre Next et Nest** | Divergence silencieuse des règles | `@clemperl/domain` créé dès T1 ; règle de dépendance explicite |
 | **Prisma 8 en RC** | Migration ultérieure à prévoir | Rester en 7.10.0, versions épinglées |
 | **Dockerfiles `turbo prune` plus denses** | Coût d'entrée à la lecture | Patron identique pour les quatre applications, commenté ; écrit une seule fois |
+| **Réseau WSL2 en mode NAT** | Bloquant : aucun accès depuis le smartphone | Prérequis `networkingMode=mirrored` documenté et vérifié en premier ; repli `netsh portproxy` |
+| **Adresse locale variable (DHCP)** | Les URL et le certificat cessent de fonctionner | Réservation d'adresse dans le routeur ; `DEV_HOST` comme unique source de vérité |
+| **Autorité mkcert à installer sur le mobile** | Friction au premier test, à refaire par appareil | Procédure documentée dans le README ; basculement ultérieur vers un vrai domaine et un certificat publiquement valide possible sans changer l'architecture |
+| **Dépendance à un service DNS tiers (sslip.io)** | Développement interrompu si le service disparaît | Repli documenté : entrées `hosts` sur la machine et bascule vers un vrai domaine, pilotées par la seule variable `DEV_HOST` |
+| **Dépôt public dès le premier commit** | Un secret commité reste dans l'historique | Push Protection, Secret Scanning et `gitleaks` en pré-commit, en place dès T0 |
 
 ---
 
