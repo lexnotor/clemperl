@@ -281,32 +281,27 @@ session sur un domaine parent (T1), l'environnement doit être joignable depuis 
 tout doit être en HTTPS — un cookie de session marqué `Secure` ne se teste pas en
 clair.
 
-#### Prérequis machine : réseau WSL2
+#### Exposition sur le réseau local
 
-WSL2 fonctionne par défaut en **mode NAT** : son adresse (`172.25.x.x`) n'existe
-pas sur le réseau local et aucun appareil externe ne peut l'atteindre. C'est un
-prérequis bloquant, indépendant du reste du design.
+Docker Desktop est le moteur utilisé (contexte `desktop-linux`, vérifié le
+2026-09-17). Il publie les ports des conteneurs **côté Windows sur `0.0.0.0`**,
+et non sur l'adresse NAT de WSL2. Le port 443 de Caddy est donc directement
+joignable depuis n'importe quel appareil du réseau local, sans `.wslconfig`,
+sans réseau en miroir et sans `netsh portproxy`.
 
-Correctif retenu : activer le réseau en miroir dans `C:\Users\<utilisateur>\.wslconfig`,
-puis `wsl --shutdown`.
+Deux conséquences :
 
-```ini
-[wsl2]
-networkingMode=mirrored
-firewall=true
-hostAddressLoopback=true
-```
+- Cela ne vaut que pour les ports **publiés par Docker**. Un processus lancé
+  directement dans WSL, hors conteneur, resterait injoignable depuis le réseau.
+  Le choix du tout-conteneur (§5.2) rend ce cas sans objet.
+- Windows demande l'autorisation du pare-feu au premier démarrage ; elle doit
+  être accordée pour les réseaux privés.
 
-WSL partage alors l'adresse de l'hôte Windows et ses ports deviennent joignables
-depuis le réseau local. Une règle de pare-feu Windows autorisant le port 443 en
-entrée reste nécessaire.
-
-À défaut (Windows 10, ou mode miroir indisponible), le repli est
-`netsh interface portproxy` côté Windows — à refaire après chaque redémarrage,
-puisque l'adresse WSL change. Le mode miroir est donc fortement préférable.
-
-L'adresse locale de la machine doit être **réservée dans le routeur** (bail DHCP
-statique) : toute la configuration en dépend.
+L'adresse utilisée est celle de la machine sur le réseau local. Elle n'a pas
+besoin d'être réservée dans le routeur : si le bail DHCP change, il suffit de
+mettre `DEV_HOST` à jour dans le fichier d'environnement **et** de relancer
+`pnpm dev:certs` — le certificat étant émis pour un nom précis, le seul `.env`
+ne suffit pas.
 
 #### Résolution de noms : sslip.io
 
@@ -364,7 +359,19 @@ local pour le récupérer depuis le téléphone.
 
 ### 5.4 Environnement
 
-Un `.env.example` versionné à la racine documente chaque variable. Les variables
+Les valeurs vivent dans des fichiers d'environnement, jamais en dur dans le code
+ni dans le `docker-compose` :
+
+| Fichier | Versionné | Usage |
+|---|---|---|
+| `.env.example` | oui | Modèle documenté, valeurs factices. Référence de ce qui existe. |
+| `.env` | non | Développement local. Lu par défaut par `docker compose`. |
+| `.env.prod` | non | Production, via `docker compose --env-file .env.prod`. |
+
+Le `.gitignore` ignore `.env*` en ne conservant que `.env.example`, afin qu'un
+nouveau fichier d'environnement soit exclu par défaut plutôt qu'à la main.
+
+Le `.env.example` documente chaque variable. Les variables
 consommées pendant les builds sont déclarées dans `globalEnv` de `turbo.json` —
 faute de quoi le cache Turbo sert des artefacts construits avec d'anciennes
 valeurs, ce qui produit des bugs particulièrement difficiles à diagnostiquer.
@@ -535,8 +542,7 @@ T0 est terminée quand, et seulement quand, ces sept points sont vérifiés :
 | **Logique métier dupliquée entre Next et Nest** | Divergence silencieuse des règles | `@clemperl/domain` créé dès T1 ; règle de dépendance explicite |
 | **Prisma 8 en RC** | Migration ultérieure à prévoir | Rester en 7.10.0, versions épinglées |
 | **Dockerfiles `turbo prune` plus denses** | Coût d'entrée à la lecture | Patron identique pour les quatre applications, commenté ; écrit une seule fois |
-| **Réseau WSL2 en mode NAT** | Bloquant : aucun accès depuis le smartphone | Prérequis `networkingMode=mirrored` documenté et vérifié en premier ; repli `netsh portproxy` |
-| **Adresse locale variable (DHCP)** | Les URL et le certificat cessent de fonctionner | Réservation d'adresse dans le routeur ; `DEV_HOST` comme unique source de vérité |
+| **Adresse locale variable (DHCP)** | Les URL et le certificat cessent de fonctionner | Mineur : mettre `DEV_HOST` à jour et relancer `pnpm dev:certs`. Réservation d'adresse dans le routeur possible mais non requise. |
 | **Autorité mkcert à installer sur le mobile** | Friction au premier test, à refaire par appareil | Procédure documentée dans le README ; basculement ultérieur vers un vrai domaine et un certificat publiquement valide possible sans changer l'architecture |
 | **Dépendance à un service DNS tiers (sslip.io)** | Développement interrompu si le service disparaît | Repli documenté : entrées `hosts` sur la machine et bascule vers un vrai domaine, pilotées par la seule variable `DEV_HOST` |
 | **Dépôt public dès le premier commit** | Un secret commité reste dans l'historique | Push Protection, Secret Scanning et `gitleaks` en pré-commit, en place dès T0 |
