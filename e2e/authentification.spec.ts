@@ -13,8 +13,12 @@ async function creerCompteVerifie(request: APIRequestContext, adresse: string): 
     const messages = await request.get(
         `${URL_MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${adresse}`)}`,
     );
-    const dernier = (await messages.json()).messages[0];
-    const contenu = await request.get(`${URL_MAILPIT}/api/v1/message/${dernier.ID}`);
+    const [dernier] = (await messages.json()).messages as { ID: string }[];
+    // Sans cette assertion, l'absence de courriel remonte en « Cannot read properties of
+    // undefined » et l'on cherche le défaut dans le test plutôt que dans l'inscription.
+    expect(dernier, `aucun courriel reçu pour ${adresse}`).toBeDefined();
+
+    const contenu = await request.get(`${URL_MAILPIT}/api/v1/message/${dernier?.ID}`);
     const lien = /https?:\/\/\S+/.exec((await contenu.json()).Text)?.[0] ?? "";
     await request.get(lien);
 }

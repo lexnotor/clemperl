@@ -49,6 +49,22 @@
       "outputs": [
         "coverage/**"
       ]
+    },
+    "db:generate": {
+      "outputs": [
+        "generated/**"
+      ]
+    },
+    "@clemperl/db#typecheck": {
+      "dependsOn": [
+        "db:generate"
+      ]
+    },
+    "@clemperl/db#build": {
+      "dependsOn": [
+        "^build",
+        "db:generate"
+      ]
     }
   }
 }

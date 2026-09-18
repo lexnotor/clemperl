@@ -12,12 +12,12 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"aucun test unitaire : ce package n'a pas de logique\" && exit 0",
-    "db:generate": "prisma generate",
+    "test": "vitest run --coverage",
+    "db:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://build:build@localhost:5432/build} prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "build": "DATABASE_URL=${DATABASE_URL:-postgresql://build:build@localhost:5432/build} prisma generate && tsc -p tsconfig.build.json",
+    "build": "pnpm db:generate && tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput"
   },
   "prisma": {
@@ -33,11 +33,13 @@
     "@clemperl/eslint-config": "workspace:*",
     "@clemperl/tsconfig": "workspace:*",
     "@types/pg": "8.23.1",
+    "@vitest/coverage-v8": "5.0.1",
     "dotenv": "^17.4.2",
     "eslint": "10.10.0",
     "prisma": "7.10.0",
     "tsx": "^4.0.0",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
   },
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts"

@@ -306,3 +306,62 @@ Observé le 2026-09-18, à l'arrivée de la première suite d'intégration.
 Ce qui protège maintenant : `apps/api/jest.config.ts` exclut `src/**/*-spec.ts`. Le
 tiret est la charnière — il attrape `int-spec` et `contract-spec` sans toucher aux
 `.spec.ts` unitaires, que Jest écarte déjà tout seul.
+
+---
+
+**Rien ne déployait les migrations : ce qui marchait tenait à une commande jouée une
+fois, à la main, sur une seule machine.**
+
+`pnpm docker:up` démarrait PostgreSQL et les quatre applications, et aucune étape
+n'appliquait le schéma. Sur la machine de développement, les migrations avaient été
+jouées à la main pendant la tranche, une fois ; le volume les gardait, et tout
+fonctionnait. Sur un volume neuf — un poste qui démarre, un runner de CI — la table
+`user` n'existe pas, toute inscription échoue, aucun courriel ne part, et la suite
+Playwright tombe sur des messages qui parlent de Mailpit.
+
+Le symptôme accuse la mauvaise couche. Rien dans l'erreur ne nomme la migration.
+
+Observé le 2026-09-18, à la première exécution de la CI sur un dépôt fraîchement cloné.
+
+Ce qui protège maintenant : un service `migrate` dans `docker/docker-compose.dev.yml`
+joue `prisma migrate deploy` puis s'arrête, et les quatre applications l'attendent par
+`service_completed_successfully`. La CI ne fait rien de particulier : elle monte le
+compose comme n'importe qui.
+
+---
+
+**Le client Prisma se construisait à l'import, et `next build` échouait faute de
+`DATABASE_URL` — alors que le build n'ouvre aucune connexion.**
+
+`next build` charge le module de chaque page pour y lire sa configuration de rendu
+(`export const dynamic`, `revalidate`…). Une page qui importe `@clemperl/auth` importe
+le client Prisma, et un client construit au moment de l'évaluation du module réclame la
+variable là où aucune requête n'est faite. L'erreur est
+`Failed to collect configuration for /`, et sa cause, deux lignes plus bas, la nomme.
+
+Les images Docker ne le voyaient pas : leurs Dockerfiles passent un `DATABASE_URL` de
+construction pour satisfaire `prisma generate`, qui masquait le problème.
+
+Observé le 2026-09-18, sur `@clemperl/admin#build` en CI.
+
+Ce qui protège maintenant : `packages/db/src/client.ts` expose un proxy qui construit le
+client à la PREMIÈRE UTILISATION. La variable reste obligatoire — l'erreur arrive
+simplement quand on s'en sert. `client.spec.ts` tient les deux moitiés : l'import passe
+sans la variable, le premier accès échoue avec elle absente.
+
+---
+
+**`dependsOn: ["^build"]` construit les dépendances d'un package, jamais ce que le
+package génère pour lui-même.**
+
+`@clemperl/db` se type contre `generated/prisma/`, produit par `prisma generate` — que
+seul son propre `build` lançait. Son `typecheck` ne dépendant que de `^build`, il
+s'exécutait sur un dossier absent et échouait par `TS2307: Cannot find module
+'../generated/prisma/client'`. En local, le dossier existait déjà : la dépendance
+manquante ne se voit que sur un dépôt fraîchement cloné.
+
+Observé le 2026-09-18, sur `@clemperl/db#typecheck` en CI.
+
+Ce qui protège maintenant : `db:generate` est une tâche Turbo à part entière, avec
+`generated/**` en sortie, et `@clemperl/db#typecheck` comme `@clemperl/db#build` en
+dépendent explicitement.

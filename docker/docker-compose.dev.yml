@@ -50,6 +50,27 @@ services:
       timeout: 3s
       retries: 10
 
+  # Déploie les migrations, puis s'arrête. Les quatre applications l'attendent : sur un
+  # volume neuf — une machine qui démarre, un runner de CI — la base est vide, et sans
+  # cette étape la première inscription échoue sur une table qui n'existe pas. Jouer les
+  # migrations à la main marche une fois, sur la machine où on l'a fait.
+  #
+  # `migrate deploy` et non `migrate dev` : `dev` est interactif et attend une réponse
+  # que personne ne donnera ici.
+  migrate:
+    container_name: clemperl_dev_migrate
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+      target: dev
+    env_file: ../.env
+    volumes:
+      - ../packages/db/prisma:/app/packages/db/prisma
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: sh -c "cd packages/db && pnpm exec prisma migrate deploy"
+    restart: "no"
+
   mailpit:
     container_name: clemperl_dev_mailpit
     ports:
@@ -80,6 +101,7 @@ services:
       - ../packages/i18n/messages:/app/packages/i18n/messages
     depends_on:
       postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       mailpit: { condition: service_healthy }
     healthcheck:
@@ -105,6 +127,7 @@ services:
       - ../packages/i18n/messages:/app/packages/i18n/messages
     depends_on:
       postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       mailpit: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
@@ -129,6 +152,7 @@ services:
       - ../packages/i18n/messages:/app/packages/i18n/messages
     depends_on:
       postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       mailpit: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3002/api/health"]
@@ -168,6 +192,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3003/health"]

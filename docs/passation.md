@@ -50,9 +50,10 @@ sont vides, et le bouton « Continuer avec Google » n'apparaît que si
 rien n'est bloqué. `docker/README.md` donne les URL de rappel à déclarer dans la console
 Google le jour où on les crée.
 
-**Les volumes Docker sont locaux.** La base de la nouvelle machine part vide. Après
-`pnpm docker:up`, les migrations se déploient seules ; les comptes créés sur l'ancienne
-machine ne suivent pas, et c'est sans conséquence — ce sont des comptes d'essai.
+**Les volumes Docker sont locaux.** La base de la nouvelle machine part vide. Le service
+`migrate` du compose déploie les migrations avant que les applications démarrent, et
+celles-ci l'attendent : `pnpm docker:up` suffit. Les comptes créés sur l'ancienne machine
+ne suivent pas, et c'est sans conséquence — ce sont des comptes d'essai.
 
 ## Ce qui reste ouvert
 
