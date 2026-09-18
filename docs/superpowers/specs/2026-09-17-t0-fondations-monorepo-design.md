@@ -58,7 +58,7 @@ consignées ici pour servir de référence aux tranches suivantes.
 - Un `docker-compose` de développement complet (tout tourne en conteneur)
 - Schéma Prisma initial minimal, migration et seed fonctionnels
 - Internationalisation câblée, français par défaut
-- Harnais de tests (Vitest, Testing Library, Playwright) et CI
+- Harnais de tests (Jest sur l'API, Vitest ailleurs, Testing Library, Playwright) et CI
 
 ### Exclu explicitement
 
@@ -82,7 +82,7 @@ consignées ici pour servir de référence aux tranches suivantes.
 | `apps/admin` | `@clemperl/admin` | Next 16 | 3002 | Back-office plateforme |
 | `apps/api` | `@clemperl/api` | NestJS 12 | 3003 | Socket.IO, workers BullMQ, webhooks |
 
-Ces ports ne sont pas exposés à l'extérieur : un reverse proxy Caddy est le seul
+Ces ports ne sont pas exposés à l'extérieur : un reverse proxy nginx est le seul
 point d'entrée, en 443 (voir §5.3).
 
 NestJS ne remplace pas Next : il prend en charge ce que Next ne sait pas faire —
@@ -106,13 +106,16 @@ clemperl/
 │   ├── i18n/               @clemperl/i18n
 │   ├── eslint-config/      @clemperl/eslint-config
 │   └── tsconfig/           @clemperl/tsconfig
+├── .vscode/
+│   └── settings.json       file nesting : replie les tests sous leur fichier
 ├── docker/
-│   └── proxy/              Caddy : Dockerfile + Caddyfile
+│   └── proxy/              nginx : Dockerfile + configuration nginx
 ├── docs/superpowers/specs/
 ├── .github/workflows/
 ├── turbo.json
 ├── pnpm-workspace.yaml
-├── docker-compose.yml
+├── docker/docker-compose.dev.yml
+├── .dockerignore
 ├── .env.example
 ├── README.md
 └── package.json
@@ -188,20 +191,37 @@ Vérifiées sur le registre npm le 2026-09-17.
 | Next.js | 16.3.5 | App Router, sortie `standalone` |
 | NestJS | 12.0.3 | |
 | React | 19.3.0 | |
-| Prisma | 7.10.0 | la 8.0 est en RC — écartée |
-| TypeScript | 7.0.2 | repli documenté en 6.x si incompatibilité |
+| Prisma, @prisma/client | 7.10.0 | la 8.0 est en RC — écartée |
+| @prisma/adapter-pg | 7.10.0 | Prisma 7 exige un adaptateur de pilote |
+| pg | 8.23.0 | pilote PostgreSQL sous l'adaptateur |
+| zod | 4.6.5 | `@clemperl/core` |
+| TypeScript | 6.0.3 | **repli appliqué** — la 7.0.2 est refusée par l'outillage, voir §10 |
 | Tailwind CSS | 4.3.3 | configuration en CSS, pas de fichier JS |
 | ESLint | 10.10.0 | configuration plate |
 | Prettier | 3.9.7 | |
-| Vitest | 5.0.1 | |
+| Vitest | 5.0.1 | fronts Next et packages |
+| Jest | 30.5.1 | `apps/api` uniquement |
+| @swc/jest | 0.2.39 | transformeur de Jest — voir §10 |
+| supertest | 7.2.2 | E2E HTTP de l'API |
+| Testcontainers | 12.1.0 | base jetable des tests d'intégration |
 | Playwright | 1.63.0 | |
 | next-intl | 4.14.5 | |
 | PostgreSQL | 17-alpine | |
 | Redis | 7-alpine | |
 
-Les packages internes sont du TypeScript brut, sans étape de compilation :
-ils sont transpilés par les applications qui les consomment. Moins d'outillage,
-et `turbo dev` reste instantané.
+Les packages sont traités selon leur consommateur, et non uniformément.
+
+`@clemperl/ui` et `@clemperl/i18n` restent du TypeScript brut, sans étape de
+compilation : seules les applications Next les consomment, et elles les
+transpilent par `transpilePackages`. Moins d'outillage, `turbo dev` instantané.
+
+`@clemperl/core` et `@clemperl/db` sont **compilés** et exposent `dist/`. Ils sont
+consommés par `apps/api`, qui compile avec `tsc` puis exécute du JavaScript sur
+Node : un import pointant vers un `.ts` y échoue au démarrage du binaire, pas à la
+compilation. Turbo ordonne les builds par `dependsOn: ["^build"]`.
+
+Les imports relatifs des packages internes portent une extension explicite
+(`./utils/index.js`), exigence de la résolution `nodenext` utilisée par l'API.
 
 ---
 
@@ -221,6 +241,12 @@ Le `Dockerfile` expose deux cibles :
 - **`runner`** — issue de `turbo prune --docker`, qui isole le sous-graphe de
   dépendances de l'application avant l'installation. L'image finale ne contient
   que le code de cette application et ses dépendances réelles.
+
+**Un `.dockerignore` à la racine est obligatoire.** Le contexte de build étant la racine
+du dépôt, c'est le seul que Docker lit : un `.dockerignore` placé dans `apps/storefront/`
+est ignoré. Sans lui, chaque build transfère au démon l'intégralité du dépôt — les
+`node_modules`, `.git`, les trois autres applications. La taille du contexte est à mesurer
+au premier build, avec et sans le fichier, et le chiffre à consigner.
 
 Le gain de `turbo prune` est double : des images de l'ordre de 180 Mo au lieu de
 900 Mo, et un cache Docker qui ne s'invalide que lorsque l'application ou ses
@@ -256,15 +282,36 @@ CMD ["node", "apps/storefront/server.js"]
 L'application NestJS suit le même patron, avec une sortie `dist/` au lieu de
 `.next/standalone`.
 
+Son arborescence applique dès T0 la structure de module attendue — le seul fichier à la
+racine d'un dossier module est son `.module.ts`, et la racine du module ne porte pas
+d'`index.ts` :
+
+```
+apps/api/src/
+├── main.ts
+├── app.module.ts
+└── modules/
+    └── health/
+        ├── health.module.ts
+        └── controllers/
+            ├── health.controller.ts
+            └── index.ts
+```
+
 ### 5.2 Développement : tout en conteneur
 
 Le développement quotidien se fait intégralement dans Docker. Deux contraintes
 en découlent, spécifiques à cet environnement (WSL2), et traitées dès T0 :
 
-1. **`node_modules` et `.next` en volumes nommés**, jamais montés depuis l'hôte.
-   Sans cela, le montage du répertoire de travail masque les dépendances
-   installées dans le conteneur, et les binaires natifs — les moteurs Prisma,
-   puis sharp en T2 — sont ceux de l'hôte, compilés pour une autre libc.
+1. **Seuls les dossiers de sources sont montés**, jamais la racine d'un package.
+   Monter le répertoire de travail masquerait les dépendances installées dans le
+   conteneur, et les binaires natifs — moteurs Prisma, puis sharp en T2 — seraient
+   ceux de l'hôte, compilés pour une autre bibliothèque C. Un volume nommé sur
+   `node_modules` résoudrait aussi le problème, mais il n'est peuplé qu'à sa
+   création : ajouter une dépendance imposerait de le détruire, et l'oublier
+   produit une erreur de module introuvable sans rapport apparent avec la cause.
+   Contrepartie assumée du montage par dossier : modifier un `package.json` impose
+   `pnpm docker:up --build`.
 2. **Repli `WATCHPACK_POLLING=true` documenté** dans `.env.example`, commenté
    par défaut. Le code vivant sur le système de fichiers Linux natif et non sur
    `/mnt/c`, inotify devrait fonctionner ; l'option est là si le watch décroche.
@@ -285,7 +332,7 @@ clair.
 
 Docker Desktop est le moteur utilisé (contexte `desktop-linux`, vérifié le
 2026-09-17). Il publie les ports des conteneurs **côté Windows sur `0.0.0.0`**,
-et non sur l'adresse NAT de WSL2. Le port 443 de Caddy est donc directement
+et non sur l'adresse NAT de WSL2. Le port 443 de nginx est donc directement
 joignable depuis n'importe quel appareil du réseau local, sans `.wslconfig`,
 sans réseau en miroir et sans `netsh portproxy`.
 
@@ -333,16 +380,16 @@ URL en dérivent, et un futur basculement vers un vrai domaine
 (`*.dev.clemperl.com`) ne coûte que le changement de cette variable et la
 régénération du certificat.
 
-#### Terminaison TLS : Caddy et mkcert
+#### Terminaison TLS : nginx et mkcert
 
-Un reverse proxy **Caddy** devient le point d'entrée unique en 443 et route par
+Un reverse proxy **nginx** devient le point d'entrée unique en 443 et route par
 nom d'hôte vers les quatre applications. Les ports 3000 à 3003 ne sont plus
 publiés : ils restent internes au réseau Docker. L'intérêt dépasse le
 développement — c'est la topologie réelle de la production, éprouvée dès T0 au
 lieu d'être découverte au déploiement.
 
 Le proxy a son propre `Dockerfile` dans `docker/proxy/`, qui part de l'image
-Caddy amont et intègre le `Caddyfile` : la règle « une image se construit, elle
+nginx amont et intègre le `configuration nginx` : la règle « une image se construit, elle
 ne se déclare pas » s'applique à lui comme aux applications.
 
 **mkcert** (déjà installé, v1.4.4) génère l'autorité locale et un certificat
@@ -403,14 +450,17 @@ NEXT_PUBLIC_API_URL=https://api.${DEV_HOST}
 
 ## 6. Base de données
 
-Prisma vit dans `@clemperl/db`. Les migrations sont versionnées via
-`prisma migrate` ; `db push` est réservé au prototypage local et n'est jamais
+Prisma vit dans `@clemperl/db`. Le client généré atterrit dans
+`packages/db/generated/`, qui n'est pas versionné : il se reconstruit par
+`prisma generate`. Les migrations sont versionnées via `prisma migrate` ; `db push` est réservé au prototypage local et n'est jamais
 employé sur une base partagée.
 
 Conventions posées dès T0, parce qu'elles sont coûteuses à changer ensuite :
 
 - Identifiants **cuid2** — non devinables, triables, sûrs à exposer dans une URL
 - **camelCase** en TypeScript, **snake_case** en base, via `@map` / `@@map`
+- Noms de tables au **singulier** (`user`, `product_variant`), toutes dans le schéma
+  `public` : pas de schémas par domaine
 - `createdAt` et `updatedAt` sur toutes les tables
 - Suppression logique (`deletedAt`) sur les entités que l'admin devra pouvoir
   restaurer — vendeurs, produits, commandes. Appliquée dès qu'elles existent.
@@ -420,23 +470,38 @@ Conventions posées dès T0, parce qu'elles sont coûteuses à changer ensuite :
 Schéma initial de T0, réduit au strict nécessaire pour prouver que migration,
 génération du client et seed fonctionnent de bout en bout :
 
+Prisma 7 a retiré le moteur natif du chemin SQL : la `datasource` ne porte plus d'URL.
+Celle de Migrate vit dans `packages/db/prisma.config.ts`, et le client reçoit un
+adaptateur `@prisma/adapter-pg` construit avec la chaîne de connexion.
+
 ```prisma
-enum UserRole {
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum E_USER_ROLE {
   CUSTOMER
   VENDOR
   ADMIN
+
+  @@map("user_role")
 }
 
 model User {
   id        String    @id @default(cuid(2))
   email     String    @unique
   name      String?
-  role      UserRole  @default(CUSTOMER)
+  role      E_USER_ROLE @default(CUSTOMER)
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  @@map("users")
+  @@map("user")
 }
 ```
 
@@ -464,10 +529,16 @@ un composant, dès T0. C'est une habitude qui ne se rattrape pas.
 
 ## 8. Qualité, tests et intégration continue
 
-**Tests.** Vitest partout, y compris pour NestJS de préférence à Jest : une
-seule configuration, un seul vocabulaire, et des tests de packages qui tournent
-en millisecondes. Testing Library pour les composants, Playwright pour
-l'end-to-end.
+**Tests.** Deux exécuteurs, une frontière nette. **Jest** dans `apps/api` : c'est
+l'exécuteur par défaut de NestJS, et les conventions de test du dépôt — pyramide à quatre
+couches, quatre configurations, cliquet de couverture — sont écrites pour lui, pièges
+compris. **Vitest** partout ailleurs, sur les trois fronts Next et les packages, où il
+demande nettement moins de configuration avec React 19 et où les tests de packages
+tournent en millisecondes. Testing Library pour les composants, Playwright pour les
+parcours navigateur.
+
+La frontière suit une application entière, jamais un dossier : aucun répertoire ne
+mélange les deux.
 
 En T0 les tests restent un harnais : un test unitaire sur les helpers `Money`
 (qui a une vraie valeur — l'arithmétique multi-devises est un nid à erreurs), un
@@ -477,6 +548,11 @@ chaque front répond et affiche son écran d'accueil.
 **Discipline.** TypeScript `strict` avec `noUncheckedIndexedAccess`. Hooks de
 pré-commit exécutant lint et typecheck sur les fichiers modifiés. Conventional
 Commits.
+
+Les tests sont **colocalisés** avec le fichier qu'ils couvrent. L'encombrement visuel se
+règle dans l'éditeur : `.vscode/settings.json`, versionné, active le *file nesting* pour
+replier chaque `.spec.ts` sous son fichier source. Sans ce réglage, la colocation est
+vécue comme du bruit et finit contournée.
 
 **Dépôt public.** Le dépôt est public sur GitHub dès le premier commit. Ce choix
 donne des exécutions GitHub Actions gratuites et illimitées — indispensable, la
@@ -500,7 +576,7 @@ seul remède est de ne jamais l'y mettre.
 
 1. `lint` — ESLint et Prettier
 2. `typecheck` — `tsc --noEmit` sur tout l'espace de travail
-3. `test` — Vitest
+3. `test` — Jest sur l'API, Vitest ailleurs, orchestrés par Turbo
 4. `build` — `turbo run build`
 5. `docker` — construction en matrice des quatre images, cible `runner`
 6. `e2e` — Playwright contre le compose
@@ -514,9 +590,9 @@ ce qui n'a pas changé.
 
 T0 est terminée quand, et seulement quand, ces sept points sont vérifiés :
 
-1. `docker compose up` démarre Postgres, Redis et les quatre applications ;
+1. `pnpm docker:up` démarre Postgres, Redis et les quatre applications ;
    tous les healthchecks passent au vert
-2. Les quatre applications répondent en HTTPS derrière Caddy sur leurs noms de
+2. Les quatre applications répondent en HTTPS derrière nginx sur leurs noms de
    développement, certificat mkcert accepté ; aucun port applicatif n'est publié
 3. `docker build` de chaque application produit **isolément** une image `runner`
    fonctionnelle, sans dépendre d'un build préalable hors Docker
@@ -537,7 +613,8 @@ T0 est terminée quand, et seulement quand, ces sept points sont vérifiés :
 | Risque | Impact | Traitement |
 |---|---|---|
 | **Auth.js v5 toujours en beta** (5.0.0-beta.32) | T1 : API susceptible de changer | Isoler tout l'usage derrière `@clemperl/auth` ; une bascule vers Better Auth ne toucherait qu'un package |
-| **TypeScript 7** (compilateur Go, récent) | Incompatibilités possibles avec certains plugins ESLint ou Prisma | Repli documenté en 6.x ; version épinglée, pas de plage |
+| **TypeScript 7 rejeté par l'outillage** | Blocage | **Avéré deux fois, vérifié le 2026-09-17 sur le registre npm** : `ts-jest` 29.4.12 exige `typescript >=4.3 <7`, et `typescript-eslint` 8.70.0 — version la plus haute publiée, sans v9 ni v10 — exige `>=4.8.4 <6.1.0`. Le repli prévu est **appliqué** : TypeScript **6.0.3**, plus haute stable compatible. `pnpm peers check` ne signale plus aucun conflit. À réévaluer quand `typescript-eslint` acceptera la 7 |
+| **`@swc/jest` ne vérifie pas les types** | Une erreur de typage ne fait pas échouer la suite de tests | Le job `typecheck` (`tsc --noEmit`) est un job de CI distinct et bloquant ; la vérification n'est pas perdue, elle est déplacée |
 | **Hot reload en conteneur sous WSL2** | Confort de développement dégradé | Volumes nommés pour `node_modules` et `.next` ; repli `WATCHPACK_POLLING` documenté |
 | **Logique métier dupliquée entre Next et Nest** | Divergence silencieuse des règles | `@clemperl/domain` créé dès T1 ; règle de dépendance explicite |
 | **Prisma 8 en RC** | Migration ultérieure à prévoir | Rester en 7.10.0, versions épinglées |

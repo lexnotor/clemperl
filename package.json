@@ -1,0 +1,30 @@
+{
+  "name": "clemperl",
+  "private": true,
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build --concurrency=3",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test --concurrency=3",
+    "test:e2e": "playwright test",
+    "dev:certs": "./scripts/dev-certs.sh",
+    "verify:thresholds": "node scripts/verifier-seuils-par-fichier.mjs",
+    "docker:up": "docker compose --env-file .env -f docker/docker-compose.dev.yml up -d --build",
+    "docker:down": "docker compose --env-file .env -f docker/docker-compose.dev.yml down",
+    "docker:logs": "docker compose --env-file .env -f docker/docker-compose.dev.yml logs -f",
+    "docker:ps": "docker compose --env-file .env -f docker/docker-compose.dev.yml ps"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
+    "prettier": "3.9.7",
+    "turbo": "2.10.13",
+    "typescript": "6.0.3"
+  }
+}

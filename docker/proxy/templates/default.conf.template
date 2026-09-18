@@ -1,0 +1,78 @@
+# Point d'entrée unique en 443. Les ports applicatifs ne sont jamais publiés : c'est la
+# topologie réelle de la production, éprouvée dès le développement.
+#
+# Ce fichier est un TEMPLATE : l'image nginx substitue ${DEV_HOST} au démarrage, à
+# partir de la variable d'environnement du service. Ne pas le renommer en `.conf`,
+# la substitution ne s'appliquerait plus.
+
+# Traduit l'en-tête Upgrade en valeur de Connection. Requis pour les WebSockets.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# nginx résout les noms de ses upstreams UNE fois, au démarrage, quand ils sont écrits
+# littéralement dans `proxy_pass` : si une application n'est pas encore lancée, nginx
+# refuse de démarrer au lieu de l'attendre. Passer par une variable force la résolution
+# à chaque requête, via le résolveur interne de Docker.
+resolver 127.0.0.11 valid=10s ipv6=off;
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${DEV_HOST};
+
+    ssl_certificate     /certs/dev.pem;
+    ssl_certificate_key /certs/dev-key.pem;
+
+    location / {
+        set $cible http://storefront:3000;
+        proxy_pass $cible;
+        include /etc/nginx/snippets/proxy-commun.conf;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name vendeur.${DEV_HOST};
+
+    ssl_certificate     /certs/dev.pem;
+    ssl_certificate_key /certs/dev-key.pem;
+
+    location / {
+        set $cible http://vendor:3001;
+        proxy_pass $cible;
+        include /etc/nginx/snippets/proxy-commun.conf;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name admin.${DEV_HOST};
+
+    ssl_certificate     /certs/dev.pem;
+    ssl_certificate_key /certs/dev-key.pem;
+
+    location / {
+        set $cible http://admin:3002;
+        proxy_pass $cible;
+        include /etc/nginx/snippets/proxy-commun.conf;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name api.${DEV_HOST};
+
+    ssl_certificate     /certs/dev.pem;
+    ssl_certificate_key /certs/dev-key.pem;
+
+    location / {
+        set $cible http://api:3003;
+        proxy_pass $cible;
+        include /etc/nginx/snippets/proxy-commun.conf;
+    }
+}

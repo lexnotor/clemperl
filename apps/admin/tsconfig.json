@@ -1,0 +1,4 @@
+{
+  "extends": "@clemperl/tsconfig/next.json",
+  "include": ["src/**/*.ts", "src/**/*.tsx", "next-env.d.ts", ".next/types/**/*.ts"]
+}

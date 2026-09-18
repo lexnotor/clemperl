@@ -1,0 +1,27 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm bloque par défaut les scripts d'installation des dépendances, pour qu'un paquet
+# compromis ne s'exécute pas à l'installation, et l'installation ÉCHOUE tant qu'un
+# paquet concerné n'a pas été tranché explicitement. Ces six-là en ont besoin : Prisma
+# télécharge ses moteurs, esbuild et swc leurs binaires natifs, les autres compilent
+# des extensions de surveillance de fichiers.
+#
+# La liste est versionnée pour qu'une installation soit reproductible d'une machine à
+# l'autre et dans les images Docker, plutôt que dépendante d'une approbation
+# interactive locale. Le nom du réglage est `allowBuilds` depuis pnpm 12 ;
+# `onlyBuiltDependencies`, son prédécesseur, est silencieusement ignoré.
+allowBuilds:
+  "@parcel/watcher": true
+  "@prisma/engines": true
+  "@swc/core": true
+  esbuild: true
+  prisma: true
+  unrs-resolver: true
+
+# pnpm installe par défaut les dépendances de pair, même optionnelles. `@prisma/client`
+# déclare ainsi `prisma` (la CLI, 40 Mo) et `typescript` (24 Mo) : sans ce réglage, ils
+# entrent dans l'image d'exécution de l'API, qui n'en a aucun usage. Les vraies
+# dépendances de pair du dépôt sont déclarées explicitement là où elles sont utilisées.
+autoInstallPeers: false

@@ -1,0 +1,44 @@
+// Source de vérité du modèle de données. Les noms de tables sont au singulier et
+// dans le schéma `public` : cloisonner par schémas PostgreSQL se décide avant les
+// premières migrations, pas après.
+//
+// La `datasource` ne porte pas d'URL : depuis Prisma 7, la connexion de Migrate
+// vit dans la configuration, et celle du client passe par un adaptateur de pilote.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+
+  // Le code généré est compilé par `tsc` en résolution `nodenext`, qui exige une
+  // extension explicite sur chaque import relatif. Sans cette option, les réexports
+  // internes du client (`./enums`, `./models`) restent sans extension et la
+  // compilation du package échoue sur des membres introuvables.
+  importFileExtension = "js"
+  moduleFormat        = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum E_USER_ROLE {
+  CUSTOMER
+  VENDOR
+  ADMIN
+
+  @@map("user_role")
+}
+
+model User {
+  id        String      @id @default(cuid(2))
+  email     String      @unique
+  name      String?
+  role      E_USER_ROLE @default(CUSTOMER)
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  deletedAt DateTime?   @map("deleted_at")
+
+  // `user` est un mot réservé en SQL. Prisma échappe les identifiants qu'il génère,
+  // donc les migrations passent ; toute requête écrite à la main doit quoter "user".
+  @@map("user")
+}

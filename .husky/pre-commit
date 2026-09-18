@@ -1,0 +1,10 @@
+# Le dépôt est public : un secret commité reste lisible dans l'historique même après
+# suppression. Le scan côté GitHub intervient après le push — trop tard. Ce contrôle-ci
+# l'empêche d'entrer.
+#
+# gitleaks est un binaire Go, pas un paquet npm : `@gitleaks/gitleaks` n'existe pas, et
+# le paquet `gitleaks` publié sur npm est un fork tiers abandonné depuis 2020. On passe
+# par l'image officielle, Docker étant déjà une dépendance de ce dépôt.
+docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+    protect --staged --source=/repo --config=/repo/.gitleaks.toml --redact --verbose
+pnpm exec lint-staged

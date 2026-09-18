@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: ${{ matrix.task }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [lint, typecheck, test, build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ matrix.task }}-${{ github.sha }}
+          restore-keys: turbo-${{ matrix.task }}-
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm ${{ matrix.task }}
+
+      # Vitest ne fails pas on an orphan per-file coverage threshold, unlike Jest.
+      # This restores that guard.
+      - if: matrix.task == 'test'
+        run: pnpm verify:thresholds
+
+  images:
+    name: docker (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [storefront, vendor, admin, api]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          target: runner
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+
+      # sslip.io resolves 127-0-0-1.sslip.io to 127.0.0.1, so the same certificate
+      # and proxy setup works here as on a developer machine.
+      - name: Issue local certificate
+        run: |
+          curl -fsSL -o mkcert "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+          chmod +x mkcert
+          sudo mv mkcert /usr/local/bin/
+          cp .env.example .env
+          sed -i 's/^DEV_HOST=.*/DEV_HOST=127-0-0-1.sslip.io/' .env
+          ./scripts/dev-certs.sh
+
+      - run: pnpm docker:up
+
+      - name: Wait for services to become healthy
+        run: |
+          compose="docker compose --env-file .env -f docker/docker-compose.dev.yml"
+          for _ in $(seq 1 60); do
+            statuses=$($compose ps --format '{{.Health}}')
+            if ! echo "$statuses" | grep -qE 'starting|unhealthy'; then
+              exit 0
+            fi
+            sleep 5
+          done
+          # `logs` without -f: the follow flag would hang the job forever.
+          $compose ps
+          $compose logs
+          exit 1
+
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: DEV_HOST=127-0-0-1.sslip.io pnpm test:e2e
+
+      - if: always()
+        run: docker compose --env-file .env -f docker/docker-compose.dev.yml down -v

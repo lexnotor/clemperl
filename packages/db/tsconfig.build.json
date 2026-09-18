@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Ce package est consommé par `apps/api`, qui compile vers Node et exécute du
+    // JavaScript : il doit donc émettre du JS et ses déclarations.
+    "noEmit": false,
+    "declaration": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "outDir": "./dist",
+    // `rootDir` englobe `src` ET `generated` : le client Prisma est généré hors de
+    // `src` et doit être émis avec le reste, sans quoi le paquet publié référence un
+    // module que Node ne trouve pas à l'exécution.
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts", "generated/**/*.ts"],
+  "exclude": ["**/*.spec.ts", "dist", "prisma"]
+}

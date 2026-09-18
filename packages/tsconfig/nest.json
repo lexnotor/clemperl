@@ -1,0 +1,14 @@
+{
+  "extends": "./base.json",
+  "compilerOptions": {
+    // `nodenext` lit le champ `exports` des paquets — indispensable pour résoudre les
+    // packages du workspace et NestJS 12, publié en ESM pur. Tant que le package.json
+    // de l'application ne porte pas `"type": "module"`, l'émission reste en CommonJS,
+    // et Node 24 charge les dépendances ESM par son support natif de `require(esm)`.
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "noEmit": false
+  }
+}

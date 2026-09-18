@@ -1,0 +1,7 @@
+{
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.patterns": {
+        "*.ts": "${capture}.spec.ts, ${capture}.int-spec.ts, ${capture}.contract-spec.ts",
+        "*.tsx": "${capture}.spec.tsx"
+    }
+}

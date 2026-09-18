@@ -1,0 +1,155 @@
+# Environnement de développement de ClemPerl.
+#
+# Le contexte de build est la RACINE du dépôt (`context: ..`) : le workspace pnpm a
+# besoin du lockfile unique et de `packages/`, et `turbo prune` part de là. Le seul
+# `.dockerignore` lu est donc celui de la racine.
+#
+# Aucun port applicatif n'est publié : nginx est le seul point d'entrée, en 443. C'est
+# la topologie réelle de la production, éprouvée dès le développement.
+#
+# Les sondes interrogent 127.0.0.1 et non `localhost` : dans ces images, `localhost`
+# résout vers ::1 alors que les serveurs écoutent sur 0.0.0.0, qui est IPv4 seulement.
+# Une sonde sur `localhost` reçoit un refus de connexion et marque le service
+# `unhealthy` alors qu'il répond parfaitement — un symptôme très trompeur.
+#
+# Les sources sont montées dossier par dossier, jamais la racine d'un package : monter
+# celle-ci masquerait les `node_modules` installés dans l'image, dont les binaires
+# natifs sont compilés pour une autre bibliothèque C que ceux de l'hôte.
+name: clemperl_dev
+
+services:
+  postgres:
+    container_name: clemperl_dev_postgres
+    build:
+      context: ..
+      dockerfile: docker/postgres/Dockerfile
+    environment:
+      POSTGRES_USER: clemperl
+      POSTGRES_PASSWORD: clemperl
+      POSTGRES_DB: clemperl
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clemperl"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    container_name: clemperl_dev_redis
+    build:
+      context: ..
+      dockerfile: docker/redis/Dockerfile
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  proxy:
+    container_name: clemperl_dev_proxy
+    build:
+      context: ..
+      dockerfile: docker/proxy/Dockerfile
+    environment:
+      DEV_HOST: ${DEV_HOST}
+    ports:
+      - "443:443"
+    volumes:
+      - ../certs:/certs:ro
+    depends_on: [storefront, vendor, admin, api]
+
+  storefront:
+    container_name: clemperl_dev_storefront
+    build:
+      context: ..
+      dockerfile: apps/storefront/Dockerfile
+      target: dev
+    env_file: ../.env
+    volumes:
+      - ../apps/storefront/src:/app/apps/storefront/src
+      - ../packages/core/src:/app/packages/core/src
+      - ../packages/ui/src:/app/packages/ui/src
+      - ../packages/i18n/src:/app/packages/i18n/src
+      - ../packages/i18n/messages:/app/packages/i18n/messages
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
+  vendor:
+    container_name: clemperl_dev_vendor
+    build:
+      context: ..
+      dockerfile: apps/vendor/Dockerfile
+      target: dev
+    env_file: ../.env
+    volumes:
+      - ../apps/vendor/src:/app/apps/vendor/src
+      - ../packages/core/src:/app/packages/core/src
+      - ../packages/ui/src:/app/packages/ui/src
+      - ../packages/i18n/messages:/app/packages/i18n/messages
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
+  admin:
+    container_name: clemperl_dev_admin
+    build:
+      context: ..
+      dockerfile: apps/admin/Dockerfile
+      target: dev
+    env_file: ../.env
+    volumes:
+      - ../apps/admin/src:/app/apps/admin/src
+      - ../packages/core/src:/app/packages/core/src
+      - ../packages/ui/src:/app/packages/ui/src
+      - ../packages/i18n/messages:/app/packages/i18n/messages
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3002/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
+  api:
+    container_name: clemperl_dev_api
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+      target: dev
+    env_file: ../.env
+    volumes:
+      - ../apps/api/src:/app/apps/api/src
+      - ../packages/core/src:/app/packages/core/src
+      - ../packages/db/src:/app/packages/db/src
+      - ../packages/db/prisma:/app/packages/db/prisma
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
+volumes:
+  pg_data:
+    name: clemperl_dev_pg_data
+  redis_data:
+    name: clemperl_dev_redis_data

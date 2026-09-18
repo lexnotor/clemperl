@@ -12,4 +12,16 @@ playwright-report/
 .env.*
 !.env.example
 *.log
+.claude/settings.local.json
 .DS_Store
+certs/
+.vscode/*
+!.vscode/settings.json
+generated/
+dist/
+
+# Artefacts de compilation produits à côté des sources : `tsc` a émis un jour du JS
+# dans prisma/ parce que le tsconfig l'incluait. La compilation ne sort plus que dans
+# dist/, mais ces motifs empêchent la récidive de passer inaperçue.
+packages/db/prisma/*.js
+packages/db/prisma/*.d.ts

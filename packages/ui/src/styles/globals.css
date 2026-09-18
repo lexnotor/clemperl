@@ -1,0 +1,29 @@
+/* Tokens partagés par les trois fronts. Les couleurs sont déclarées en variables
+   plutôt qu'en classes utilitaires figées : le thème sombre les redéfinit sans
+   toucher un seul composant. */
+@import "tailwindcss";
+
+@theme {
+    --color-fond: oklch(100% 0 0);
+    --color-texte: oklch(20% 0 0);
+    --color-accent: oklch(55% 0.18 15);
+    --color-bordure: oklch(90% 0 0);
+    --radius-controle: 0.5rem;
+}
+
+/* Le thème sombre redéfinit les variables sur `:root`, et NON dans un second bloc
+   `@theme` : cette directive déclare le thème et ne s'imbrique pas dans une media
+   query. Les tokens étant exposés comme propriétés personnalisées, les réaffecter
+   ici suffit à basculer tout le thème. */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-fond: oklch(18% 0 0);
+        --color-texte: oklch(95% 0 0);
+        --color-bordure: oklch(30% 0 0);
+    }
+}
+
+body {
+    background-color: var(--color-fond);
+    color: var(--color-texte);
+}

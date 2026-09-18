@@ -1,0 +1,16 @@
+# Configuration gitleaks. Les règles par défaut sont conservées ; seuls les chemins
+# exclus sont déclarés ici.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Chemins hors du code du dépôt"
+paths = [
+    '''node_modules''',
+    '''\.pnpm''',
+    '''packages/db/generated''',
+    '''dist/''',
+    '''\.next/''',
+    '''certs/''',
+    '''pnpm-lock\.yaml''',
+]
