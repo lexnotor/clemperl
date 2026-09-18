@@ -19,7 +19,12 @@ resolver 127.0.0.11 valid=10s ipv6=off;
 
 server {
     listen 443 ssl;
-    http2 on;
+    # HTTP/2 est volontairement désactivé : son mécanisme d'upgrade diffère de celui de
+    # HTTP/1.1, et nginx ne relaie pas les WebSockets vers l'amont en HTTP/2. Le
+    # rechargement à chaud de Next s'en sert, et Socket.IO s'en servira. Avec `http2 on`,
+    # le navigateur négocie HTTP/2, le WebSocket échoue sur « Invalid status line »,
+    # l'hydratation React s'interrompt — et les formulaires se soumettent en GET natif,
+    # identifiants dans l'URL.
     server_name ${DEV_HOST};
 
     ssl_certificate     /certs/dev.pem;
@@ -34,7 +39,12 @@ server {
 
 server {
     listen 443 ssl;
-    http2 on;
+    # HTTP/2 est volontairement désactivé : son mécanisme d'upgrade diffère de celui de
+    # HTTP/1.1, et nginx ne relaie pas les WebSockets vers l'amont en HTTP/2. Le
+    # rechargement à chaud de Next s'en sert, et Socket.IO s'en servira. Avec `http2 on`,
+    # le navigateur négocie HTTP/2, le WebSocket échoue sur « Invalid status line »,
+    # l'hydratation React s'interrompt — et les formulaires se soumettent en GET natif,
+    # identifiants dans l'URL.
     server_name vendeur.${DEV_HOST};
 
     ssl_certificate     /certs/dev.pem;
@@ -49,7 +59,12 @@ server {
 
 server {
     listen 443 ssl;
-    http2 on;
+    # HTTP/2 est volontairement désactivé : son mécanisme d'upgrade diffère de celui de
+    # HTTP/1.1, et nginx ne relaie pas les WebSockets vers l'amont en HTTP/2. Le
+    # rechargement à chaud de Next s'en sert, et Socket.IO s'en servira. Avec `http2 on`,
+    # le navigateur négocie HTTP/2, le WebSocket échoue sur « Invalid status line »,
+    # l'hydratation React s'interrompt — et les formulaires se soumettent en GET natif,
+    # identifiants dans l'URL.
     server_name admin.${DEV_HOST};
 
     ssl_certificate     /certs/dev.pem;
@@ -64,7 +79,12 @@ server {
 
 server {
     listen 443 ssl;
-    http2 on;
+    # HTTP/2 est volontairement désactivé : son mécanisme d'upgrade diffère de celui de
+    # HTTP/1.1, et nginx ne relaie pas les WebSockets vers l'amont en HTTP/2. Le
+    # rechargement à chaud de Next s'en sert, et Socket.IO s'en servira. Avec `http2 on`,
+    # le navigateur négocie HTTP/2, le WebSocket échoue sur « Invalid status line »,
+    # l'hydratation React s'interrompt — et les formulaires se soumettent en GET natif,
+    # identifiants dans l'URL.
     server_name api.${DEV_HOST};
 
     ssl_certificate     /certs/dev.pem;
@@ -72,6 +92,28 @@ server {
 
     location / {
         set $cible http://api:3003;
+        proxy_pass $cible;
+        include /etc/nginx/snippets/proxy-commun.conf;
+    }
+}
+
+# Boîte de réception de développement. Exposée comme les applications : le certificat
+# wildcard couvre déjà ce sous-domaine, il n'y a rien à régénérer.
+server {
+    listen 443 ssl;
+    # HTTP/2 est volontairement désactivé : son mécanisme d'upgrade diffère de celui de
+    # HTTP/1.1, et nginx ne relaie pas les WebSockets vers l'amont en HTTP/2. Le
+    # rechargement à chaud de Next s'en sert, et Socket.IO s'en servira. Avec `http2 on`,
+    # le navigateur négocie HTTP/2, le WebSocket échoue sur « Invalid status line »,
+    # l'hydratation React s'interrompt — et les formulaires se soumettent en GET natif,
+    # identifiants dans l'URL.
+    server_name courriels.${DEV_HOST};
+
+    ssl_certificate     /certs/dev.pem;
+    ssl_certificate_key /certs/dev-key.pem;
+
+    location / {
+        set $cible http://mailpit:8025;
         proxy_pass $cible;
         include /etc/nginx/snippets/proxy-commun.conf;
     }

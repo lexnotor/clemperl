@@ -65,16 +65,9 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
 
-      # sslip.io resolves 127-0-0-1.sslip.io to 127.0.0.1, so the same certificate
-      # and proxy setup works here as on a developer machine.
-      - name: Issue local certificate
-        run: |
-          curl -fsSL -o mkcert "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-          chmod +x mkcert
-          sudo mv mkcert /usr/local/bin/
-          cp .env.example .env
-          sed -i 's/^DEV_HOST=.*/DEV_HOST=127-0-0-1.sslip.io/' .env
-          ./scripts/dev-certs.sh
+      # Each app publishes its own port and nothing sits in front of them, so the
+      # runner needs no certificate and no host entry.
+      - run: cp .env.example .env
 
       - run: pnpm docker:up
 
@@ -94,7 +87,7 @@ jobs:
           exit 1
 
       - run: pnpm exec playwright install --with-deps chromium
-      - run: DEV_HOST=127-0-0-1.sslip.io pnpm test:e2e
+      - run: pnpm test:e2e
 
       - if: always()
         run: docker compose --env-file .env -f docker/docker-compose.dev.yml down -v

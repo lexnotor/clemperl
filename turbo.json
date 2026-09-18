@@ -8,16 +8,47 @@
     "NEXT_PUBLIC_STOREFRONT_URL",
     "NEXT_PUBLIC_VENDOR_URL",
     "NEXT_PUBLIC_ADMIN_URL",
-    "NEXT_PUBLIC_API_URL"
+    "NEXT_PUBLIC_API_URL",
+    "BETTER_AUTH_SECRET",
+    "SMTP_URL",
+    "EMAIL_FROM",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "NEXT_PUBLIC_GOOGLE_ACTIF",
+    "COOKIE_DOMAIN"
   ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**"
+      ]
     },
-    "dev": { "cache": false, "persistent": true },
-    "lint": { "dependsOn": ["^build"] },
-    "typecheck": { "dependsOn": ["^build"] },
-    "test": { "dependsOn": ["^build"], "outputs": ["coverage/**"] }
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": [
+        "^build"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^build"
+      ]
+    },
+    "test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "coverage/**"
+      ]
+    }
   }
 }

@@ -1,4 +1,11 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // `rootDir` vit ici et non dans la configuration de base : il fixe la racine des
+    // fichiers ÉMIS, et n'a de sens que pour la compilation. Dans la configuration de
+    // base, il exclurait `test/` du typage, alors que c'est justement ce qu'on veut
+    // typer — `tsc --noEmit` refuserait chaque fichier de `test/` par TS6059.
+    "rootDir": "./src"
+  },
   "exclude": ["node_modules", "dist", "test", "**/*.spec.ts", "**/*.int-spec.ts", "**/*.contract-spec.ts"]
 }

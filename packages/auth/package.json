@@ -1,0 +1,35 @@
+{
+  "name": "@clemperl/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@clemperl/core": "workspace:*",
+    "@clemperl/db": "workspace:*",
+    "better-auth": "1.7.5"
+  },
+  "devDependencies": {
+    "@clemperl/eslint-config": "workspace:*",
+    "@clemperl/tsconfig": "workspace:*",
+    "@types/node": "^26.6.1",
+    "@vitest/coverage-v8": "5.0.1",
+    "eslint": "10.10.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
+  }
+}

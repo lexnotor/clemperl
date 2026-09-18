@@ -1,20 +1,22 @@
 # Environnement de développement de ClemPerl.
 #
-# Le contexte de build est la RACINE du dépôt (`context: ..`) : le workspace pnpm a
-# besoin du lockfile unique et de `packages/`, et `turbo prune` part de là. Le seul
-# `.dockerignore` lu est donc celui de la racine.
+# Chaque application est publiée sur son propre port : pas de proxy, pas de TLS, pas de
+# certificat à générer. Les cookies n'étant PAS isolés par port, une session ouverte sur
+# localhost:3000 vaut pour localhost:3001 et localhost:3002 — le partage de session se
+# vérifie donc ici sans aucune configuration.
 #
-# Aucun port applicatif n'est publié : nginx est le seul point d'entrée, en 443. C'est
-# la topologie réelle de la production, éprouvée dès le développement.
+# nginx reste dans `docker/proxy/`, pour la production, et n'est pas démarré ici. Le seul
+# écart assumé : en production le cookie porte un domaine parent, réglage qui n'a pas
+# lieu d'être sur localhost.
+#
+# Le contexte de build est la RACINE du dépôt (`context: ..`) : le workspace pnpm a
+# besoin du lockfile unique et de `packages/`, et `turbo prune` part de là.
 #
 # Les sondes interrogent 127.0.0.1 et non `localhost` : dans ces images, `localhost`
 # résout vers ::1 alors que les serveurs écoutent sur 0.0.0.0, qui est IPv4 seulement.
-# Une sonde sur `localhost` reçoit un refus de connexion et marque le service
-# `unhealthy` alors qu'il répond parfaitement — un symptôme très trompeur.
 #
 # Les sources sont montées dossier par dossier, jamais la racine d'un package : monter
-# celle-ci masquerait les `node_modules` installés dans l'image, dont les binaires
-# natifs sont compilés pour une autre bibliothèque C que ceux de l'hôte.
+# celle-ci masquerait les `node_modules` installés dans l'image.
 name: clemperl_dev
 
 services:
@@ -48,21 +50,23 @@ services:
       timeout: 3s
       retries: 10
 
-  proxy:
-    container_name: clemperl_dev_proxy
+  mailpit:
+    container_name: clemperl_dev_mailpit
+    ports:
+      - "8025:8025"
     build:
       context: ..
-      dockerfile: docker/proxy/Dockerfile
-    environment:
-      DEV_HOST: ${DEV_HOST}
-    ports:
-      - "443:443"
-    volumes:
-      - ../certs:/certs:ro
-    depends_on: [storefront, vendor, admin, api]
+      dockerfile: docker/mailpit/Dockerfile
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8025/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   storefront:
     container_name: clemperl_dev_storefront
+    ports:
+      - "3000:3000"
     build:
       context: ..
       dockerfile: apps/storefront/Dockerfile
@@ -77,6 +81,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
       interval: 10s
@@ -86,6 +91,8 @@ services:
 
   vendor:
     container_name: clemperl_dev_vendor
+    ports:
+      - "3001:3001"
     build:
       context: ..
       dockerfile: apps/vendor/Dockerfile
@@ -98,6 +105,7 @@ services:
       - ../packages/i18n/messages:/app/packages/i18n/messages
     depends_on:
       postgres: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
       interval: 10s
@@ -107,6 +115,8 @@ services:
 
   admin:
     container_name: clemperl_dev_admin
+    ports:
+      - "3002:3002"
     build:
       context: ..
       dockerfile: apps/admin/Dockerfile
@@ -119,6 +129,7 @@ services:
       - ../packages/i18n/messages:/app/packages/i18n/messages
     depends_on:
       postgres: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3002/api/health"]
       interval: 10s
@@ -128,6 +139,8 @@ services:
 
   api:
     container_name: clemperl_dev_api
+    ports:
+      - "3003:3003"
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
@@ -135,9 +148,24 @@ services:
     env_file: ../.env
     volumes:
       - ../apps/api/src:/app/apps/api/src
+      # Les suites E2E de l'API vivent dans `test/`, par convention : seul l'E2E
+      # est centralisé, les autres couches sont colocalisées dans `src/`.
+      - ../apps/api/test:/app/apps/api/test
+      # Les configurations Jest vivent à la racine de l'application, pas dans
+      # `src/` : sans ce montage, toute modification exige un rebuild complet.
+      - ../apps/api/jest.transform.ts:/app/apps/api/jest.transform.ts
+      - ../apps/api/jest.config.ts:/app/apps/api/jest.config.ts
+      - ../apps/api/jest.config.integration.ts:/app/apps/api/jest.config.integration.ts
+      - ../apps/api/jest.config.contract.ts:/app/apps/api/jest.config.contract.ts
+      - ../apps/api/jest.config.e2e.ts:/app/apps/api/jest.config.e2e.ts
       - ../packages/core/src:/app/packages/core/src
       - ../packages/db/src:/app/packages/db/src
       - ../packages/db/prisma:/app/packages/db/prisma
+      # Testcontainers démarre de vrais conteneurs : il lui faut le démon Docker.
+      # Les conteneurs qu'il crée sont FRÈRES de celui-ci, pas enfants — ils ne sont
+      # donc joignables ni par localhost ni par un port publié, mais par leur adresse
+      # sur le réseau Docker.
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }

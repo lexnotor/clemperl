@@ -8,8 +8,8 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build --concurrency=3",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint && eslint e2e playwright.config.ts",
+    "typecheck": "turbo run typecheck && tsc --noEmit -p tsconfig.e2e.json",
     "test": "turbo run test --concurrency=3",
     "test:e2e": "playwright test",
     "dev:certs": "./scripts/dev-certs.sh",
@@ -20,7 +20,10 @@
     "docker:ps": "docker compose --env-file .env -f docker/docker-compose.dev.yml ps"
   },
   "devDependencies": {
+    "@clemperl/eslint-config": "workspace:*",
     "@playwright/test": "1.63.0",
+    "@types/node": "^26.6.1",
+    "eslint": "10.10.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
     "prettier": "3.9.7",

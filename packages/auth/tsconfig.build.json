@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Ce package est consommé par `apps/api`, qui compile vers Node et exécute du
+    // JavaScript : il doit donc émettre du JS et ses déclarations.
+    "noEmit": false,
+    "declaration": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "exclude": ["**/*.spec.ts", "dist"]
+}

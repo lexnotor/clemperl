@@ -215,6 +215,29 @@ Un helper partagé, paramétré par couche, expose ce dont les tests ont besoin 
 3. **Pendant un chantier, ne lancer que les tests des fichiers touchés** ; la suite
    complète avant le commit.
 
+### Testcontainers depuis un conteneur
+
+Le développement se fait intégralement dans Docker : la couche intégration tourne donc
+**à l'intérieur** du conteneur `api`, et doit y démarrer d'autres conteneurs.
+
+Deux conditions, et une seule ligne de configuration :
+
+1. Le socket du démon est monté sur le service `api`
+   (`/var/run/docker.sock:/var/run/docker.sock`). Sans lui, Testcontainers n'a personne
+   à qui parler.
+2. **Rien d'autre.** Les conteneurs créés sont frères et non enfants, mais Testcontainers
+   détecte qu'il s'exécute dans un conteneur et route par la passerelle Docker.
+
+Mesuré le 2026-09-18 depuis le conteneur `api` : `getConnectionUri()` renvoie
+`postgres://test:test@172.17.0.1:32780/test`, et `getHost()` vaut `172.17.0.1` — la
+passerelle, jamais `localhost`. **Ne pas coder d'hôte en dur** : le lire du conteneur,
+qui sait où il tourne.
+
+Deux détails qui font perdre du temps si on les ignore : l'URI commence par
+`postgres://` et non `postgresql://` — les deux sont équivalents pour Prisma, mais une
+assertion stricte échoue. Et le conteneur `api` n'a pas besoin du mode privilégié : le
+réclamer serait un contournement qui masque la cause et ouvre l'hôte.
+
 ### Cycle de vie d'un fichier
 
 - `beforeAll` : base isolée + source de données (une fois par fichier).

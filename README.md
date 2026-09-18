@@ -10,12 +10,15 @@ PostgreSQL with Prisma, Redis, Supabase Storage for media.
 ## Getting started
 
     corepack enable
-    cp .env.example .env      # set DEV_HOST to this machine's LAN address
+    cp .env.example .env
     pnpm install
-    pnpm dev:certs            # local TLS certificate for DEV_HOST
     pnpm docker:up
 
-The apps are served over HTTPS by nginx. Application ports are never published.
+Each app publishes its own port: storefront on 3000, vendor on 3001, admin on
+3002, API on 3003, Mailpit on 8025. No proxy and no TLS in development — the
+reverse proxy belongs to production. To reach the stack from another device on
+the LAN, set `DEV_HOST` to this machine's address and use it instead of
+`localhost`.
 
 ## Documentation
 

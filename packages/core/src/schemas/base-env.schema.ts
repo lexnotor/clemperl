@@ -8,6 +8,12 @@ export const baseEnvSchema = z.object({
     DATABASE_URL: z.url(),
     REDIS_URL: z.url(),
     DEV_HOST: z.string().min(1),
+
+    // Secret de signature des sessions. Une valeur absente ferait démarrer
+    // l'application avec des sessions non vérifiables, sans rien signaler.
+    BETTER_AUTH_SECRET: z.string().min(32),
+    SMTP_URL: z.url(),
+    EMAIL_FROM: z.string().min(1),
 });
 
 export type TBaseEnv = z.infer<typeof baseEnvSchema>;

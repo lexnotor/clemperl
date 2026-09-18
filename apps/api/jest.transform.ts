@@ -21,7 +21,9 @@ export const transform: Config["transform"] = {
             module: { type: "commonjs" },
         },
     ],
-    "^.+\\.js$": [
+    // `.mjs` doit figurer explicitement : les paquets ESM publient souvent sous cette
+    // extension, et un motif limité à `.js` les laisse passer sans transformation.
+    "^.+\\.(js|mjs)$": [
         "@swc/jest",
         {
             jsc: { parser: { syntax: "ecmascript" }, target: "es2022" },
@@ -30,4 +32,9 @@ export const transform: Config["transform"] = {
     ],
 };
 
-export const transformIgnorePatterns = ["/node_modules/.pnpm/(?!@nestjs)"];
+// Jest tourne en CommonJS et doit convertir tout module ESM qu'il charge. La liste est
+// VIDE, donc rien n'est exclu : l'écosystème de NestJS 12 et de Better Auth est
+// massivement ESM, publié tantôt en `.mjs`, tantôt en `.js` avec `"type": "module"`.
+// Tout critère plus fin — par nom de paquet ou par extension — se fait déborder par la
+// dépendance transitive suivante.
+export const transformIgnorePatterns: string[] = [];

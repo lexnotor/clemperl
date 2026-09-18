@@ -4,6 +4,11 @@
 //
 // La `datasource` ne porte pas d'URL : depuis Prisma 7, la connexion de Migrate
 // vit dans la configuration, et celle du client passe par un adaptateur de pilote.
+//
+// Les modèles d'identité sont produits par `@better-auth/cli generate`. Les noms de
+// champs Prisma sont imposés par la bibliothèque et ne se renomment pas ; `@map` et
+// `@@map` réconcilient les noms en base avec les conventions du dépôt, sans toucher à
+// ce que Better Auth attend.
 
 generator client {
   provider = "prisma-client"
@@ -21,24 +26,83 @@ datasource db {
   provider = "postgresql"
 }
 
+// `VENDOR` a été retiré : être vendeur devient l'existence d'une entité liée et
+// validée, pas une valeur d'énumération. Un compte achète et vend avec la même
+// identité, ce que tout vendeur finit par faire.
 enum E_USER_ROLE {
   CUSTOMER
-  VENDOR
   ADMIN
 
   @@map("user_role")
 }
 
 model User {
-  id        String      @id @default(cuid(2))
-  email     String      @unique
-  name      String?
-  role      E_USER_ROLE @default(CUSTOMER)
-  createdAt DateTime    @default(now()) @map("created_at")
-  updatedAt DateTime    @updatedAt @map("updated_at")
-  deletedAt DateTime?   @map("deleted_at")
+  id            String      @id @default(cuid(2))
+  email         String      @unique
+  name          String?
+  emailVerified Boolean     @default(false) @map("email_verified")
+  image         String?
+  role          E_USER_ROLE @default(CUSTOMER)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  deletedAt     DateTime?   @map("deleted_at")
+
+  sessions Session[]
+  accounts Account[]
 
   // `user` est un mot réservé en SQL. Prisma échappe les identifiants qu'il génère,
   // donc les migrations passent ; toute requête écrite à la main doit quoter "user".
   @@map("user")
+}
+
+model Session {
+  // L'identifiant est fourni par Better Auth, pas par la base : pas de `@default` ici,
+  // sinon deux sources produiraient des identifiants pour la même ligne.
+  id        String   @id
+  token     String
+  expiresAt DateTime @map("expires_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([identifier])
+  @@map("verification")
 }

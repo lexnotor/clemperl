@@ -129,3 +129,180 @@ répond alors que la sonde échoue, c'est la résolution de nom, pas le service.
 Ce qui protège maintenant : les cinq `healthcheck` de `docker/docker-compose.dev.yml` interrogent
 `127.0.0.1`, avec un commentaire en tête du fichier expliquant pourquoi. Remplacer par
 `localhost` remet tous les services en `unhealthy` sans rien casser d'autre.
+
+---
+
+**`prisma migrate dev` est interactif dès qu'il détecte une opération destructrice : il
+ne peut pas tourner dans un agent ou en intégration continue.**
+
+Retirer une valeur d'énumération, supprimer une colonne ou une table déclenche un
+avertissement, et Prisma exige alors une confirmation. En environnement non interactif
+il n'échoue pas sur l'opération elle-même : il refuse de démarrer, avec
+`Prisma Migrate has detected that the environment is non-interactive`. `--create-only`
+ne change rien — l'avertissement suffit à bloquer.
+
+Observé le 2026-09-18, en retirant `VENDOR` de `E_USER_ROLE` pendant T1a.
+
+La voie non interactive est `prisma migrate diff`, dont **les options ont changé de nom
+en Prisma 7** : `--from-url` n'existe plus, c'est `--from-config-datasource`, qui lit la
+connexion depuis `prisma.config.ts` ; et `--to-schema-datamodel` est devenu
+`--to-schema`. Le message d'erreur sur une option inconnue n'indique pas le nouveau nom,
+il réaffiche l'aide.
+
+La recette qui fonctionne, à rejouer telle quelle :
+
+    horodatage=$(date -u +%Y%m%d%H%M%S)
+    dossier="prisma/migrations/${horodatage}_<nom>"
+    mkdir -p "$dossier"
+    DATABASE_URL="<url>" pnpm exec prisma migrate diff \
+      --from-config-datasource --to-schema prisma/schema.prisma --script \
+      > "$dossier/migration.sql"
+    DATABASE_URL="<url>" pnpm exec prisma migrate deploy
+
+Troisième détail de la même famille : `prisma generate` **exige `DATABASE_URL`** alors
+qu'il n'ouvre aucune connexion, parce que `prisma.config.ts` la résout par `env()`. Le
+script `build` de `@clemperl/db` fournit donc une valeur de repli, cantonnée à cette
+commande — toute commande touchant vraiment la base reçoit la vraie URL.
+
+Ce qui protège maintenant : la recette ci-dessus, et le repli dans le script `build`.
+Lancer `migrate dev` depuis un agent rend la main sans rien faire, ce qui se lit à tort
+comme une migration déjà à jour.
+
+---
+
+**Turborepo filtre les variables d'environnement : une variable absente de `globalEnv`
+n'atteint jamais la tâche, même si le conteneur la voit.**
+
+Turbo 2 fonctionne en mode strict par défaut. Une tâche ne reçoit que les variables
+déclarées dans `globalEnv` de `turbo.json`, ou dans le `env` de la tâche. Les autres
+sont retirées de l'environnement du processus fils.
+
+Observé le 2026-09-18, en ajoutant `BETTER_AUTH_SECRET`, `SMTP_URL` et `EMAIL_FROM` :
+`docker exec ... env` les affichait toutes les trois, et l'API refusait pourtant de
+démarrer en les déclarant absentes. Le conteneur les avait ; `turbo run dev` ne les
+transmettait pas.
+
+Ce qui rend le piège coûteux : les deux observations se contredisent en apparence, et
+la plus visible — `env` dans le conteneur — est celle qui trompe. On cherche alors du
+côté de `env_file` et du compose, qui sont corrects.
+
+Le symptôme se reconnaît à ceci : l'erreur nomme précisément les variables, et elles
+sont précisément celles qu'on vient d'ajouter sans toucher à `turbo.json`.
+
+Ce qui protège maintenant : `turbo.json` déclare les variables d'authentification dans
+`globalEnv`. Toute variable nouvelle consommée à l'exécution ou au build doit y être
+ajoutée dans le même changement, sans quoi elle disparaît silencieusement.
+
+---
+
+**Un fichier `.env` valide pour Docker Compose n'est pas forcément sourçable par le
+shell.**
+
+Compose lit `CLE=valeur` littéralement. Le shell, lui, interprète les métacaractères :
+`EMAIL_FROM=ClemPerl <bonjour@clemperl.test>` fait échouer `source .env` sur
+`parse error near '\n'`, parce que les chevrons sont des redirections.
+
+Observé le 2026-09-18, en ajoutant l'adresse d'expédition. Les scripts du dépôt et les
+vérifications manuelles utilisent `source .env` : la ligne les casse toutes d'un coup,
+avec un message qui ne nomme ni la variable ni le caractère fautif — seulement un
+numéro de ligne.
+
+Ce qui protège maintenant : les valeurs contenant des espaces ou des métacaractères
+sont entre guillemets dans `.env.example`, avec un commentaire disant pourquoi. Le test
+qui tranche en une commande : `bash -c 'set -a; source .env'`.
+
+---
+
+**Sans `baseURL`, Better Auth fabrique les liens de courriels à partir de l'adresse
+d'écoute du processus : en conteneur, `https://0.0.0.0:3000`.**
+
+La bibliothèque déduit l'origine de la requête ou de l'hôte d'écoute quand aucune
+`baseURL` n'est configurée. Un serveur lancé avec `--hostname 0.0.0.0`, comme l'exige
+l'exécution en conteneur, lui fait donc écrire `0.0.0.0` dans tous les liens qu'elle
+envoie.
+
+Observé le 2026-09-18, au premier courriel de vérification de T1a. Tout le reste
+fonctionnait : le compte était créé, le courriel partait, il arrivait dans Mailpit avec
+le bon sujet et le bon destinataire, et son contenu était bien formé. Seule l'URL était
+inutilisable, et `email_verified` restait à faux sans qu'aucune erreur n'apparaisse
+nulle part.
+
+Ce qui rend le piège coûteux : rien n'échoue. Aucun journal, aucun code d'erreur,
+aucune alerte — le seul symptôme est un utilisateur qui clique et n'obtient rien. En
+production, il se manifesterait par des inscriptions qui n'aboutissent jamais, sans
+trace côté serveur. Le test qui tranche : lire le lien du courriel reçu, pas seulement
+vérifier qu'il est parti.
+
+Ce qui protège maintenant : `packages/auth/src/config/auth.config.ts` fixe `baseURL` à
+`NEXT_PUBLIC_STOREFRONT_URL` et déclare les trois fronts dans `trustedOrigins`. La
+vérification de bout en bout du plan ouvre effectivement le lien reçu et contrôle que
+`email_verified` bascule — elle ne se contente pas de constater l'envoi.
+
+---
+
+**Jest tourne en CommonJS contre un écosystème massivement ESM : `transformIgnorePatterns`
+doit être VIDE, et tout critère plus fin se fait déborder.**
+
+NestJS 12 et Better Auth sont publiés en ESM, tantôt en `.mjs`, tantôt en `.js` avec
+`"type": "module"` dans leur manifeste. Jest ne sait pas les charger sans transformation,
+et refuse avec `Must use import to load ES Module`.
+
+Observé le 2026-09-18, en montant la couche E2E de l'API. Trois critères successifs ont
+été débordés, chacun par la dépendance transitive suivante : nommer `@nestjs` a fait
+apparaître `better-auth` ; y ajouter `better-auth` a fait apparaître `@better-auth/core` ;
+passer à un critère par extension `.mjs` a fait apparaître `@noble/hashes`, qui publie de
+l'ESM sous `.js`. La liste ne converge pas.
+
+Ce qui rend le piège coûteux : chaque correction semble marcher — l'erreur change de
+paquet — et donne l'impression d'avancer. On peut y passer une heure en croyant se
+rapprocher.
+
+Ce qui protège maintenant : `apps/api/jest.transform.ts` déclare
+`transformIgnorePatterns: []`, donc rien n'est exclu. Le coût mesuré est faible : la
+suite E2E tourne en 2,2 s, la suite unitaire en 2,8 s. Toute tentative de « n'exclure que
+ce qu'il faut » redéclenchera la série.
+
+Deux détails de la même famille, trouvés en chemin. Le transformeur doit couvrir
+`.mjs` autant que `.ts` et `.js`. Et les fichiers `jest.config*.ts` vivent à la racine de
+l'application, hors des dossiers montés en volume : sans les monter explicitement, une
+modification n'atteint jamais le conteneur et l'on débogue une version qui n'y est pas.
+
+---
+
+**`@UseGuards(MonGarde)` fait construire le garde par NestJS : lui passer ses dépendances
+par `useValue` sur le garde lui-même ne fonctionne pas.**
+
+Un provider `{ provide: MonGarde, useValue: new MonGarde(dep) }` semble logique, mais
+`@UseGuards` référence la classe, et Nest instancie alors la classe en résolvant son
+constructeur — où il ne trouve rien. L'erreur est
+`Nest can't resolve dependencies of the SessionGuard (?)`, et le `(?)` désigne
+l'argument introuvable.
+
+Observé le 2026-09-18, sur `SessionGuard`.
+
+Ce qui protège maintenant : `apps/api/src/modules/auth/guards/session.guard.ts` déclare
+un jeton `JETON_AUTH`, injecté par `@Inject`, et le module fournit
+`{ provide: JETON_AUTH, useValue: auth }` puis le garde en provider ordinaire. Un test
+de `session.guard.spec.ts` monte le garde PAR Nest, avec le jeton pour seule source de
+sa dépendance : revenir à un `useValue` sur la classe le fait échouer ici, et non plus
+au premier appel protégé en production.
+
+---
+
+**`collectCoverageFrom` compte comme code non couvert les fichiers de test des autres
+couches, parce que `testMatch` ne les reconnaît pas.**
+
+Jest retire de la couverture les fichiers qui correspondent au `testMatch` de la
+configuration courante — et eux seuls. Les couches intégration et contrat sont
+colocalisées dans `src/`, mais nommées `*.int-spec.ts` et `*.contract-spec.ts` : la
+configuration unitaire, qui cherche `*.spec.ts`, ne les voit pas comme des tests. Le
+motif `src/**/*.ts` les ramasse alors comme du code de production jamais exécuté, et la
+couverture s'effondre — 94 % tombés à 63 % à l'ajout d'un seul fichier d'intégration.
+
+Le symptôme trompe : le cliquet crie au moment où l'on ajoute des tests.
+
+Observé le 2026-09-18, à l'arrivée de la première suite d'intégration.
+
+Ce qui protège maintenant : `apps/api/jest.config.ts` exclut `src/**/*-spec.ts`. Le
+tiret est la charnière — il attrape `int-spec` et `contract-spec` sans toucher aux
+`.spec.ts` unitaires, que Jest écarte déjà tout seul.

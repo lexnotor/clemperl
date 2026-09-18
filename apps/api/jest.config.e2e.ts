@@ -6,6 +6,7 @@ import { transform, transformIgnorePatterns } from "./jest.transform.ts";
 const config: Config = {
     rootDir: ".",
     testMatch: ["<rootDir>/test/**/*.e2e-spec.ts"],
+    moduleFileExtensions: ["ts", "js", "mjs", "json"],
     transform,
     transformIgnorePatterns,
     maxWorkers: 1,

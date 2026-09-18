@@ -9,6 +9,7 @@ import { transform, transformIgnorePatterns } from "./jest.transform.ts";
 const config: Config = {
     rootDir: ".",
     testMatch: ["<rootDir>/src/**/*.contract-spec.ts"],
+    moduleFileExtensions: ["ts", "js", "mjs", "json"],
     transform,
     transformIgnorePatterns,
     maxWorkers: 1,

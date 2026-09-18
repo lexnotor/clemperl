@@ -15,7 +15,7 @@ export default defineConfig({
             // Il monte, jamais il ne descend. Ce 100 % est le produit du TDD sur un
             // périmètre réduit — il devra peut-être être desserré quand arrivera du code
             // dont la couverture intégrale n'a pas de valeur.
-            thresholds: { statements: 46, branches: 50, functions: 50, lines: 46 },
+            thresholds: { statements: 61, branches: 66, functions: 66, lines: 61 },
         },
     },
 });

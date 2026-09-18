@@ -1,0 +1,9 @@
+{
+  "extends": "@clemperl/tsconfig/base.json",
+  "compilerOptions": {
+    // Ce package lit des variables d'environnement : il tourne sous Node, pas dans un
+    // navigateur.
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"]
+}

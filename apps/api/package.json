@@ -20,7 +20,8 @@
     "@nestjs/core": "12.0.3",
     "@nestjs/platform-express": "12.0.3",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0"
+    "rxjs": "^7.8.0",
+    "@clemperl/auth": "workspace:*"
   },
   "devDependencies": {
     "@clemperl/eslint-config": "workspace:*",
@@ -29,12 +30,14 @@
     "@nestjs/testing": "12.0.3",
     "@swc/core": "^1.0.0",
     "@swc/jest": "0.2.39",
+    "@testcontainers/postgresql": "12.1.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.1",
     "@types/supertest": "^6.0.0",
     "eslint": "10.10.0",
     "jest": "30.5.1",
     "supertest": "7.2.2",
+    "testcontainers": "12.1.0",
     "typescript": "6.0.3"
   }
 }

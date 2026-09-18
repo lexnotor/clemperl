@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // Les parcours Playwright vivent à la racine du dépôt, hors de tout package : sans
+  // cette configuration, `pnpm typecheck` — qui parcourt les packages — ne les regarde
+  // pas, et une erreur de type n'y apparaît qu'à l'exécution de la suite.
+  "extends": "./packages/tsconfig/base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["e2e/**/*.ts", "playwright.config.ts"]
+}

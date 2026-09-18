@@ -7,10 +7,11 @@ import { transform, transformIgnorePatterns } from "./jest.transform.ts";
 const config: Config = {
     rootDir: ".",
     testMatch: ["<rootDir>/src/**/*.spec.ts"],
+    moduleFileExtensions: ["ts", "js", "mjs", "json"],
     transform,
     transformIgnorePatterns,
-    // Plancher : la couverture MESURÉE le 2026-09-18, pas une valeur souhaitée.
-    // Il monte, jamais il ne descend.
+    // Plancher : la couverture MESURÉE. Il monte, jamais il ne descend — un plancher
+    // qui baisse est un plancher qu'on a contourné.
     coverageThreshold: {
         global: { statements: 100, branches: 100, functions: 100, lines: 100 },
     },
@@ -19,6 +20,10 @@ const config: Config = {
         "!src/**/index.ts",
         "!src/**/*.module.ts",
         "!src/main.ts",
+        // Les couches intégration et contrat sont colocalisées dans `src/`, mais leurs
+        // fichiers ne correspondent pas au `testMatch` d'ici : Jest ne les reconnaît
+        // donc pas comme des tests et les compterait comme du code jamais couvert.
+        "!src/**/*-spec.ts",
     ],
 };
 

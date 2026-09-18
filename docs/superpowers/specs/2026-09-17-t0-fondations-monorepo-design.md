@@ -42,7 +42,7 @@ consignées ici pour servir de référence aux tranches suivantes.
 | Traçabilité paiement | Pour tout paiement en ligne, le **payload brut du provider est stocké chiffré**, tel qu'il a été reçu. Un adapter par source l'interprète et le normalise. Le domaine commande ne connaît que le statut normalisé. |
 | Devises | **Multi-devises dès le départ.** Montants en entiers dans l'unité mineure + code ISO 4217. Jamais de flottant pour un prix, jamais de division par 100 codée en dur (XOF et XAF ont un exposant de 0). |
 | Langues | Français par défaut, anglais en second. Interface traduite. |
-| Auth | Auth.js v5 côté Next, tables dans notre schéma Prisma, cookie de session partagé sur le domaine parent, JWT vérifié par NestJS. |
+| Auth | **Révisé en T1a** : Better Auth 1.7.5, indépendante du framework, montée dans chaque application Next avec une configuration unique. Le cookie de session est partagé sur le domaine parent, et NestJS lit la session par le même package. Auth.js v5, retenu ici à l'origine, était toujours en beta neuf mois plus tard. |
 | Supabase | **Stockage des médias uniquement.** Ni auth, ni base, ni realtime. Prisma reste seul maître du schéma. |
 
 ---
@@ -505,8 +505,10 @@ model User {
 }
 ```
 
-T1 étendra ce modèle avec les tables attendues par Auth.js (`Account`,
-`Session`, `VerificationToken`). Le seed crée un compte administrateur de test.
+T1a remplace ce modèle par celui que génère Better Auth (`user`, `session`,
+`account`, `verification`) et retire la valeur `VENDOR` de l'énumération : être
+vendeur y devient une relation, pas une colonne. Le seed crée un compte
+administrateur de test.
 
 ---
 
@@ -612,7 +614,7 @@ T0 est terminée quand, et seulement quand, ces sept points sont vérifiés :
 
 | Risque | Impact | Traitement |
 |---|---|---|
-| **Auth.js v5 toujours en beta** (5.0.0-beta.32) | T1 : API susceptible de changer | Isoler tout l'usage derrière `@clemperl/auth` ; une bascule vers Better Auth ne toucherait qu'un package |
+| ~~Auth.js v5 toujours en beta~~ | — | **Réalisé et traité.** Relevé le 2026-09-18 : toujours `5.0.0-beta.32`, trois préversions en neuf mois. La bascule vers Better Auth 1.7.5 stable a été décidée en T1a, avant qu'une seule session n'existe en base |
 | **TypeScript 7 rejeté par l'outillage** | Blocage | **Avéré deux fois, vérifié le 2026-09-17 sur le registre npm** : `ts-jest` 29.4.12 exige `typescript >=4.3 <7`, et `typescript-eslint` 8.70.0 — version la plus haute publiée, sans v9 ni v10 — exige `>=4.8.4 <6.1.0`. Le repli prévu est **appliqué** : TypeScript **6.0.3**, plus haute stable compatible. `pnpm peers check` ne signale plus aucun conflit. À réévaluer quand `typescript-eslint` acceptera la 7 |
 | **`@swc/jest` ne vérifie pas les types** | Une erreur de typage ne fait pas échouer la suite de tests | Le job `typecheck` (`tsc --noEmit`) est un job de CI distinct et bloquant ; la vérification n'est pas perdue, elle est déplacée |
 | **Hot reload en conteneur sous WSL2** | Confort de développement dégradé | Volumes nommés pour `node_modules` et `.next` ; repli `WATCHPACK_POLLING` documenté |

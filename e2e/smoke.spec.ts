@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { URL_ADMIN, URL_VENDOR } from "../playwright.config";
 
-const devHost = process.env["DEV_HOST"] ?? "127-0-0-1.sslip.io";
 
 test("la boutique affiche son accueil en français", async ({ page }) => {
     await page.goto("/");
@@ -14,12 +14,12 @@ test("la boutique bascule en anglais sous /en", async ({ page }) => {
 });
 
 test("l'espace vendeur répond sur son sous-domaine", async ({ page }) => {
-    await page.goto(`https://vendeur.${devHost}/`);
+    await page.goto(`${URL_VENDOR}/`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Espace vendeur");
 });
 
 test("l'administration répond sur son sous-domaine", async ({ page }) => {
-    await page.goto(`https://admin.${devHost}/`);
+    await page.goto(`${URL_ADMIN}/`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
         "Administration ClemPerl",
     );
@@ -38,7 +38,7 @@ test("la racine négocie la langue d'après l'en-tête du navigateur", async ({ 
     // l'anglais, un francophone le français, sur la même URL.
     const contexteAnglais = await browser.newContext({ locale: "en-US" });
     const pageAnglaise = await contexteAnglais.newPage();
-    await pageAnglaise.goto(`https://${devHost}/`);
+    await pageAnglaise.goto("/");
     await expect(pageAnglaise.getByText("independent sellers")).toBeVisible();
     await contexteAnglais.close();
 });

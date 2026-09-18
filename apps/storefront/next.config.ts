@@ -9,7 +9,7 @@ import type { NextConfig } from "next";
 // étape de compilation, et Next doit donc les transpiler lui-même.
 const config: NextConfig = {
     output: "standalone",
-    transpilePackages: ["@clemperl/ui", "@clemperl/core", "@clemperl/i18n"],
+    transpilePackages: ["@clemperl/ui", "@clemperl/core", "@clemperl/i18n", "@clemperl/auth"],
 };
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");

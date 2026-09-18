@@ -3,5 +3,43 @@
     "titre": "ClemPerl",
     "sousTitre": "Vêtements, joaillerie et maroquinerie de vendeurs indépendants"
   },
-  "navigation": { "boutique": "Boutique", "compte": "Mon compte" }
+  "navigation": {
+    "boutique": "Boutique",
+    "compte": "Mon compte"
+  },
+  "authentification": {
+    "inscription": {
+      "titre": "Créer un compte",
+      "email": "Adresse e-mail",
+      "motDePasse": "Mot de passe",
+      "nom": "Nom",
+      "valider": "Créer mon compte",
+      "dejaInscrit": "J'ai déjà un compte",
+      "avecGoogle": "Continuer avec Google"
+    },
+    "connexion": {
+      "titre": "Se connecter",
+      "valider": "Se connecter",
+      "pasDeCompte": "Créer un compte",
+      "avecGoogle": "Continuer avec Google"
+    },
+    "verification": {
+      "titre": "Vérifiez votre adresse",
+      "instruction": "Un courriel vient de vous être envoyé. Ouvrez le lien qu'il contient pour activer votre compte."
+    },
+    "motDePasseOublie": {
+      "titre": "Mot de passe oublié",
+      "valider": "Recevoir un lien",
+      "confirmation": "Si un compte existe pour cette adresse, un courriel vient de partir."
+    },
+    "nouveauMotDePasse": {
+      "titre": "Choisir un nouveau mot de passe",
+      "valider": "Enregistrer",
+      "lienExpire": "Ce lien n'est plus valable. Demandez-en un nouveau."
+    },
+    "erreurs": {
+      "identifiantsInvalides": "Adresse e-mail ou mot de passe incorrect.",
+      "adresseNonVerifiee": "Vérifiez votre adresse e-mail avant de vous connecter."
+    }
+  }
 }

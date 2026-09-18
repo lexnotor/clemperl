@@ -10,6 +10,12 @@ WORKDIR /app
 FROM base AS dev
 COPY . .
 RUN pnpm install --frozen-lockfile
+# Les packages compilés (`core`, `db`, `auth`) exposent `dist/`, pas leurs sources : sans
+# une construction initiale, l'application démarre sur des modules introuvables. Le
+# `tsc --watch` lancé ensuite entretient ces `dist`, mais ne les crée pas à temps.
+# `^...` ne construit que les dépendances, jamais l'application elle-même.
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
+RUN pnpm turbo run build --filter=@clemperl/storefront^...
 # `...` inclut les dépendances : les packages compilés sont surveillés en même
 # temps que l'application, sinon une modification de `core` n'atteindrait jamais
 # le processus en cours.

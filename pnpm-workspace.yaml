@@ -4,14 +4,17 @@ packages:
 
 # pnpm bloque par défaut les scripts d'installation des dépendances, pour qu'un paquet
 # compromis ne s'exécute pas à l'installation, et l'installation ÉCHOUE tant qu'un
-# paquet concerné n'a pas été tranché explicitement. Ces six-là en ont besoin : Prisma
-# télécharge ses moteurs, esbuild et swc leurs binaires natifs, les autres compilent
-# des extensions de surveillance de fichiers.
+# paquet concerné n'a pas été tranché explicitement. La liste est versionnée pour qu'une
+# installation soit reproductible d'une machine à l'autre et dans les images Docker,
+# plutôt que dépendante d'une approbation interactive locale.
 #
-# La liste est versionnée pour qu'une installation soit reproductible d'une machine à
-# l'autre et dans les images Docker, plutôt que dépendante d'une approbation
-# interactive locale. Le nom du réglage est `allowBuilds` depuis pnpm 12 ;
-# `onlyBuiltDependencies`, son prédécesseur, est silencieusement ignoré.
+# Le nom du réglage est `allowBuilds` depuis pnpm 12 ; `onlyBuiltDependencies`, son
+# prédécesseur, est silencieusement ignoré.
+#
+# Autorisés parce que nécessaires : Prisma télécharge ses moteurs, esbuild et swc leurs
+# binaires natifs, les autres compilent des extensions de surveillance de fichiers.
+# Refusés jusqu'à constatation du contraire : les dépendances de Testcontainers, dont
+# les scripts compilent des optimisations natives dont la bibliothèque sait se passer.
 allowBuilds:
   "@parcel/watcher": true
   "@prisma/engines": true
@@ -19,6 +22,9 @@ allowBuilds:
   esbuild: true
   prisma: true
   unrs-resolver: true
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
 
 # pnpm installe par défaut les dépendances de pair, même optionnelles. `@prisma/client`
 # déclare ainsi `prisma` (la CLI, 40 Mo) et `typescript` (24 Mo) : sans ce réglage, ils

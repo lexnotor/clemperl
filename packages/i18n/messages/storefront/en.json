@@ -3,5 +3,43 @@
     "titre": "ClemPerl",
     "sousTitre": "Apparel, jewellery and bags from independent sellers"
   },
-  "navigation": { "boutique": "Shop", "compte": "My account" }
+  "navigation": {
+    "boutique": "Shop",
+    "compte": "My account"
+  },
+  "authentification": {
+    "inscription": {
+      "titre": "Create an account",
+      "email": "Email address",
+      "motDePasse": "Password",
+      "nom": "Name",
+      "valider": "Create my account",
+      "dejaInscrit": "I already have an account",
+      "avecGoogle": "Continue with Google"
+    },
+    "connexion": {
+      "titre": "Sign in",
+      "valider": "Sign in",
+      "pasDeCompte": "Create an account",
+      "avecGoogle": "Continue with Google"
+    },
+    "verification": {
+      "titre": "Verify your address",
+      "instruction": "An email has just been sent to you. Open the link it contains to activate your account."
+    },
+    "motDePasseOublie": {
+      "titre": "Forgotten password",
+      "valider": "Send me a link",
+      "confirmation": "If an account exists for this address, an email has just been sent."
+    },
+    "nouveauMotDePasse": {
+      "titre": "Choose a new password",
+      "valider": "Save",
+      "lienExpire": "This link is no longer valid. Request a new one."
+    },
+    "erreurs": {
+      "identifiantsInvalides": "Incorrect email address or password.",
+      "adresseNonVerifiee": "Verify your email address before signing in."
+    }
+  }
 }
