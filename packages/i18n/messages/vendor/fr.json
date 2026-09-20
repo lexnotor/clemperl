@@ -1,1 +1,5 @@
-{ "accueil": { "titre": "Espace vendeur" } }
+{
+  "home": {
+    "title": "Espace vendeur"
+  }
+}

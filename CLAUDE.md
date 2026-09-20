@@ -4,9 +4,16 @@ Marketplace multi-vendeurs de fournitures diverses — habillement, joaillerie,
 maroquinerie. Monorepo Turborepo : Next.js, NestJS, Prisma, PostgreSQL, Redis,
 Supabase Storage (médias uniquement).
 
-Interface en français par défaut, anglais en seconde langue. La documentation et
-les commentaires de code s'écrivent en **français** ; les messages de commit, les
-descriptions de PR, les noms de branches et le `README.md` en **anglais**.
+Interface en français par défaut, anglais en seconde langue.
+
+**Le code s'écrit en anglais** : identifiants, noms de fichiers, segments d'URL, clés de
+traduction. **La documentation et les commentaires de code s'écrivent en français**, de
+même que les libellés vus par l'utilisateur, qui vivent dans les catalogues de
+traduction. Les messages de commit, les descriptions de PR, les noms de branches et le
+`README.md` sont en anglais.
+
+Autrement dit : ce qu'une machine lit est en anglais, ce qu'un humain lit est en
+français — sauf dans Git, où la langue de travail commune l'emporte.
 
 Ce fichier est **ce qui est vrai dans ce dépôt**. Il va par paire avec
 `docs/conventions/`, qui est **comment le travail doit être fait**. Là où ils se

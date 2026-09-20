@@ -1,1 +1,1 @@
-export * from "./depot-dossier.schema.js";
+export * from "./application-submission.schema.js";

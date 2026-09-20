@@ -1,7 +1,7 @@
 import { UnauthorizedException } from "@nestjs/common";
 import type { ExecutionContext } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import { JETON_AUTH, SessionGuard } from "./session.guard";
+import { AUTH_TOKEN, SessionGuard } from "./session.guard";
 
 function contexteAvecEnTetes(entetes: Record<string, string>): ExecutionContext {
     return {
@@ -18,7 +18,7 @@ describe("SessionGuard", () => {
         const module = await Test.createTestingModule({
             providers: [
                 SessionGuard,
-                { provide: JETON_AUTH, useValue: { api: { getSession: async () => null } } },
+                { provide: AUTH_TOKEN, useValue: { api: { getSession: async () => null } } },
             ],
         }).compile();
 
@@ -47,15 +47,15 @@ describe("SessionGuard", () => {
         const garde = new SessionGuard({
             api: { getSession: async () => ({ user: { id: "u1", email: "a@b.test" } }) },
         } as never);
-        const requete: Record<string, unknown> = { headers: { cookie: "session=x" } };
+        const request: Record<string, unknown> = { headers: { cookie: "session=x" } };
         const contexte = {
-            switchToHttp: () => ({ getRequest: () => requete }),
+            switchToHttp: () => ({ getRequest: () => request }),
         } as unknown as ExecutionContext;
 
         await garde.canActivate(contexte);
 
         // Sans cela, chaque contrôleur redemanderait à la base ce qui vient d'être
         // vérifié, à chaque requête.
-        expect(requete["session"]).toEqual({ user: { id: "u1", email: "a@b.test" } });
+        expect(request["session"]).toEqual({ user: { id: "u1", email: "a@b.test" } });
     });
 });

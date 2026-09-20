@@ -1,101 +1,111 @@
 {
-  "accueil": {
-    "titre": "ClemPerl",
-    "sousTitre": "Vêtements, joaillerie et maroquinerie de vendeurs indépendants"
+  "home": {
+    "title": "ClemPerl",
+    "subtitle": "Vêtements, joaillerie et maroquinerie de vendeurs indépendants",
+    "becomeVendor": "Ouvrir ma boutique"
   },
   "navigation": {
-    "boutique": "Boutique",
-    "compte": "Mon compte"
+    "shop": "Boutique",
+    "account": "Mon compte"
   },
-  "authentification": {
-    "inscription": {
-      "titre": "Créer un compte",
+  "auth": {
+    "signUp": {
+      "title": "Créer un compte",
       "email": "Adresse e-mail",
-      "motDePasse": "Mot de passe",
-      "nom": "Nom",
-      "valider": "Créer mon compte",
-      "dejaInscrit": "J'ai déjà un compte",
-      "avecGoogle": "Continuer avec Google"
+      "password": "Mot de passe",
+      "name": "Nom",
+      "submit": "Créer mon compte",
+      "haveAccount": "J'ai déjà un compte",
+      "withGoogle": "Continuer avec Google",
+      "passwordHint": "Huit caractères minimum."
     },
-    "connexion": {
-      "titre": "Se connecter",
-      "valider": "Se connecter",
-      "pasDeCompte": "Créer un compte",
-      "avecGoogle": "Continuer avec Google"
+    "signIn": {
+      "title": "Se connecter",
+      "email": "Adresse e-mail",
+      "password": "Mot de passe",
+      "submit": "Se connecter",
+      "noAccount": "Créer un compte",
+      "withGoogle": "Continuer avec Google",
+      "forgotPassword": "Mot de passe oublié"
     },
-    "verification": {
-      "titre": "Vérifiez votre adresse",
+    "verifyEmail": {
+      "title": "Vérifiez votre adresse",
       "instruction": "Un courriel vient de vous être envoyé. Ouvrez le lien qu'il contient pour activer votre compte."
     },
-    "motDePasseOublie": {
-      "titre": "Mot de passe oublié",
-      "valider": "Recevoir un lien",
+    "forgotPassword": {
+      "title": "Mot de passe oublié",
+      "email": "Adresse e-mail",
+      "submit": "Recevoir un lien",
       "confirmation": "Si un compte existe pour cette adresse, un courriel vient de partir."
     },
-    "nouveauMotDePasse": {
-      "titre": "Choisir un nouveau mot de passe",
-      "valider": "Enregistrer",
-      "lienExpire": "Ce lien n'est plus valable. Demandez-en un nouveau."
+    "resetPassword": {
+      "title": "Choisir un nouveau mot de passe",
+      "password": "Nouveau mot de passe",
+      "submit": "Enregistrer",
+      "expiredLink": "Ce lien n'est plus valable. Demandez-en un nouveau."
     },
-    "erreurs": {
-      "identifiantsInvalides": "Adresse e-mail ou mot de passe incorrect.",
-      "adresseNonVerifiee": "Vérifiez votre adresse e-mail avant de vous connecter."
+    "errors": {
+      "invalidCredentials": "Adresse e-mail ou mot de passe incorrect.",
+      "emailNotVerified": "Vérifiez votre adresse e-mail avant de vous connecter."
+    }
+  },
+  "vendor": {
+    "documentKind": {
+      "REGISTRY": "Registre de commerce",
+      "IDENTITY": "Pièce d'identité",
+      "TAX": "Attestation fiscale"
+    },
+    "application": {
+      "title": "Devenir vendeur sur ClemPerl",
+      "documentsToPrepare": "Préparez votre registre de commerce et une pièce d'identité du représentant. L'attestation fiscale est facultative. Formats acceptés : PDF, JPEG ou PNG, 5 Mo par pièce.",
+      "shopSection": "Votre boutique",
+      "legalSection": "Identité légale",
+      "documentsSection": "Pièces justificatives",
+      "shopName": "Nom de la boutique",
+      "description": "Description",
+      "contactEmail": "Adresse e-mail de contact",
+      "contactPhone": "Téléphone de contact",
+      "categories": "Ce que vous comptez vendre",
+      "category": {
+        "APPAREL": "Habillement",
+        "JEWELLERY": "Joaillerie",
+        "LEATHER_GOODS": "Maroquinerie"
+      },
+      "legalForm": "Forme juridique",
+      "legalName": "Raison sociale",
+      "registrationNumber": "Numéro d'enregistrement",
+      "taxNumber": "Numéro de TVA (facultatif)",
+      "country": "Pays (code à deux lettres)",
+      "optional": "Facultative",
+      "submit": "Déposer ma demande",
+      "submitting": "Envoi en cours…",
+      "underReview": {
+        "title": "Votre demande est en cours d'examen",
+        "since": "Déposée le {date}. Nous vous répondrons par courriel."
+      },
+      "approved": {
+        "title": "« {shop} » est validée",
+        "next": "Votre espace vendeur ouvrira avec la prochaine tranche."
+      },
+      "descriptionHint": "Dites ce que vous fabriquez ou revendez, et ce qui distingue votre travail.",
+      "chooseFile": "Choisir un fichier",
+      "noFileChosen": "Aucun fichier choisi"
     }
   },
   "errors": {
     "vendor_application": {
       "forbidden_transition": "Ce dossier a déjà été traité.",
-      "missing_document": "Il manque une pièce obligatoire : {nature}.",
-      "duplicate_document": "Une seule pièce est attendue pour : {nature}.",
-      "document_too_large": "La pièce {nature} dépasse la taille maximale autorisée.",
-      "unsupported_media_type": "Le format de la pièce {nature} n'est pas accepté. Déposez un PDF, un JPEG ou un PNG.",
+      "missing_document": "Il manque une pièce obligatoire : {kind}.",
+      "duplicate_document": "Une seule pièce est attendue pour : {kind}.",
+      "document_too_large": "La pièce {kind} dépasse la taille maximale autorisée.",
+      "unsupported_media_type": "Le format de la pièce {kind} n'est pas accepté. Déposez un PDF, un JPEG ou un PNG.",
       "reason_required": "Un refus doit indiquer un motif.",
       "reason_forbidden_on_accept": "Une acceptation ne porte pas de motif de refus.",
       "comment_required": "Le motif « autre » demande un commentaire.",
       "self_decision": "Vous ne pouvez pas décider sur votre propre dossier.",
-      "invalid_field": "Le champ « {champ} » est invalide.",
+      "invalid_field": "Le champ « {field} » est invalide.",
       "already_open": "Vous avez déjà une demande en cours d'examen.",
       "submit_failed": "Votre demande n'a pas pu être enregistrée. Réessayez dans un instant."
-    }
-  },
-  "vendeur": {
-    "piece": {
-      "REGISTRY": "Registre de commerce",
-      "IDENTITY": "Pièce d'identité",
-      "TAX": "Attestation fiscale"
-    },
-    "dossier": {
-      "titre": "Devenir vendeur sur ClemPerl",
-      "piecesAPreparer": "Préparez votre registre de commerce et une pièce d'identité du représentant. L'attestation fiscale est facultative. Formats acceptés : PDF, JPEG ou PNG, 5 Mo par pièce.",
-      "sectionBoutique": "Votre boutique",
-      "sectionLegale": "Identité légale",
-      "sectionPieces": "Pièces justificatives",
-      "nomBoutique": "Nom de la boutique",
-      "description": "Description",
-      "emailContact": "Adresse e-mail de contact",
-      "telephoneContact": "Téléphone de contact",
-      "categories": "Ce que vous comptez vendre",
-      "categorie": {
-        "APPAREL": "Habillement",
-        "JEWELLERY": "Joaillerie",
-        "LEATHER_GOODS": "Maroquinerie"
-      },
-      "formeJuridique": "Forme juridique",
-      "raisonSociale": "Raison sociale",
-      "numeroEnregistrement": "Numéro d'enregistrement",
-      "numeroTva": "Numéro de TVA (facultatif)",
-      "pays": "Pays (code à deux lettres)",
-      "facultative": "Facultative",
-      "valider": "Déposer ma demande",
-      "envoiEnCours": "Envoi en cours…",
-      "enExamen": {
-        "titre": "Votre demande est en cours d'examen",
-        "depuis": "Déposée le {date}. Nous vous répondrons par courriel."
-      },
-      "accepte": {
-        "titre": "« {boutique} » est validée",
-        "suite": "Votre espace vendeur ouvrira avec la prochaine tranche."
-      }
     }
   }
 }

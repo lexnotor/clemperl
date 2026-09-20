@@ -1,10 +1,10 @@
-import { creerSmtpSender } from "@clemperl/core";
+import { createSmtpSender } from "@clemperl/core";
 import { prisma } from "@clemperl/db";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
-    construireMessageReinitialisation,
-    construireMessageVerification,
+    buildPasswordResetMessage,
+    buildVerificationMessage,
 } from "../utils/index.js";
 
 // Configuration unique de l'authentification, partagée par les quatre applications.
@@ -65,11 +65,11 @@ export const auth = betterAuth({
         requireEmailVerification: true,
 
         sendResetPassword: async ({ user, url }): Promise<void> => {
-            const message = construireMessageReinitialisation(url, "fr");
-            await creerSmtpSender(
+            const message = buildPasswordResetMessage(url, "fr");
+            await createSmtpSender(
                 process.env["SMTP_URL"] ?? "",
                 process.env["EMAIL_FROM"] ?? "",
-            ).envoyer({ ...message, destinataire: user.email });
+            ).send({ ...message, recipient: user.email });
         },
     },
 
@@ -80,11 +80,11 @@ export const auth = betterAuth({
         sendOnSignUp: true,
         autoSignInAfterVerification: true,
         sendVerificationEmail: async ({ user, url }): Promise<void> => {
-            const message = construireMessageVerification(url, "fr");
-            await creerSmtpSender(
+            const message = buildVerificationMessage(url, "fr");
+            await createSmtpSender(
                 process.env["SMTP_URL"] ?? "",
                 process.env["EMAIL_FROM"] ?? "",
-            ).envoyer({ ...message, destinataire: user.email });
+            ).send({ ...message, recipient: user.email });
         },
     },
 

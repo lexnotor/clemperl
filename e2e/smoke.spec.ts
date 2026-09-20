@@ -29,16 +29,16 @@ test("le bouton partagé de @clemperl/ui est rendu par la boutique", async ({ pa
     await page.goto("/");
     // Le composant vient du design system partagé : s'il ne se rend pas, c'est la
     // chaîne de transpilation des packages internes qui est cassée, pas la page.
-    await expect(page.getByRole("button", { name: "ClemPerl" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ouvrir ma boutique" })).toBeVisible();
 });
 
 test("la racine négocie la langue d'après l'en-tête du navigateur", async ({ browser }) => {
     // Comportement voulu de `localePrefix: "as-needed"` : la racine sert la langue
     // demandée par le navigateur, sans préfixe. Un visiteur anglophone y reçoit
     // l'anglais, un francophone le français, sur la même URL.
-    const contexteAnglais = await browser.newContext({ locale: "en-US" });
-    const pageAnglaise = await contexteAnglais.newPage();
-    await pageAnglaise.goto("/");
-    await expect(pageAnglaise.getByText("independent sellers")).toBeVisible();
-    await contexteAnglais.close();
+    const englishContext = await browser.newContext({ locale: "en-US" });
+    const englishPage = await englishContext.newPage();
+    await englishPage.goto("/");
+    await expect(englishPage.getByText("independent sellers")).toBeVisible();
+    await englishContext.close();
 });

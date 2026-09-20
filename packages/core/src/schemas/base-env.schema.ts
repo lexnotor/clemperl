@@ -25,12 +25,12 @@ export const baseEnvSchema = z.object({
 export type TBaseEnv = z.infer<typeof baseEnvSchema>;
 
 export function parseBaseEnv(source: Record<string, string | undefined>): TBaseEnv {
-    const resultat = baseEnvSchema.safeParse(source);
-    if (!resultat.success) {
-        const details = resultat.error.issues
+    const result = baseEnvSchema.safeParse(source);
+    if (!result.success) {
+        const details = result.error.issues
             .map((issue) => `  ${issue.path.join(".")}: ${issue.message}`)
             .join("\n");
         throw new Error(`Environnement invalide :\n${details}`);
     }
-    return resultat.data;
+    return result.data;
 }

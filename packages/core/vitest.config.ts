@@ -18,7 +18,7 @@ export default defineConfig({
                 "**/index.ts",
                 "**/*.config.ts",
                 "**/test-setup.ts",
-                "src/utils/stockage-pieces.utils.ts",
+                "src/utils/document-storage.utils.ts",
             ],
             // Plancher mesuré, pas souhaité. L'écart au 100 % est le schéma
             // d'environnement, qu'aucun test ne traverse.

@@ -1,101 +1,111 @@
 {
-  "accueil": {
-    "titre": "ClemPerl",
-    "sousTitre": "Apparel, jewellery and bags from independent sellers"
+  "home": {
+    "title": "ClemPerl",
+    "subtitle": "Apparel, jewellery and bags from independent sellers",
+    "becomeVendor": "Open my shop"
   },
   "navigation": {
-    "boutique": "Shop",
-    "compte": "My account"
+    "shop": "Shop",
+    "account": "My account"
   },
-  "authentification": {
-    "inscription": {
-      "titre": "Create an account",
+  "auth": {
+    "signUp": {
+      "title": "Create an account",
       "email": "Email address",
-      "motDePasse": "Password",
-      "nom": "Name",
-      "valider": "Create my account",
-      "dejaInscrit": "I already have an account",
-      "avecGoogle": "Continue with Google"
+      "password": "Password",
+      "name": "Name",
+      "submit": "Create my account",
+      "haveAccount": "I already have an account",
+      "withGoogle": "Continue with Google",
+      "passwordHint": "Eight characters minimum."
     },
-    "connexion": {
-      "titre": "Sign in",
-      "valider": "Sign in",
-      "pasDeCompte": "Create an account",
-      "avecGoogle": "Continue with Google"
+    "signIn": {
+      "title": "Sign in",
+      "email": "Email address",
+      "password": "Password",
+      "submit": "Sign in",
+      "noAccount": "Create an account",
+      "withGoogle": "Continue with Google",
+      "forgotPassword": "Forgotten password"
     },
-    "verification": {
-      "titre": "Verify your address",
+    "verifyEmail": {
+      "title": "Verify your address",
       "instruction": "An email has just been sent to you. Open the link it contains to activate your account."
     },
-    "motDePasseOublie": {
-      "titre": "Forgotten password",
-      "valider": "Send me a link",
+    "forgotPassword": {
+      "title": "Forgotten password",
+      "email": "Email address",
+      "submit": "Send me a link",
       "confirmation": "If an account exists for this address, an email has just been sent."
     },
-    "nouveauMotDePasse": {
-      "titre": "Choose a new password",
-      "valider": "Save",
-      "lienExpire": "This link is no longer valid. Request a new one."
+    "resetPassword": {
+      "title": "Choose a new password",
+      "password": "New password",
+      "submit": "Save",
+      "expiredLink": "This link is no longer valid. Request a new one."
     },
-    "erreurs": {
-      "identifiantsInvalides": "Incorrect email address or password.",
-      "adresseNonVerifiee": "Verify your email address before signing in."
+    "errors": {
+      "invalidCredentials": "Incorrect email address or password.",
+      "emailNotVerified": "Verify your email address before signing in."
+    }
+  },
+  "vendor": {
+    "documentKind": {
+      "REGISTRY": "Trade register",
+      "IDENTITY": "Identity document",
+      "TAX": "Tax certificate"
+    },
+    "application": {
+      "title": "Become a vendor on ClemPerl",
+      "documentsToPrepare": "Have your trade register and the representative's identity document ready. The tax certificate is optional. Accepted formats: PDF, JPEG or PNG, 5 MB per document.",
+      "shopSection": "Your shop",
+      "legalSection": "Legal identity",
+      "documentsSection": "Supporting documents",
+      "shopName": "Shop name",
+      "description": "Description",
+      "contactEmail": "Contact email address",
+      "contactPhone": "Contact phone number",
+      "categories": "What you intend to sell",
+      "category": {
+        "APPAREL": "Apparel",
+        "JEWELLERY": "Jewellery",
+        "LEATHER_GOODS": "Leather goods"
+      },
+      "legalForm": "Legal form",
+      "legalName": "Registered name",
+      "registrationNumber": "Registration number",
+      "taxNumber": "VAT number (optional)",
+      "country": "Country (two-letter code)",
+      "optional": "Optional",
+      "submit": "Submit my application",
+      "submitting": "Sending…",
+      "underReview": {
+        "title": "Your application is under review",
+        "since": "Submitted on {date}. We will reply by email."
+      },
+      "approved": {
+        "title": "“{shop}” has been approved",
+        "next": "Your vendor area will open with the next slice."
+      },
+      "descriptionHint": "Say what you make or resell, and what sets your work apart.",
+      "chooseFile": "Choose a file",
+      "noFileChosen": "No file chosen"
     }
   },
   "errors": {
     "vendor_application": {
       "forbidden_transition": "This application has already been processed.",
-      "missing_document": "A required document is missing: {nature}.",
-      "duplicate_document": "Only one document is expected for: {nature}.",
-      "document_too_large": "The {nature} document exceeds the maximum allowed size.",
-      "unsupported_media_type": "The {nature} document format is not accepted. Upload a PDF, JPEG or PNG.",
+      "missing_document": "A required document is missing: {kind}.",
+      "duplicate_document": "Only one document is expected for: {kind}.",
+      "document_too_large": "The {kind} document exceeds the maximum allowed size.",
+      "unsupported_media_type": "The {kind} document format is not accepted. Upload a PDF, JPEG or PNG.",
       "reason_required": "A rejection must state a reason.",
       "reason_forbidden_on_accept": "An approval carries no rejection reason.",
       "comment_required": "The “other” reason requires a comment.",
       "self_decision": "You cannot decide on your own application.",
-      "invalid_field": "The “{champ}” field is invalid.",
+      "invalid_field": "The “{field}” field is invalid.",
       "already_open": "You already have an application under review.",
       "submit_failed": "Your application could not be saved. Try again in a moment."
-    }
-  },
-  "vendeur": {
-    "piece": {
-      "REGISTRY": "Trade register",
-      "IDENTITY": "Identity document",
-      "TAX": "Tax certificate"
-    },
-    "dossier": {
-      "titre": "Become a vendor on ClemPerl",
-      "piecesAPreparer": "Have your trade register and the representative's identity document ready. The tax certificate is optional. Accepted formats: PDF, JPEG or PNG, 5 MB per document.",
-      "sectionBoutique": "Your shop",
-      "sectionLegale": "Legal identity",
-      "sectionPieces": "Supporting documents",
-      "nomBoutique": "Shop name",
-      "description": "Description",
-      "emailContact": "Contact email address",
-      "telephoneContact": "Contact phone number",
-      "categories": "What you intend to sell",
-      "categorie": {
-        "APPAREL": "Apparel",
-        "JEWELLERY": "Jewellery",
-        "LEATHER_GOODS": "Leather goods"
-      },
-      "formeJuridique": "Legal form",
-      "raisonSociale": "Registered name",
-      "numeroEnregistrement": "Registration number",
-      "numeroTva": "VAT number (optional)",
-      "pays": "Country (two-letter code)",
-      "facultative": "Optional",
-      "valider": "Submit my application",
-      "envoiEnCours": "Sending…",
-      "enExamen": {
-        "titre": "Your application is under review",
-        "depuis": "Submitted on {date}. We will reply by email."
-      },
-      "accepte": {
-        "titre": "“{boutique}” has been approved",
-        "suite": "Your vendor area will open with the next slice."
-      }
     }
   }
 }

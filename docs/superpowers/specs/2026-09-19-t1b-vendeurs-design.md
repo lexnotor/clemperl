@@ -5,6 +5,13 @@
 **Tranche** : T1b — seconde moitié de T1
 **S'appuie sur** : `2026-09-18-t1a-identite-design.md`, livrée
 
+> **Note du 2026-09-19, postérieure à la rédaction.** Le dépôt est passé à des
+> identifiants, noms de fichiers, segments d'URL et clés de traduction **en anglais**
+> (`CLAUDE.md`). Les noms français qu'emploient les extraits ci-dessous — `deposerDossier`,
+> `/devenir-vendeur`, `IPieceDeposee` — ont donc leur équivalent anglais dans le code
+> livré : `submitApplication`, `/become-a-vendor`, `ISubmittedDocument`. Le raisonnement,
+> lui, n'a pas changé.
+
 ---
 
 ## 1. Objectif
