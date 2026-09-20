@@ -52,7 +52,10 @@
       "reason_required": "Un refus doit indiquer un motif.",
       "reason_forbidden_on_accept": "Une acceptation ne porte pas de motif de refus.",
       "comment_required": "Le motif « autre » demande un commentaire.",
-      "self_decision": "Vous ne pouvez pas décider sur votre propre dossier."
+      "self_decision": "Vous ne pouvez pas décider sur votre propre dossier.",
+      "invalid_field": "Le champ « {champ} » est invalide.",
+      "already_open": "Vous avez déjà une demande en cours d'examen.",
+      "submit_failed": "Votre demande n'a pas pu être enregistrée. Réessayez dans un instant."
     }
   },
   "vendeur": {
@@ -60,6 +63,39 @@
       "REGISTRY": "Registre de commerce",
       "IDENTITY": "Pièce d'identité",
       "TAX": "Attestation fiscale"
+    },
+    "dossier": {
+      "titre": "Devenir vendeur sur ClemPerl",
+      "piecesAPreparer": "Préparez votre registre de commerce et une pièce d'identité du représentant. L'attestation fiscale est facultative. Formats acceptés : PDF, JPEG ou PNG, 5 Mo par pièce.",
+      "sectionBoutique": "Votre boutique",
+      "sectionLegale": "Identité légale",
+      "sectionPieces": "Pièces justificatives",
+      "nomBoutique": "Nom de la boutique",
+      "description": "Description",
+      "emailContact": "Adresse e-mail de contact",
+      "telephoneContact": "Téléphone de contact",
+      "categories": "Ce que vous comptez vendre",
+      "categorie": {
+        "APPAREL": "Habillement",
+        "JEWELLERY": "Joaillerie",
+        "LEATHER_GOODS": "Maroquinerie"
+      },
+      "formeJuridique": "Forme juridique",
+      "raisonSociale": "Raison sociale",
+      "numeroEnregistrement": "Numéro d'enregistrement",
+      "numeroTva": "Numéro de TVA (facultatif)",
+      "pays": "Pays (code à deux lettres)",
+      "facultative": "Facultative",
+      "valider": "Déposer ma demande",
+      "envoiEnCours": "Envoi en cours…",
+      "enExamen": {
+        "titre": "Votre demande est en cours d'examen",
+        "depuis": "Déposée le {date}. Nous vous répondrons par courriel."
+      },
+      "accepte": {
+        "titre": "« {boutique} » est validée",
+        "suite": "Votre espace vendeur ouvrira avec la prochaine tranche."
+      }
     }
   }
 }

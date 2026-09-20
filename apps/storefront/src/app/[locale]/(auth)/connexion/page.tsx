@@ -37,7 +37,12 @@ export default function ConnexionPage(): JSX.Element {
             );
             return;
         }
-        window.location.href = "/";
+        // Une page protégée renvoie ici en portant sa propre adresse. La destination est
+        // contrainte à un chemin interne : une URL absolue permettrait à un lien forgé de
+        // rediriger vers un site tiers après une connexion réussie.
+        const suite = new URLSearchParams(window.location.search).get("suite");
+        const interne = suite?.startsWith("/") === true && !suite.startsWith("//");
+        window.location.href = interne ? (suite as string) : "/";
     }
 
     return (

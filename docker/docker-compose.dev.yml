@@ -170,6 +170,7 @@ services:
     volumes:
       - ../apps/storefront/src:/app/apps/storefront/src
       - ../packages/core/src:/app/packages/core/src
+      - ../packages/domain/src:/app/packages/domain/src
       - ../packages/ui/src:/app/packages/ui/src
       - ../packages/i18n/src:/app/packages/i18n/src
       - ../packages/i18n/messages:/app/packages/i18n/messages

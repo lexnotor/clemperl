@@ -52,7 +52,10 @@
       "reason_required": "A rejection must state a reason.",
       "reason_forbidden_on_accept": "An approval carries no rejection reason.",
       "comment_required": "The “other” reason requires a comment.",
-      "self_decision": "You cannot decide on your own application."
+      "self_decision": "You cannot decide on your own application.",
+      "invalid_field": "The “{champ}” field is invalid.",
+      "already_open": "You already have an application under review.",
+      "submit_failed": "Your application could not be saved. Try again in a moment."
     }
   },
   "vendeur": {
@@ -60,6 +63,39 @@
       "REGISTRY": "Trade register",
       "IDENTITY": "Identity document",
       "TAX": "Tax certificate"
+    },
+    "dossier": {
+      "titre": "Become a vendor on ClemPerl",
+      "piecesAPreparer": "Have your trade register and the representative's identity document ready. The tax certificate is optional. Accepted formats: PDF, JPEG or PNG, 5 MB per document.",
+      "sectionBoutique": "Your shop",
+      "sectionLegale": "Legal identity",
+      "sectionPieces": "Supporting documents",
+      "nomBoutique": "Shop name",
+      "description": "Description",
+      "emailContact": "Contact email address",
+      "telephoneContact": "Contact phone number",
+      "categories": "What you intend to sell",
+      "categorie": {
+        "APPAREL": "Apparel",
+        "JEWELLERY": "Jewellery",
+        "LEATHER_GOODS": "Leather goods"
+      },
+      "formeJuridique": "Legal form",
+      "raisonSociale": "Registered name",
+      "numeroEnregistrement": "Registration number",
+      "numeroTva": "VAT number (optional)",
+      "pays": "Country (two-letter code)",
+      "facultative": "Optional",
+      "valider": "Submit my application",
+      "envoiEnCours": "Sending…",
+      "enExamen": {
+        "titre": "Your application is under review",
+        "depuis": "Submitted on {date}. We will reply by email."
+      },
+      "accepte": {
+        "titre": "“{boutique}” has been approved",
+        "suite": "Your vendor area will open with the next slice."
+      }
     }
   }
 }
