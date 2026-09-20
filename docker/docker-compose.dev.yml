@@ -50,14 +50,9 @@ services:
       timeout: 3s
       retries: 10
 
-  # Sert les pièces justificatives des dossiers vendeurs. Il possède SA PROPRE base
-  # (`storage`, créée par le script d'init de PostgreSQL) : il y joue ses migrations et y
-  # installe ses rôles, et le laisser faire cela dans `clemperl` mêlerait ses tables à
-  # celles de Prisma.
-  #
-  # `STORAGE_BACKEND=file` : les objets sont des fichiers dans un volume. La transformation
-  # d'images reste éteinte — elle réclamerait imgproxy, et T1b ne dépose que des
-  # justificatifs privés, jamais des médias à redimensionner.
+  # Pièces justificatives des dossiers vendeurs. Il a sa propre base : il y joue ses
+  # migrations et y installe ses rôles, ce qui mêlerait ses tables à celles de Prisma
+  # s'il partageait la nôtre.
   storage:
     container_name: clemperl_dev_storage
     ports:
@@ -69,24 +64,22 @@ services:
       SERVER_PORT: 5000
       SERVER_HOST: 0.0.0.0
       SERVER_REGION: local
-      # Sans lui, les objets atterrissent sous `undefined/` dans le volume : inoffensif,
-      # mais illisible le jour où l'on vient regarder ce qui a été déposé.
+      # Sans lui, les objets atterrissent sous un répertoire nommé `undefined`.
       TENANT_ID: clemperl
       AUTH_JWT_SECRET: ${STORAGE_JWT_SECRET}
       AUTH_JWT_ALGORITHM: HS256
-      # Le rôle `postgres` est créé par le script d'init : les migrations de storage-api
-      # le référencent en dur, quel que soit `DB_SUPER_USER`.
+      # Les migrations de storage-api référencent le rôle `postgres` en dur, quel que
+      # soit `DB_SUPER_USER` : le script d'init de PostgreSQL le crée pour elles.
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/storage
       DB_INSTALL_ROLES: "true"
       DB_SUPER_USER: postgres
       STORAGE_BACKEND: file
       STORAGE_FILE_BACKEND_PATH: /var/lib/storage
-      # Racine des objets sur le disque. Son nom trahit l'héritage S3 du service : même
-      # avec le backend fichier, elle sert de premier segment de chemin, et la laisser
-      # vide produit un répertoire littéralement nommé `undefined`.
+      # Racine des objets sur le disque malgré son nom : le backend fichier s'en sert
+      # aussi comme premier segment de chemin.
       STORAGE_S3_BUCKET: clemperl
-      # 5 Mo par pièce, la même valeur que le domaine applique. Deux plafonds divergents
-      # produiraient un refus côté stockage que le message métier n'expliquerait pas.
+      # La même valeur que le domaine applique : un plafond plus bas ici produirait un
+      # refus que le message métier n'expliquerait pas.
       UPLOAD_FILE_SIZE_LIMIT: "5242880"
       UPLOAD_FILE_SIZE_LIMIT_STANDARD: "5242880"
       IMAGE_TRANSFORMATION_ENABLED: "false"
@@ -96,9 +89,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      # `node` plutôt que `wget` ou `curl` : l'image est construite sur node et ne
-      # garantit aucun des deux. Et 127.0.0.1 plutôt que `localhost`, qui résout vers
-      # ::1 quand le serveur n'écoute qu'en IPv4.
+      # `node` plutôt que `curl` ou `wget`, que l'image ne garantit pas.
       test:
         [
           "CMD",
@@ -110,13 +101,11 @@ services:
       timeout: 3s
       retries: 20
 
-  # Crée le bucket des pièces justificatives, puis s'arrête. Sans lui, un clone neuf
-  # démarrerait avec un stockage vide de tout bucket et le premier dépôt échouerait —
-  # or `pnpm docker:up` doit suffire, c'est ce que promettent le README et la passation.
-  #
-  # Idempotent, avec un piège : une création en double renvoie **HTTP 400**, et le 409
-  # n'apparaît que dans le corps. Tester le code HTTP ferait échouer tout second
-  # démarrage. Mesuré le 2026-09-19 sur l'image v1.79.4.
+  # Crée le bucket au démarrage, pour que `pnpm docker:up` suffise sur une machine
+  # neuve. Doit rester idempotent : une création en double répond HTTP 400, le 409
+  # n'étant que dans le corps — d'où le test sur `BucketAlreadyExists` et non sur le
+  # statut. Et pas de littéral de gabarit dans ce script : Compose interpole `${...}`
+  # avant que node ne le voie.
   storage-init:
     container_name: clemperl_dev_storage_init
     build:

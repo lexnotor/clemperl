@@ -44,8 +44,17 @@ Elles valent pour **toutes** les tâches, sans être répétées dans chacune.
 - **Branche** : `feat/vendor-applications`, déjà sortie. Ne pas en changer.
 - **Langue** : documentation et commentaires de code en **français** ; message de commit,
   nom de branche et description de PR en **anglais**.
-- **Commentaires** : expliquer le *pourquoi*, jamais le *quoi* — `docs/conventions/code.md`.
-  Pas de référence à un numéro de section d'un document : rapatrier la raison dans le code.
+- **Commentaires — la contrainte la plus facile à enfreindre de ce plan.** Un commentaire
+  dit **pourquoi ça doit rester ainsi**, au présent et sans date, en trois secondes de
+  lecture. Il est **absent quand le code se suffit**. Sont interdits : les faits datés
+  (« mesuré le … », « constaté le … »), toute comparaison avec un état antérieur, et
+  toute référence à une section de document. Ce matériau-là va dans le message de commit
+  ou dans `docs/pieges.md`, qui existent pour ça.
+
+  **Les extraits de code de ce plan sont plus bavards que le code final ne doit l'être**
+  : ils argumentent pour l'exécutant. Au moment d'écrire, garder la contrainte, jeter
+  l'explication. Un bloc de six lignes de commentaire au-dessus de trois lignes de code
+  est un signe que le code devrait être plus clair, pas que le commentaire est utile.
 - **Nommage** : enums `E_` + MAJUSCULE_SNAKE, type dérivé `T` + PascalCase, interfaces
   `I` + PascalCase. Un enum par fichier dans `enums/`. Fichiers en kebab-case suffixés
   (`.utils.ts`, `.interface.ts`, `.constant.ts`, `.schema.ts`, `.error.ts`), sauf les
@@ -221,9 +230,21 @@ T0.
 docker compose --env-file .env -f docker/docker-compose.dev.yml down -v
 rm -rf packages/db/prisma/migrations/20260918085917_init \
        packages/db/prisma/migrations/20260918170535_auth
-pnpm docker:up
-pnpm --filter @clemperl/db exec prisma migrate dev --name init
+docker compose --env-file .env -f docker/docker-compose.dev.yml up -d postgres storage storage-init
+
+# `postgres` ne publie AUCUN port : Prisma ne peut pas l'atteindre depuis l'hôte, et
+# `pnpm --filter @clemperl/db db:migrate` échoue donc malgré les apparences. La création
+# d'une migration passe par un conteneur jetable sur le réseau du compose. `--user` évite
+# des fichiers appartenant à root ; `bookworm-slim` et non `alpine`, les moteurs Prisma
+# de l'hôte étant liés à la glibc. Voir `docs/pieges.md`.
+docker run --rm --network clemperl_dev_default \
+  --user "$(id -u):$(id -g)" -v "$PWD":/app -w /app/packages/db \
+  -e DATABASE_URL="postgresql://clemperl:clemperl@postgres:5432/clemperl" \
+  -e HOME=/tmp \
+  node:24-bookworm-slim ./node_modules/.bin/prisma migrate dev --name init
 ```
+
+**La même commande servira en tâche 5** pour créer la migration des tables vendeur.
 
 - [ ] **Étape 3 : vérifier qu'aucun identifiant n'est resté au singulier**
 

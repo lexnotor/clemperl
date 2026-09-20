@@ -316,7 +316,7 @@ fois, à la main, sur une seule machine.**
 n'appliquait le schéma. Sur la machine de développement, les migrations avaient été
 jouées à la main pendant la tranche, une fois ; le volume les gardait, et tout
 fonctionnait. Sur un volume neuf — un poste qui démarre, un runner de CI — la table
-`user` n'existe pas, toute inscription échoue, aucun courriel ne part, et la suite
+des comptes n'existe pas, toute inscription échoue, aucun courriel ne part, et la suite
 Playwright tombe sur des messages qui parlent de Mailpit.
 
 Le symptôme accuse la mauvaise couche. Rien dans l'erreur ne nomme la migration.
@@ -439,3 +439,59 @@ Ce n'est découvert qu'en regardant le disque — donc, en général, jamais.
 
 Ce qui protège maintenant : `STORAGE_S3_BUCKET: clemperl` et `TENANT_ID: clemperl` dans
 le service `storage` du compose.
+
+---
+
+**Les tables sont au PLURIEL depuis le 2026-09-19, et le commentaire qui imposait de
+quoter `"user"` a disparu avec elles.**
+
+T0 avait décidé le singulier. T1b l'a renversé pendant que le coût était nul : quatre
+tables, aucune donnée réelle, aucun environnement persistant. Le renommage s'est fait en
+changeant les `@@map` **puis en régénérant** les migrations, jamais en réécrivant leur
+SQL à la main — Prisma dérive les noms d'index et de contraintes du nom de table mappé,
+et une réécriture manuelle aurait produit `users` avec `user_pkey`, une incohérence que
+personne ne remarque jusqu'au jour où elle gêne.
+
+Le piège n'est pas le renommage : c'est que **modifier une migration déjà appliquée fait
+échouer le prochain `migrate deploy` sur une somme de contrôle divergente**, stockée dans
+`_prisma_migrations`. Toute base de développement existante doit être détruite — et
+`pnpm docker:down` ne supprime PAS les volumes. La commande est
+`docker compose --env-file .env -f docker/docker-compose.dev.yml down -v`.
+
+Bénéfice collatéral, à ne pas défaire : `user` est un mot réservé SQL, `users` ne l'est
+pas. Les requêtes écrites à la main n'ont plus à le quoter.
+
+Ce qui protège maintenant : le commentaire d'en-tête de `packages/db/prisma/schema.prisma`
+énonce la règle au pluriel et rappelle que les types enum restent au singulier.
+
+---
+
+**`pnpm --filter @clemperl/db db:migrate` ne peut pas fonctionner depuis l'hôte : le
+service `postgres` ne publie aucun port.**
+
+Le script existe dans `packages/db/package.json` et se lit comme la façon normale de
+créer une migration. Mais `DATABASE_URL` pointe vers l'hôte `postgres`, un nom qui
+n'existe que sur le réseau Docker : depuis la machine, il ne résout pas, et l'adresse IP
+du conteneur n'est pas routée non plus. Le service est délibérément non publié —
+contrairement à Redis, Mailpit et aux quatre applications.
+
+Constaté le 2026-09-19, en régénérant les migrations pour le passage au pluriel. `curl`
+et une ouverture TCP directe sur `172.20.0.2:5432` échouent toutes deux.
+
+Ce qui rend le piège difficile à voir : `migrate deploy` marche, lui — c'est le service
+`migrate` du compose qui le joue, **à l'intérieur** du réseau. Seule la CRÉATION d'une
+migration, qui se fait à la main, se heurte au mur.
+
+Ce qui marche : un conteneur jetable sur le réseau du compose, avec le dépôt monté et
+les dépendances déjà installées sur l'hôte.
+
+    docker run --rm --network clemperl_dev_default \
+      --user "$(id -u):$(id -g)" -v "$PWD":/app -w /app/packages/db \
+      -e DATABASE_URL="postgresql://clemperl:clemperl@postgres:5432/clemperl" \
+      -e HOME=/tmp \
+      node:24-bookworm-slim ./node_modules/.bin/prisma migrate dev --name <nom>
+
+`--user` n'est pas décoratif : sans lui, les fichiers de migration créés appartiennent à
+`root` sur l'hôte et ne peuvent plus être édités. `node:24-bookworm-slim` et non
+`-alpine` : les moteurs Prisma installés sur l'hôte sont liés à la glibc, et musl les
+refuse.

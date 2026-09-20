@@ -1,5 +1,6 @@
-// Source de vérité du modèle de données. Les noms de tables sont au singulier et
-// dans le schéma `public` : cloisonner par schémas PostgreSQL se décide avant les
+// Source de vérité du modèle de données. Les noms de tables sont au PLURIEL et dans le
+// schéma `public` ; les types enum restent au singulier, un type nommant la nature d'une
+// valeur et non une collection. Cloisonner par schémas PostgreSQL se décide avant les
 // premières migrations, pas après.
 //
 // La `datasource` ne porte pas d'URL : depuis Prisma 7, la connexion de Migrate
@@ -50,9 +51,7 @@ model User {
   sessions Session[]
   accounts Account[]
 
-  // `user` est un mot réservé en SQL. Prisma échappe les identifiants qu'il génère,
-  // donc les migrations passent ; toute requête écrite à la main doit quoter "user".
-  @@map("user")
+  @@map("users")
 }
 
 model Session {
@@ -71,7 +70,7 @@ model Session {
 
   @@unique([token])
   @@index([userId])
-  @@map("session")
+  @@map("sessions")
 }
 
 model Account {
@@ -92,7 +91,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map("account")
+  @@map("accounts")
 }
 
 model Verification {
@@ -104,5 +103,5 @@ model Verification {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@index([identifier])
-  @@map("verification")
+  @@map("verifications")
 }
