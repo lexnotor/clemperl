@@ -10,6 +10,7 @@ que nous construisons nous-mêmes, et un fichier de composition par environnemen
 | `docker-compose.dev.yml` | environnement de développement complet |
 | `postgres/` | image de la base, sa locale et sa configuration |
 | `redis/` | image de Redis, politique mémoire adaptée à BullMQ |
+| `storage/` | Supabase Storage, pièces justificatives des dossiers vendeurs |
 | `proxy/` | nginx : terminaison TLS et routage par nom d'hôte |
 
 **Le proxy de développement est nginx brut, et c'est délibéré.** Sa configuration vit
@@ -56,6 +57,7 @@ n'a pas à porter la complexité qui n'a de raison d'être qu'en production.
 | admin | `http://localhost:3002` |
 | api | `http://localhost:3003` |
 | Mailpit | `http://localhost:8025` |
+| Storage | `http://localhost:5010` |
 
 Les cookies de session ne sont pas isolés par port : une session ouverte sur 3000 vaut
 sur 3001 et 3002 sans autre réglage. C'est ce qui rend le proxy inutile ici.
@@ -63,6 +65,50 @@ sur 3001 et 3002 sans autre réglage. C'est ce qui rend le proxy inutile ici.
 Pour joindre la stack depuis un autre appareil du réseau — un téléphone, pour vérifier
 la réactivité de l'interface — remplacer `localhost` par la valeur de `DEV_HOST`, qui
 porte l'adresse locale de la machine.
+
+## Stockage des pièces
+
+Le service `storage` fait tourner **`supabase/storage-api`**, la même implémentation que
+Supabase en production. Le développement exerce donc le vrai chemin de code — même SDK,
+mêmes routes, mêmes URL signées — et seul le serveur en face change. Un adapter
+« fichiers sur volume » écrit à la main n'aurait pas donné cette garantie.
+
+**La CLI Supabase n'est pas une dépendance de ce dépôt.** Elle lève une dizaine de
+conteneurs dont un seul nous intéresse, et trois entrent en collision avec des décisions
+déjà prises : GoTrue contre Better Auth, son catcher de courriels contre Mailpit, sa base
+contre la nôtre. La configuration du service vient de `.env.sample` du dépôt
+`supabase/storage`.
+
+Le bucket `vendor-documents` est **privé** et créé au démarrage par le service
+`storage-init` : `pnpm docker:up` suffit, sur une machine neuve comme en CI.
+
+Les objets sont des fichiers ordinaires dans le volume `clemperl_dev_storage_data` :
+
+    docker exec clemperl_dev_storage find /var/lib/storage -type f
+
+### La clé de service est un JWT
+
+Il n'existe pas de « clé de service » à part : c'est un JWT `HS256` portant
+`role: service_role`, signé par `STORAGE_JWT_SECRET`. Celui de `.env.example` est une
+**constante du dépôt** — `iat` et `exp` fixes — pour valoir à l'identique sur toute
+machine. Il n'a aucune valeur de secret : il ne donne accès qu'à une stack locale.
+
+Pour en fabriquer un autre, par exemple après avoir changé le secret :
+
+```bash
+python3 - <<'FIN'
+import base64, hmac, hashlib, json
+SECRET = "le-secret-de-votre-env"
+b64 = lambda d: base64.urlsafe_b64encode(d).rstrip(b"=").decode()
+e = b64(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
+c = b64(json.dumps({"role": "service_role", "iss": "clemperl-dev",
+                    "iat": 1750000000, "exp": 2200000000}, separators=(",", ":")).encode())
+s = b64(hmac.new(SECRET.encode(), f"{e}.{c}".encode(), hashlib.sha256).digest())
+print(f"{e}.{c}.{s}")
+FIN
+```
+
+En production, le secret se tire au hasard et la clé de service vient du projet Supabase.
 
 ## Après l'ajout d'une dépendance
 

@@ -316,7 +316,7 @@ fois, à la main, sur une seule machine.**
 n'appliquait le schéma. Sur la machine de développement, les migrations avaient été
 jouées à la main pendant la tranche, une fois ; le volume les gardait, et tout
 fonctionnait. Sur un volume neuf — un poste qui démarre, un runner de CI — la table
-`user` n'existe pas, toute inscription échoue, aucun courriel ne part, et la suite
+des comptes n'existe pas, toute inscription échoue, aucun courriel ne part, et la suite
 Playwright tombe sur des messages qui parlent de Mailpit.
 
 Le symptôme accuse la mauvaise couche. Rien dans l'erreur ne nomme la migration.
@@ -365,3 +365,235 @@ Observé le 2026-09-18, sur `@clemperl/db#typecheck` en CI.
 Ce qui protège maintenant : `db:generate` est une tâche Turbo à part entière, avec
 `generated/**` en sortie, et `@clemperl/db#typecheck` comme `@clemperl/db#build` en
 dépendent explicitement.
+
+---
+
+**Les migrations de `supabase/storage-api` référencent le rôle `postgres` en dur, et
+`DB_SUPER_USER` ne couvre pas ce cas.**
+
+La migration `storage-schema` du service écrit des `GRANT` vers un rôle nommé
+littéralement `postgres`. Le réglage `DB_SUPER_USER` sert aux migrations qui le lisent,
+pas à celles qui codent le nom en dur — et notre instance PostgreSQL a `clemperl` pour
+superutilisateur, pas `postgres`.
+
+Observé le 2026-09-19, image `supabase/storage-api:v1.79.4`, à l'ajout du service au
+compose. Le conteneur démarrait puis restait `unhealthy` indéfiniment ; le message
+n'apparaissait qu'au fond d'un log JSON d'une seule ligne de 6 000 caractères, sous
+`"Reason: role \"postgres\" does not exist"`. `docker compose ps` se contentait
+d'afficher `unhealthy`, sans jamais dire pourquoi.
+
+Ce qui protège maintenant : `docker/postgres/init/10-storage.sql` crée le rôle
+`postgres` et lui donne la base `storage`, et le service pointe dessus. Ce script n'est
+joué qu'à la **création du volume** : le modifier sans `down -v` ne produit aucun effet,
+et laisse croire que la correction ne marche pas.
+
+---
+
+**Créer un bucket qui existe déjà renvoie HTTP 400, pas 409 : le 409 n'est que dans le
+corps de la réponse.**
+
+`POST /bucket` sur un nom déjà pris répond avec le statut HTTP `400` et un corps
+`{"statusCode":"409","code":"BucketAlreadyExists"}`. Un amorçage idempotent qui teste
+`response.status === 409`, ou même `response.ok`, conclut à un échec.
+
+Mesuré le 2026-09-19 sur `supabase/storage-api:v1.79.4`, en rejouant la création du
+bucket `vendor-documents`.
+
+Ce qui rend le piège difficile à voir : le premier démarrage d'une stack neuve réussit
+toujours. L'échec n'apparaît qu'au **second** `pnpm docker:up`, c'est-à-dire chez
+quelqu'un d'autre, ou le lendemain.
+
+Ce qui protège maintenant : le service `storage-init` du compose teste
+`code === "BucketAlreadyExists"` dans le corps, et non le statut HTTP.
+
+---
+
+**Un littéral de gabarit JavaScript dans une commande de `docker-compose.yml` est
+interpolé par Compose avant d'atteindre Node.**
+
+Compose substitue `${...}` dans tout le fichier, y compris à l'intérieur d'une commande.
+Une ligne `node -e "...'Bearer ${cle}'..."` voit donc `${cle}` remplacé par une chaîne
+vide, et Compose avertit « The "cle" variable is not set » — un avertissement, pas une
+erreur : le conteneur démarre et échoue plus loin, à l'authentification.
+
+Observé le 2026-09-19, en écrivant le service `storage-init`.
+
+Ce qui protège maintenant : ce script n'emploie que de la concaténation
+(`'Bearer ' + cle`). La règle vaut pour **toute** commande inline d'un compose, pas
+seulement celle-ci.
+
+---
+
+**`STORAGE_S3_BUCKET` sert de racine de chemin même avec le backend fichier, et son
+absence produit un répertoire nommé `undefined`.**
+
+Le nom trahit l'héritage S3 du service : la variable désigne la racine des objets quel
+que soit le backend. Sans elle, le chemin sur disque devient
+`/var/lib/storage/undefined/<tenant>/<bucket>/…`.
+
+Observé le 2026-09-19, en inspectant le volume après le premier téléversement réussi.
+
+Ce qui rend le piège difficile à voir : **rien ne casse.** Le téléversement, la
+relecture et les URL signées fonctionnent parfaitement avec `undefined` dans le chemin.
+Ce n'est découvert qu'en regardant le disque — donc, en général, jamais.
+
+Ce qui protège maintenant : `STORAGE_S3_BUCKET: clemperl` et `TENANT_ID: clemperl` dans
+le service `storage` du compose.
+
+---
+
+**Les tables sont au PLURIEL depuis le 2026-09-19, et le commentaire qui imposait de
+quoter `"user"` a disparu avec elles.**
+
+T0 avait décidé le singulier. T1b l'a renversé pendant que le coût était nul : quatre
+tables, aucune donnée réelle, aucun environnement persistant. Le renommage s'est fait en
+changeant les `@@map` **puis en régénérant** les migrations, jamais en réécrivant leur
+SQL à la main — Prisma dérive les noms d'index et de contraintes du nom de table mappé,
+et une réécriture manuelle aurait produit `users` avec `user_pkey`, une incohérence que
+personne ne remarque jusqu'au jour où elle gêne.
+
+Le piège n'est pas le renommage : c'est que **modifier une migration déjà appliquée fait
+échouer le prochain `migrate deploy` sur une somme de contrôle divergente**, stockée dans
+`_prisma_migrations`. Toute base de développement existante doit être détruite — et
+`pnpm docker:down` ne supprime PAS les volumes. La commande est
+`docker compose --env-file .env -f docker/docker-compose.dev.yml down -v`.
+
+Bénéfice collatéral, à ne pas défaire : `user` est un mot réservé SQL, `users` ne l'est
+pas. Les requêtes écrites à la main n'ont plus à le quoter.
+
+Ce qui protège maintenant : le commentaire d'en-tête de `packages/db/prisma/schema.prisma`
+énonce la règle au pluriel et rappelle que les types enum restent au singulier.
+
+---
+
+**`pnpm --filter @clemperl/db db:migrate` ne peut pas fonctionner depuis l'hôte : le
+service `postgres` ne publie aucun port.**
+
+Le script existe dans `packages/db/package.json` et se lit comme la façon normale de
+créer une migration. Mais `DATABASE_URL` pointe vers l'hôte `postgres`, un nom qui
+n'existe que sur le réseau Docker : depuis la machine, il ne résout pas, et l'adresse IP
+du conteneur n'est pas routée non plus. Le service est délibérément non publié —
+contrairement à Redis, Mailpit et aux quatre applications.
+
+Constaté le 2026-09-19, en régénérant les migrations pour le passage au pluriel. `curl`
+et une ouverture TCP directe sur `172.20.0.2:5432` échouent toutes deux.
+
+Ce qui rend le piège difficile à voir : `migrate deploy` marche, lui — c'est le service
+`migrate` du compose qui le joue, **à l'intérieur** du réseau. Seule la CRÉATION d'une
+migration, qui se fait à la main, se heurte au mur.
+
+Ce qui marche : un conteneur jetable sur le réseau du compose, avec le dépôt monté et
+les dépendances déjà installées sur l'hôte.
+
+    docker run --rm --network clemperl_dev_default \
+      --user "$(id -u):$(id -g)" -v "$PWD":/app -w /app/packages/db \
+      -e DATABASE_URL="postgresql://clemperl:clemperl@postgres:5432/clemperl" \
+      -e HOME=/tmp \
+      node:24-bookworm-slim ./node_modules/.bin/prisma migrate dev --name <nom>
+
+`--user` n'est pas décoratif : sans lui, les fichiers de migration créés appartiennent à
+`root` sur l'hôte et ne peuvent plus être édités. `node:24-bookworm-slim` et non
+`-alpine` : les moteurs Prisma installés sur l'hôte sont liés à la glibc, et musl les
+refuse.
+
+---
+
+**L'index unique partiel de `vendor_applications` est écrit à la main dans la migration,
+et `prisma migrate dev` ne cherche pas à le supprimer.**
+
+Prisma ne sait pas déclarer `UNIQUE (colonne) WHERE condition` dans un schéma. La
+contrainte « un seul dossier ouvert par candidat » est donc du SQL ajouté à la fin du
+fichier de migration, invisible depuis `schema.prisma`. La tentation, en la découvrant,
+est de la retirer pour « laisser Prisma gérer ». Ce serait rouvrir la porte à deux
+dossiers ouverts pour un même compte, créés par deux onglets — et aucune vérification
+applicative ne gagne cette course.
+
+La détection de dérive compare le schéma à une base fantôme où les migrations sont
+rejouées : l'index y existe aussi, donc Prisma répond « Already in sync » et ne propose
+rien. Vérifié en relançant `migrate dev` après application.
+
+Ce qui protège maintenant : le commentaire en tête du bloc SQL, dans
+`packages/db/prisma/migrations/20260919105104_vendor_applications/migration.sql`, et le
+test d'intégration qui rejoue deux dépôts simultanés.
+
+---
+
+**Un fichier couvert par la suite d'intégration compte pour zéro dans le rapport Vitest,
+et fait donc échouer le plancher du package.**
+
+Les deux couches ont deux exécuteurs : Vitest mesure les tests unitaires du package,
+Jest fait tourner l'intégration dans le conteneur `api`. Un repository de
+`@clemperl/db`, éprouvé uniquement contre un vrai PostgreSQL, apparaît à 0 % côté
+Vitest — et un plancher à 100 % refuse le run.
+
+Observé le 2026-09-19, à l'ajout de `dossier-vendeur.repository.ts` : cinq tests
+d'intégration au vert, et `pnpm test` en échec sur « Coverage for statements (32.5%)
+does not meet global threshold (100%) ».
+
+Le réflexe est de baisser le plancher. C'est exactement ce que le cliquet interdit, et
+ça détruirait aussi l'exigence sur les fichiers réellement couverts par Vitest. La
+sortie est d'exclure ces fichiers du rapport **en disant où ils sont couverts**, jamais
+de céder sur le chiffre.
+
+Ce qui protège maintenant : `src/repositories/**` est dans `coverage.exclude` de
+`packages/db/vitest.config.ts`, avec le commentaire qui renvoie à la couche
+d'intégration. Tout fichier ajouté là doit avoir sa suite d'intégration, sinon il n'est
+couvert nulle part et plus rien ne le signale.
+
+---
+
+**Un package qui touche un global de Node doit déclarer `types: ["node"]` : la `lib`
+ES2023 du tsconfig de base ne connaît ni `process`, ni `console`, ni `Blob`.**
+
+`@clemperl/tsconfig/base.json` fixe `lib: ["ES2023"]` et ne déclare aucun `types`.
+L'inclusion automatique des `@types/*` ne suffit pas de façon fiable dans ce workspace :
+un package qui écrit `process.env` compile tant qu'il hérite des types de la racine, et
+cesse de compiler dès qu'il possède son propre `node_modules/@types`. `apps/api` porte
+déjà `"types": ["node", "jest"]` pour cette raison.
+
+Observé le 2026-09-19, à l'ajout de l'accès au stockage dans `@clemperl/core` : six
+erreurs `TS2591: Cannot find name 'process'` et `TS2304: Cannot find name 'Blob'`.
+
+**Ce qui a rendu le piège coûteux, et qui est le vrai sujet : le cache de Turbo l'a
+masqué.** `pnpm lint`, `pnpm typecheck` et `pnpm test` sont restés verts, parce que
+`@clemperl/core#build` était un succès en cache, antérieur au fichier fautif. La faute
+n'est apparue qu'au `docker compose build`, où aucun cache n'existe — donc loin du
+changement, et attribuée d'abord à Docker.
+
+Devant une erreur de compilation qui n'apparaît qu'en conteneur, **reproduire d'abord
+hors cache** : `pnpm --filter <package> exec tsc -p tsconfig.build.json`. Si elle se
+reproduit, le conteneur n'y est pour rien.
+
+Ce qui protège maintenant : `packages/core/tsconfig.json` déclare `types: ["node"]` et
+`@types/node` figure dans ses propres `devDependencies`. Tout package qui se met à
+utiliser un global de Node doit faire les deux.
+
+---
+
+**Une définition `paquet#tâche` dans `turbo.json` REMPLACE la tâche générique au lieu de
+la compléter : `@clemperl/db#build` perdait ainsi ses `outputs`, et ne mettait donc rien
+en cache.**
+
+La tâche `build` générique déclare `outputs: ["dist/**"]`. L'entrée
+`"@clemperl/db#build"`, écrite pour ajouter une dépendance à `db:generate`, écrase
+entièrement cette définition — `outputs` compris. La tâche s'exécute correctement, mais
+son résultat n'entre jamais dans le cache.
+
+Le piège ne se déclenche qu'au **succès** du cache. Cache froid, la tâche tourne pour de
+vrai et `dist/` existe : tout va bien. Cache chaud, Turbo annonce `cache hit, replaying
+logs`, ne restaure rien, et `packages/db/dist` reste absent.
+
+Observé le 2026-09-20 en CI. L'erreur n'accuse jamais le coupable : elle sort du
+storefront, en `Module not found: Can't resolve '@clemperl/db'`, à dix fichiers de la
+cause. Reproduit localement en trois commandes — construire, supprimer `dist`,
+reconstruire : l'empreinte `236793e26dd1a27c` était identique à celle de la CI.
+
+Ce qui rend le piège durable : la CI restaure le cache par la clé de repli
+`turbo-build-`, donc n'importe quel run précédent. Une machine de développement qui a
+déjà construit une fois ne le reverra jamais.
+
+Ce qui protège maintenant : `@clemperl/db#build` déclare ses `outputs`. Toute entrée
+`paquet#tâche` doit réécrire **l'ensemble** de ce que la tâche générique donnait, jamais
+le seul champ qu'on veut changer. `@clemperl/db#typecheck` a repris `^build` pour la
+même raison : l'override l'avait fait disparaître, et le typage partait sans que ses
+dépendances soient construites.

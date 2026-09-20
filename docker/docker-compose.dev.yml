@@ -50,6 +50,80 @@ services:
       timeout: 3s
       retries: 10
 
+  # Pièces justificatives des dossiers vendeurs. Il a sa propre base : il y joue ses
+  # migrations et y installe ses rôles, ce qui mêlerait ses tables à celles de Prisma
+  # s'il partageait la nôtre.
+  storage:
+    container_name: clemperl_dev_storage
+    ports:
+      - "5010:5000"
+    build:
+      context: ..
+      dockerfile: docker/storage/Dockerfile
+    environment:
+      SERVER_PORT: 5000
+      SERVER_HOST: 0.0.0.0
+      SERVER_REGION: local
+      # Sans lui, les objets atterrissent sous un répertoire nommé `undefined`.
+      TENANT_ID: clemperl
+      AUTH_JWT_SECRET: ${STORAGE_JWT_SECRET}
+      AUTH_JWT_ALGORITHM: HS256
+      # Les migrations de storage-api référencent le rôle `postgres` en dur, quel que
+      # soit `DB_SUPER_USER` : le script d'init de PostgreSQL le crée pour elles.
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/storage
+      DB_INSTALL_ROLES: "true"
+      DB_SUPER_USER: postgres
+      STORAGE_BACKEND: file
+      STORAGE_FILE_BACKEND_PATH: /var/lib/storage
+      # Racine des objets sur le disque malgré son nom : le backend fichier s'en sert
+      # aussi comme premier segment de chemin.
+      STORAGE_S3_BUCKET: clemperl
+      # La même valeur que le domaine applique : un plafond plus bas ici produirait un
+      # refus que le message métier n'expliquerait pas.
+      UPLOAD_FILE_SIZE_LIMIT: "5242880"
+      UPLOAD_FILE_SIZE_LIMIT_STANDARD: "5242880"
+      IMAGE_TRANSFORMATION_ENABLED: "false"
+    volumes:
+      - storage_data:/var/lib/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # `node` plutôt que `curl` ou `wget`, que l'image ne garantit pas.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:5000/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Crée le bucket au démarrage, pour que `pnpm docker:up` suffise sur une machine
+  # neuve. Doit rester idempotent : une création en double répond HTTP 400, le 409
+  # n'étant que dans le corps — d'où le test sur `BucketAlreadyExists` et non sur le
+  # statut. Et pas de littéral de gabarit dans ce script : Compose interpole `${...}`
+  # avant que node ne le voie.
+  storage-init:
+    container_name: clemperl_dev_storage_init
+    build:
+      context: ..
+      dockerfile: docker/storage/Dockerfile
+    environment:
+      STORAGE_SERVICE_KEY: ${STORAGE_SERVICE_KEY}
+      STORAGE_BUCKET: ${STORAGE_BUCKET}
+    depends_on:
+      storage:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      - node
+      - -e
+      - >-
+        const cle=process.env.STORAGE_SERVICE_KEY,seau=process.env.STORAGE_BUCKET;fetch('http://storage:5000/bucket',{method:'POST',headers:{Authorization:'Bearer '+cle,'Content-Type':'application/json'},body:JSON.stringify({name:seau,public:false})}).then(function(r){return r.json().then(function(c){return{r:r,c:c};});}).then(function(x){if(x.r.ok||x.c.code==='BucketAlreadyExists'){console.log('bucket '+seau+' pret');return;}console.error(x.c);process.exit(1);}).catch(function(e){console.error(e);process.exit(1);});
+
   # Déploie les migrations, puis s'arrête. Les quatre applications l'attendent : sur un
   # volume neuf — une machine qui démarre, un runner de CI — la base est vide, et sans
   # cette étape la première inscription échoue sur une table qui n'existe pas. Jouer les
@@ -96,6 +170,7 @@ services:
     volumes:
       - ../apps/storefront/src:/app/apps/storefront/src
       - ../packages/core/src:/app/packages/core/src
+      - ../packages/domain/src:/app/packages/domain/src
       - ../packages/ui/src:/app/packages/ui/src
       - ../packages/i18n/src:/app/packages/i18n/src
       - ../packages/i18n/messages:/app/packages/i18n/messages
@@ -185,6 +260,7 @@ services:
       - ../packages/core/src:/app/packages/core/src
       - ../packages/db/src:/app/packages/db/src
       - ../packages/db/prisma:/app/packages/db/prisma
+      - ../packages/domain/src:/app/packages/domain/src
       # Testcontainers démarre de vrais conteneurs : il lui faut le démon Docker.
       # Les conteneurs qu'il crée sont FRÈRES de celui-ci, pas enfants — ils ne sont
       # donc joignables ni par localhost ni par un port publié, mais par leur adresse
@@ -202,6 +278,8 @@ services:
       start_period: 90s
 
 volumes:
+  storage_data:
+    name: clemperl_dev_storage_data
   pg_data:
     name: clemperl_dev_pg_data
   redis_data:

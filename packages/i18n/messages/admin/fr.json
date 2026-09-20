@@ -1,1 +1,25 @@
-{ "accueil": { "titre": "Administration ClemPerl" } }
+{
+  "accueil": {
+    "titre": "Administration ClemPerl"
+  },
+  "errors": {
+    "vendor_application": {
+      "forbidden_transition": "Ce dossier a déjà été traité.",
+      "missing_document": "Il manque une pièce obligatoire : {nature}.",
+      "duplicate_document": "Une seule pièce est attendue pour : {nature}.",
+      "document_too_large": "La pièce {nature} dépasse la taille maximale autorisée.",
+      "unsupported_media_type": "Le format de la pièce {nature} n'est pas accepté. Déposez un PDF, un JPEG ou un PNG.",
+      "reason_required": "Un refus doit indiquer un motif.",
+      "reason_forbidden_on_accept": "Une acceptation ne porte pas de motif de refus.",
+      "comment_required": "Le motif « autre » demande un commentaire.",
+      "self_decision": "Vous ne pouvez pas décider sur votre propre dossier."
+    }
+  },
+  "vendeur": {
+    "piece": {
+      "REGISTRY": "Registre de commerce",
+      "IDENTITY": "Pièce d'identité",
+      "TAX": "Attestation fiscale"
+    }
+  }
+}

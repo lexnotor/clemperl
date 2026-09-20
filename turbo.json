@@ -15,7 +15,10 @@
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "NEXT_PUBLIC_GOOGLE_ACTIF",
-    "COOKIE_DOMAIN"
+    "COOKIE_DOMAIN",
+    "STORAGE_URL",
+    "STORAGE_BUCKET",
+    "STORAGE_SERVICE_KEY"
   ],
   "tasks": {
     "build": {
@@ -57,6 +60,7 @@
     },
     "@clemperl/db#typecheck": {
       "dependsOn": [
+        "^build",
         "db:generate"
       ]
     },
@@ -64,6 +68,9 @@
       "dependsOn": [
         "^build",
         "db:generate"
+      ],
+      "outputs": [
+        "dist/**"
       ]
     }
   }

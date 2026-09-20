@@ -1,5 +1,6 @@
-// Source de vérité du modèle de données. Les noms de tables sont au singulier et
-// dans le schéma `public` : cloisonner par schémas PostgreSQL se décide avant les
+// Source de vérité du modèle de données. Les noms de tables sont au PLURIEL et dans le
+// schéma `public` ; les types enum restent au singulier, un type nommant la nature d'une
+// valeur et non une collection. Cloisonner par schémas PostgreSQL se décide avant les
 // premières migrations, pas après.
 //
 // La `datasource` ne porte pas d'URL : depuis Prisma 7, la connexion de Migrate
@@ -50,9 +51,11 @@ model User {
   sessions Session[]
   accounts Account[]
 
-  // `user` est un mot réservé en SQL. Prisma échappe les identifiants qu'il génère,
-  // donc les migrations passent ; toute requête écrite à la main doit quoter "user".
-  @@map("user")
+  vendorApplications VendorApplication[]
+  vendorDecisions    VendorDecision[]    @relation("DecisionsRendues")
+  vendorMemberships  VendorMember[]
+
+  @@map("users")
 }
 
 model Session {
@@ -71,7 +74,7 @@ model Session {
 
   @@unique([token])
   @@index([userId])
-  @@map("session")
+  @@map("sessions")
 }
 
 model Account {
@@ -92,7 +95,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map("account")
+  @@map("accounts")
 }
 
 model Verification {
@@ -104,5 +107,183 @@ model Verification {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@index([identifier])
-  @@map("verification")
+  @@map("verifications")
+}
+
+enum E_VENDOR_APPLICATION_STATUS {
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+
+  @@map("vendor_application_status")
+}
+
+enum E_VENDOR_DECISION {
+  ACCEPTED
+  REJECTED
+
+  @@map("vendor_decision")
+}
+
+enum E_VENDOR_REJECTION_REASON {
+  INCOMPLETE_FILE
+  UNREADABLE_DOCUMENT
+  IDENTITY_MISMATCH
+  INELIGIBLE_ACTIVITY
+  OTHER
+
+  @@map("vendor_rejection_reason")
+}
+
+enum E_VENDOR_DOCUMENT_KIND {
+  REGISTRY
+  IDENTITY
+  TAX
+
+  @@map("vendor_document_kind")
+}
+
+enum E_VENDOR_MEMBER_ROLE {
+  OWNER
+  MANAGER
+
+  @@map("vendor_member_role")
+}
+
+// Ce que le candidat annonce vouloir vendre. La taxonomie produit de T2 sera un autre
+// objet : les fusionner ferait dépendre le catalogue d'une déclaration d'intention.
+enum E_VENDOR_CATEGORY {
+  APPAREL
+  JEWELLERY
+  LEATHER_GOODS
+
+  @@map("vendor_category")
+}
+
+// Le dossier est l'instantané de ce qui a été déclaré au dépôt. Il n'est jamais
+// resynchronisé depuis la boutique : les champs communs aux deux tables sont deux
+// vérités à deux dates.
+model VendorApplication {
+  id          String                      @id @default(cuid(2))
+  applicantId String                      @map("applicant_id")
+  status      E_VENDOR_APPLICATION_STATUS @default(SUBMITTED)
+
+  // La décision part de l'administration, qui travaille en français et ignore la langue
+  // du candidat.
+  locale String
+
+  shopName        String              @map("shop_name")
+  shopDescription String              @map("shop_description")
+  contactEmail    String              @map("contact_email")
+  contactPhone    String              @map("contact_phone")
+  categories      E_VENDOR_CATEGORY[]
+
+  legalForm          String  @map("legal_form")
+  legalName          String  @map("legal_name")
+  registrationNumber String  @map("registration_number")
+  taxNumber          String? @map("tax_number")
+  country            String
+
+  submittedAt DateTime  @map("submitted_at")
+  decidedAt   DateTime? @map("decided_at")
+  vendorId    String?   @unique @map("vendor_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // `Restrict` : supprimer un compte ne doit pas effacer la trace d'une décision
+  // administrative.
+  applicant User             @relation(fields: [applicantId], references: [id], onDelete: Restrict)
+  vendor    Vendor?          @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  documents VendorDocument[]
+  decisions VendorDecision[]
+
+  @@index([applicantId])
+  @@index([status, submittedAt])
+  @@map("vendor_applications")
+}
+
+model VendorDocument {
+  id            String                 @id @default(cuid(2))
+  applicationId String                 @map("application_id")
+  kind          E_VENDOR_DOCUMENT_KIND
+  objectPath    String                 @map("object_path")
+  mimeType      String                 @map("mime_type")
+  sizeBytes     Int                    @map("size_bytes")
+
+  // Pour l'affichage seulement : le nom de l'objet stocké est généré.
+  originalName String @map("original_name")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  application VendorApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  // Une pièce par nature : c'est ce qui fait de la resoumission un remplacement et non
+  // un empilement.
+  @@unique([applicationId, kind])
+  @@map("vendor_documents")
+}
+
+// Journal en ajout seul, d'où l'absence d'`updatedAt` : `createdAt` est la date de la
+// décision, et une décision ne se modifie pas.
+model VendorDecision {
+  id            String                     @id @default(cuid(2))
+  applicationId String                     @map("application_id")
+  decision      E_VENDOR_DECISION
+  reason        E_VENDOR_REJECTION_REASON?
+  comment       String?
+  decidedById   String                     @map("decided_by_id")
+  createdAt     DateTime                   @default(now()) @map("created_at")
+
+  application VendorApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  decidedBy   User              @relation("DecisionsRendues", fields: [decidedById], references: [id], onDelete: Restrict)
+
+  @@index([applicationId, createdAt])
+  @@map("vendor_decisions")
+}
+
+// Sans statut : une ligne ici EST un vendeur validé, il n'y a donc jamais de filtre à
+// oublier ailleurs.
+model Vendor {
+  id   String @id @default(cuid(2))
+  slug String @unique
+
+  shopName        String              @map("shop_name")
+  shopDescription String              @map("shop_description")
+  contactEmail    String              @map("contact_email")
+  contactPhone    String              @map("contact_phone")
+  categories      E_VENDOR_CATEGORY[]
+
+  legalForm          String  @map("legal_form")
+  legalName          String  @map("legal_name")
+  registrationNumber String  @map("registration_number")
+  taxNumber          String? @map("tax_number")
+  country            String
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  application VendorApplication?
+  members     VendorMember[]
+
+  @@map("vendors")
+}
+
+model VendorMember {
+  id       String               @id @default(cuid(2))
+  vendorId String               @map("vendor_id")
+  userId   String               @map("user_id")
+  role     E_VENDOR_MEMBER_ROLE
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, userId])
+  @@index([userId])
+  @@map("vendor_members")
 }

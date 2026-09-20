@@ -17,12 +17,14 @@
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput"
   },
   "dependencies": {
+    "@supabase/storage-js": "^2.116.0",
     "nodemailer": "10.0.10",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@clemperl/eslint-config": "workspace:*",
     "@clemperl/tsconfig": "workspace:*",
+    "@types/node": "^26.6.1",
     "@types/nodemailer": "8.0.2",
     "@vitest/coverage-v8": "5.0.1",
     "eslint": "10.10.0",

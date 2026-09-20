@@ -10,4 +10,8 @@ FROM postgres:17-alpine
 ENV LANG=fr_FR.UTF-8
 ENV POSTGRES_INITDB_ARGS="--encoding=UTF8 --locale=C"
 
+# Les scripts d'initialisation ne sont joués qu'à la création du volume, jamais sur une
+# base déjà peuplée : changer ce dossier impose un `down -v` pour qu'il prenne effet.
+COPY docker/postgres/init/ /docker-entrypoint-initdb.d/
+
 EXPOSE 5432

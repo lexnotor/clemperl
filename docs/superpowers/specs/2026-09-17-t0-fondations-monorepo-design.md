@@ -459,6 +459,11 @@ Conventions posées dès T0, parce qu'elles sont coûteuses à changer ensuite :
 
 - Identifiants **cuid2** — non devinables, triables, sûrs à exposer dans une URL
 - **camelCase** en TypeScript, **snake_case** en base, via `@map` / `@@map`
+> **Renversé par T1b le 2026-09-19** : les tables sont désormais au **pluriel**
+> (`users`, `vendor_applications`), les types enum restant au singulier. Les deux
+> migrations de T0 ont été régénérées en une seule. Voir
+> `2026-09-19-t1b-vendeurs-design.md`, section 4.
+
 - Noms de tables au **singulier** (`user`, `product_variant`), toutes dans le schéma
   `public` : pas de schémas par domaine
 - `createdAt` et `updatedAt` sur toutes les tables

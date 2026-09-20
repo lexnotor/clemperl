@@ -10,12 +10,18 @@ export default defineConfig({
             // importé n'apparaît pas dans le rapport, donc le plancher ne le voit pas —
             // et c'est exactement le cas d'un nouveau fichier livré sans test.
             include: ["src/**/*.{ts,tsx}"],
-            exclude: ["**/index.ts", "**/*.config.ts", "**/test-setup.ts"],
-            // Plancher : la couverture MESURÉE le 2026-09-18, pas une valeur souhaitée.
-            // Il monte, jamais il ne descend. Ce 100 % est le produit du TDD sur un
-            // périmètre réduit — il devra peut-être être desserré quand arrivera du code
-            // dont la couverture intégrale n'a pas de valeur.
-            thresholds: { statements: 61, branches: 66, functions: 66, lines: 61 },
+            // L'accès au stockage est couvert par la suite d'INTÉGRATION, qui parle au vrai
+            // service depuis le conteneur `api`. Ce qu'il garantit — les politiques du
+            // bucket, le refus d'écrasement, les erreurs du client — ne se prouve pas
+            // avec un substitut. Le calcul de chemin, lui, est pur et reste mesuré ici.
+            exclude: [
+                "**/index.ts",
+                "**/*.config.ts",
+                "**/test-setup.ts",
+                "src/utils/stockage-pieces.utils.ts",
+            ],
+            // Plancher mesuré, pas souhaité.
+            thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
         },
     },
 });

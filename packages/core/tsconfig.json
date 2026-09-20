@@ -1,4 +1,9 @@
 {
   "extends": "@clemperl/tsconfig/base.json",
+  "compilerOptions": {
+    // Ce package manipule des globals de Node — `process`, `console`, `Blob`,
+    // `node:crypto` — que la `lib` ES2023 seule ne connaît pas.
+    "types": ["node"]
+  },
   "include": ["src/**/*.ts"]
 }

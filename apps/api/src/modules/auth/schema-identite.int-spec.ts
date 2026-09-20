@@ -23,7 +23,7 @@ describe("schéma d'identité", () => {
         // TypeScript, qui a disparu à l'exécution.
         await expect(
             prisma.$executeRawUnsafe(
-                `INSERT INTO "user" (id, email, role, created_at, updated_at)
+                `INSERT INTO users (id, email, role, created_at, updated_at)
                  VALUES ('rôle-invalide', 'role@clemperl.test', 'SUPERVISEUR', NOW(), NOW())`,
             ),
         ).rejects.toThrow();
