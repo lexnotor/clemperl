@@ -332,10 +332,25 @@ mais livrés en français seul ». Donc `next-intl` avec `fr` pour seule locale 
 préfixe `never` — des URL sans `/fr`, et l'ajout de l'anglais un jour ne coûtera qu'un
 catalogue et une ligne de configuration. Avec ça : une mise en page, et la garde.
 
+### Le rôle voyage dans la session
+
+`role` est une colonne de `users` que Better Auth n'exposait pas : T1a ne l'avait pas
+déclarée. Elle passe désormais par ses `additionalFields`, avec **`input: false`**. Ce
+réglage n'est pas une précaution de style : sans lui, le rôle fait partie du corps
+accepté à l'inscription, et n'importe qui s'inscrit en se déclarant administrateur.
+
+Sans cela, chaque garde devrait interroger la base à chaque rendu pour connaître le rôle
+de l'utilisateur courant.
+
 ### La garde est une fonction appelée, pas un layout qui protège
 
-`apps/admin` n'a aucune page publique. La tentation est de placer le contrôle dans le
-layout racine et de ne plus y penser : c'est précisément ce qu'il ne faut pas faire. Un
+**Une exception, et une seule** : la page d'accueil de `apps/admin` reste ouverte. Ce
+n'est pas un écran d'administration — c'est la sonde posée par T1a pour constater qu'une
+session ouverte sur la boutique vaut sur les trois fronts, et la suite bout en bout s'en
+sert. La garder ouverte préserve une garantie déjà livrée ; l'administration proprement
+dite vit sous `/applications` et `/setup`, toutes deux gardées.
+
+Pour le reste, la tentation est de placer le contrôle dans le layout racine et de ne plus y penser : c'est précisément ce qu'il ne faut pas faire. Un
 layout ne s'interpose pas de façon garantie devant tout ce qu'il enveloppe, et une garde
 qui *semble* protéger est pire qu'une garde absente.
 

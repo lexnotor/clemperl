@@ -89,7 +89,20 @@
       },
       "descriptionHint": "Dites ce que vous fabriquez ou revendez, et ce qui distingue votre travail.",
       "chooseFile": "Choisir un fichier",
-      "noFileChosen": "Aucun fichier choisi"
+      "noFileChosen": "Aucun fichier choisi",
+      "resubmit": "Renvoyer ma demande",
+      "documentsUnchanged": "Laissez un champ vide pour conserver la pièce déjà déposée.",
+      "rejected": {
+        "title": "Votre demande demande une correction",
+        "instruction": "Corrigez ce qui est signalé, puis renvoyez votre dossier. Vos réponses précédentes sont conservées."
+      }
+    },
+    "rejectionReason": {
+      "INCOMPLETE_FILE": "Le dossier est incomplet.",
+      "UNREADABLE_DOCUMENT": "Une pièce est illisible.",
+      "IDENTITY_MISMATCH": "L'identité déclarée ne correspond pas aux pièces.",
+      "INELIGIBLE_ACTIVITY": "L'activité ne relève pas de cette place de marché.",
+      "OTHER": "Autre motif."
     }
   },
   "errors": {
@@ -105,7 +118,8 @@
       "self_decision": "Vous ne pouvez pas décider sur votre propre dossier.",
       "invalid_field": "Le champ « {field} » est invalide.",
       "already_open": "Vous avez déjà une demande en cours d'examen.",
-      "submit_failed": "Votre demande n'a pas pu être enregistrée. Réessayez dans un instant."
+      "submit_failed": "Votre demande n'a pas pu être enregistrée. Réessayez dans un instant.",
+      "not_resubmittable": "Ce dossier ne peut pas être renvoyé en l'état."
     }
   }
 }

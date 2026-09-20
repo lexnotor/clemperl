@@ -3,6 +3,7 @@
 import { Button, Field } from "@clemperl/ui";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type JSX } from "react";
 import { authClient } from "../../../../lib/auth-client";
 
@@ -16,6 +17,7 @@ export default function SignInPage(): JSX.Element {
     const t = useTranslations("auth.signIn");
     const tErrors = useTranslations("auth.errors");
     const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
 
     async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
@@ -44,7 +46,13 @@ export default function SignInPage(): JSX.Element {
         // rediriger vers un site tiers après une connexion réussie.
         const next = new URLSearchParams(window.location.search).get("next");
         const internal = next?.startsWith("/") === true && !next.startsWith("//");
-        window.location.href = internal ? (next as string) : "/";
+
+        // `router` et non `window.location` : ce dernier recharge tout le document, ce
+        // qui inflige un écran blanc et rend la navigation incontrôlable. `refresh()`
+        // fait relire la session aux composants serveur, ce qui est la seule raison pour
+        // laquelle un rechargement complet semblait nécessaire.
+        router.replace(internal ? (next as string) : "/");
+        router.refresh();
     }
 
     return (

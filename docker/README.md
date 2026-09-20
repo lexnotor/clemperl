@@ -110,6 +110,15 @@ FIN
 
 En production, le secret se tire au hasard et la clé de service vient du projet Supabase.
 
+## Premier administrateur
+
+Aucun compte n'est semé. Sur une base vierge, `http://localhost:3002/setup` crée le
+premier administrateur ; la page **disparaît définitivement** dès qu'il en existe un, et
+`/applications` y renvoie tant qu'il n'y en a aucun.
+
+Sa seule barrière est cette absence. En production, ouvrir l'administration
+immédiatement après le déploiement, avant que l'adresse ne circule.
+
 ## Après l'ajout d'une dépendance
 
     pnpm docker:down && docker volume rm clemperl_dev_pg_data   # si besoin

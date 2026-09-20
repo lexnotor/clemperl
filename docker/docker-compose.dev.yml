@@ -169,6 +169,7 @@ services:
     env_file: ../.env
     volumes:
       - ../apps/storefront/src:/app/apps/storefront/src
+      - ../packages/auth/src:/app/packages/auth/src
       - ../packages/core/src:/app/packages/core/src
       - ../packages/domain/src:/app/packages/domain/src
       - ../packages/ui/src:/app/packages/ui/src
@@ -197,6 +198,7 @@ services:
     env_file: ../.env
     volumes:
       - ../apps/vendor/src:/app/apps/vendor/src
+      - ../packages/auth/src:/app/packages/auth/src
       - ../packages/core/src:/app/packages/core/src
       - ../packages/ui/src:/app/packages/ui/src
       - ../packages/i18n/messages:/app/packages/i18n/messages
@@ -222,7 +224,9 @@ services:
     env_file: ../.env
     volumes:
       - ../apps/admin/src:/app/apps/admin/src
+      - ../packages/auth/src:/app/packages/auth/src
       - ../packages/core/src:/app/packages/core/src
+      - ../packages/domain/src:/app/packages/domain/src
       - ../packages/ui/src:/app/packages/ui/src
       - ../packages/i18n/messages:/app/packages/i18n/messages
     depends_on:
@@ -257,6 +261,7 @@ services:
       - ../apps/api/jest.config.integration.ts:/app/apps/api/jest.config.integration.ts
       - ../apps/api/jest.config.contract.ts:/app/apps/api/jest.config.contract.ts
       - ../apps/api/jest.config.e2e.ts:/app/apps/api/jest.config.e2e.ts
+      - ../packages/auth/src:/app/packages/auth/src
       - ../packages/core/src:/app/packages/core/src
       - ../packages/db/src:/app/packages/db/src
       - ../packages/db/prisma:/app/packages/db/prisma

@@ -2,12 +2,14 @@
 
 import { Button, Field } from "@clemperl/ui";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type JSX } from "react";
 import { authClient } from "../../../../lib/auth-client";
 
 export default function ResetPasswordPage(): JSX.Element {
     const t = useTranslations("auth.resetPassword");
     const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
 
     async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
@@ -24,7 +26,7 @@ export default function ResetPasswordPage(): JSX.Element {
             setError(t("expiredLink"));
             return;
         }
-        window.location.href = "/sign-in";
+        router.replace("/sign-in");
     }
 
     return (

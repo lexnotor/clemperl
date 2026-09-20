@@ -1,23 +1,8 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-import { URL_MAILPIT, URL_STOREFRONT } from "../playwright.config";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { URL_STOREFRONT } from "../playwright.config";
+import { linkFor } from "./helpers/accounts";
 
 const PASSWORD = "motdepasse123";
-
-// Cherche le courriel par destinataire plutôt que de prendre le dernier arrivé : les
-// tests partagent une seule boîte Mailpit, et « le dernier » désigne un autre message
-// dès que deux tests s'exécutent en parallèle.
-async function lastLinkFor(request: APIRequestContext, address: string): Promise<string> {
-    const search = await request.get(
-        `${URL_MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}`,
-    );
-    const [message] = (await search.json()).messages as { ID: string }[];
-    expect(message, `aucun courriel reçu pour ${address}`).toBeDefined();
-
-    const content = await request.get(`${URL_MAILPIT}/api/v1/message/${message?.ID}`);
-    const link = /https?:\/\/\S+/.exec((await content.json()).Text)?.[0];
-    expect(link, "le courriel ne contient aucun lien").toBeTruthy();
-    return link as string;
-}
 
 // Passe par le VRAI formulaire, pas par l'API. Un appel HTTP direct prouverait que le
 // gestionnaire répond, pas que la page fonctionne : c'est précisément l'écart où s'est
@@ -43,6 +28,12 @@ function formError(page: Page): Locator {
 // en dit, interrogé avec les cookies du navigateur — pas par un pixel à l'écran.
 async function waitForOpenSession(page: Page, address: string): Promise<void> {
     await page.waitForURL(`${URL_STOREFRONT}/`);
+    // Attendre l'URL ne suffit pas, ni même l'état `load` : la connexion navigue par
+    // `window.location.href`, et une SECONDE navigation vers la même adresse suit.
+    // Repartir pendant celle-là l'avorte, et Chromium accuse la page d'arrivée.
+    // Attendre un élément RENDU prouve que le document est posé — et dit au passage
+    // quelque chose de vrai sur la page, ce que l'URL seule ne fait pas.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("ClemPerl");
     const response = await page.request.get(`${URL_STOREFRONT}/api/auth/get-session`);
     expect((await response.json())?.user?.email).toBe(address);
 }
@@ -63,7 +54,7 @@ test("l'inscription envoie un courriel, et la connexion est refusée tant qu'on 
 
     // Critère 1 : le courriel part réellement. Un compte créé sans courriel envoyé est
     // un compte que personne ne peut activer.
-    await lastLinkFor(request, address);
+    await linkFor(request, address, "/api/auth/verify-email");
 
     // Critère 2 : le refus est explicite et en français. Le message générique
     // « identifiants incorrects » enverrait l'utilisateur vérifier un mot de passe
@@ -78,7 +69,7 @@ test("après vérification, la connexion aboutit", async ({ page, request }) => 
     const address = `verifie-${Date.now()}@exemple.test`;
     await signUp(page, address);
 
-    await page.goto(await lastLinkFor(request, address));
+    await page.goto(await linkFor(request, address, "/api/auth/verify-email"));
     await signIn(page, address, PASSWORD);
 
     // Critère 3 : la boutique reconnaît la session côté serveur. Vérifier l'absence
@@ -93,14 +84,14 @@ test("la réinitialisation de mot de passe fonctionne de bout en bout", async ({
     const address = `oubli-${Date.now()}@exemple.test`;
     const newPassword = "nouveaumotdepasse456";
     await signUp(page, address);
-    await page.goto(await lastLinkFor(request, address));
+    await page.goto(await linkFor(request, address, "/api/auth/verify-email"));
 
     await page.goto(`${URL_STOREFRONT}/forgot-password`);
     await page.locator("input[name='email']").fill(address);
     await page.getByRole("button", { name: "Recevoir un lien" }).click();
     await expect(page.getByText("un courriel vient de partir")).toBeVisible();
 
-    await page.goto(await lastLinkFor(request, address));
+    await page.goto(await linkFor(request, address, "/api/auth/reset-password"));
     await page.locator("input[name='password']").fill(newPassword);
     await page.getByRole("button", { name: "Enregistrer" }).click();
 
@@ -109,14 +100,13 @@ test("la réinitialisation de mot de passe fonctionne de bout en bout", async ({
     await signIn(page, address, newPassword);
     await waitForOpenSession(page, address);
 
-    // La déconnexion passe par une requête émise DEPUIS la page : Better Auth refuse
-    // un appel sans en-tête `Origin` reconnu.
-    await page.evaluate(async () => {
-        await fetch("/api/auth/sign-out", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: "{}",
-        });
+    // Better Auth refuse un appel sans en-tête `Origin` reconnu, d'où cet en-tête posé
+    // à la main. L'émettre depuis la page par `evaluate` marcherait aussi, mais la
+    // navigation qui suit part alors pendant que la requête est encore en vol, et
+    // Chromium l'avorte.
+    await page.request.post(`${URL_STOREFRONT}/api/auth/sign-out`, {
+        headers: { Origin: URL_STOREFRONT, "Content-Type": "application/json" },
+        data: {},
     });
     await signIn(page, address, PASSWORD);
     await expect(formError(page)).toHaveText("Adresse e-mail ou mot de passe incorrect.");

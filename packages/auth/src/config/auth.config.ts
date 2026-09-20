@@ -88,6 +88,18 @@ export const auth = betterAuth({
         },
     },
 
+    // Le rôle vit sur le compte et doit voyager dans la session : sans lui, chaque garde
+    // devrait interroger la base à chaque rendu.
+    //
+    // `input: false` n'est pas une précaution de style : sans lui, le rôle fait partie
+    // du corps accepté à l'inscription, et n'importe qui s'inscrit en se déclarant
+    // administrateur.
+    user: {
+        additionalFields: {
+            role: { type: "string", input: false, defaultValue: "CUSTOMER" },
+        },
+    },
+
     socialProviders: fournisseursSociaux,
 
     advanced: {

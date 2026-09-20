@@ -17,7 +17,10 @@
     "docker:up": "docker compose --env-file .env -f docker/docker-compose.dev.yml up -d --build",
     "docker:down": "docker compose --env-file .env -f docker/docker-compose.dev.yml down",
     "docker:logs": "docker compose --env-file .env -f docker/docker-compose.dev.yml logs -f",
-    "docker:ps": "docker compose --env-file .env -f docker/docker-compose.dev.yml ps"
+    "docker:ps": "docker compose --env-file .env -f docker/docker-compose.dev.yml ps",
+    "e2e:up": "docker compose --env-file .env -f docker/docker-compose.dev.yml -f docker/docker-compose.e2e.yml up -d --build",
+    "e2e:down": "docker compose --env-file .env -f docker/docker-compose.dev.yml -f docker/docker-compose.e2e.yml down",
+    "e2e:logs": "docker compose --env-file .env -f docker/docker-compose.dev.yml -f docker/docker-compose.e2e.yml logs -f"
   },
   "devDependencies": {
     "@clemperl/eslint-config": "workspace:*",

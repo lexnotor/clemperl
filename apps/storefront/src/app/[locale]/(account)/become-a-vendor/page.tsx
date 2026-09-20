@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { requireVerifiedSession } from "../../../../lib/session";
 import { ApplicationApproved } from "./components/application-approved";
 import { ApplicationForm } from "./components/application-form";
+import { ApplicationRejected } from "./components/application-rejected";
 import { ApplicationUnderReview } from "./components/application-under-review";
 
 // Une seule adresse, plusieurs états. Deux routes obligeraient un lien de navigation à
@@ -19,6 +20,29 @@ export default async function BecomeAVendorPage(): Promise<JSX.Element> {
 
     if (application?.status === "SUBMITTED") {
         return <ApplicationUnderReview since={application.submittedAt} />;
+    }
+
+    if (application?.status === "REJECTED") {
+        const [decision] = application.decisions;
+        return (
+            <ApplicationRejected
+                reason={decision?.reason ?? null}
+                comment={decision?.comment ?? null}
+                values={{
+                    applicationId: application.id,
+                    shopName: application.shopName,
+                    shopDescription: application.shopDescription,
+                    contactEmail: application.contactEmail,
+                    contactPhone: application.contactPhone,
+                    categories: application.categories,
+                    legalForm: application.legalForm,
+                    legalName: application.legalName,
+                    registrationNumber: application.registrationNumber,
+                    taxNumber: application.taxNumber,
+                    country: application.country,
+                }}
+            />
+        );
     }
 
     return (

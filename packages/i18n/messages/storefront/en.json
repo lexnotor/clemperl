@@ -89,7 +89,20 @@
       },
       "descriptionHint": "Say what you make or resell, and what sets your work apart.",
       "chooseFile": "Choose a file",
-      "noFileChosen": "No file chosen"
+      "noFileChosen": "No file chosen",
+      "resubmit": "Send my application again",
+      "documentsUnchanged": "Leave a field empty to keep the document already submitted.",
+      "rejected": {
+        "title": "Your application needs a correction",
+        "instruction": "Correct what is flagged, then send your application again. Your previous answers are kept."
+      }
+    },
+    "rejectionReason": {
+      "INCOMPLETE_FILE": "The application is incomplete.",
+      "UNREADABLE_DOCUMENT": "A document is unreadable.",
+      "IDENTITY_MISMATCH": "The declared identity does not match the documents.",
+      "INELIGIBLE_ACTIVITY": "The activity does not belong on this marketplace.",
+      "OTHER": "Other reason."
     }
   },
   "errors": {
@@ -105,7 +118,8 @@
       "self_decision": "You cannot decide on your own application.",
       "invalid_field": "The “{field}” field is invalid.",
       "already_open": "You already have an application under review.",
-      "submit_failed": "Your application could not be saved. Try again in a moment."
+      "submit_failed": "Your application could not be saved. Try again in a moment.",
+      "not_resubmittable": "This application cannot be sent again as it stands."
     }
   }
 }

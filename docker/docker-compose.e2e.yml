@@ -1,0 +1,45 @@
+# Surcharge du compose de développement : les quatre applications passent en PRODUCTION.
+#
+# Elle existe pour la suite bout en bout. En mode développement, Next compile chaque
+# route au PREMIER accès — jusqu'à une vingtaine de secondes — ce qui rend la suite
+# lente, et surtout produit des navigations qui s'avortent les unes les autres. Un
+# serveur autonome n'a rien à compiler : il répond, ou il ne répond pas.
+#
+# C'est aussi ce que la CI devrait exercer : une suite qui ne passe que contre un serveur
+# de développement ne dit rien de ce qui sera déployé.
+#
+# S'emploie EN PLUS du fichier de développement, jamais seul — il n'y a ici ni base, ni
+# stockage, ni relais de courriels :
+#
+#     docker compose --env-file .env \
+#       -f docker/docker-compose.dev.yml -f docker/docker-compose.e2e.yml up -d --build
+#
+# Les montages de sources hérités du développement restent déclarés : ils sont inertes
+# ici, une sortie autonome ne lisant jamais les fichiers d'origine.
+services:
+  storefront:
+    build:
+      target: runner
+    environment:
+      # Le serveur autonome lit ces deux variables. Sans `HOSTNAME`, il écoute sur la
+      # boucle locale du conteneur et le port publié ne mène nulle part.
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+
+  vendor:
+    build:
+      target: runner
+    environment:
+      PORT: "3001"
+      HOSTNAME: 0.0.0.0
+
+  admin:
+    build:
+      target: runner
+    environment:
+      PORT: "3002"
+      HOSTNAME: 0.0.0.0
+
+  api:
+    build:
+      target: runner
