@@ -2,12 +2,14 @@
 
 import { Button } from "@clemperl/ui";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type JSX } from "react";
 import { authClient } from "../../../../lib/auth-client";
 
 export default function NouveauMotDePassePage(): JSX.Element {
     const t = useTranslations("authentification.nouveauMotDePasse");
     const [erreur, setErreur] = useState<string | null>(null);
+    const routeur = useRouter();
 
     async function soumettre(evenement: FormEvent<HTMLFormElement>): Promise<void> {
         evenement.preventDefault();
@@ -24,7 +26,7 @@ export default function NouveauMotDePassePage(): JSX.Element {
             setErreur(t("lienExpire"));
             return;
         }
-        window.location.href = "/connexion";
+        routeur.replace("/connexion");
     }
 
     return (

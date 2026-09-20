@@ -2,6 +2,7 @@
 
 import { Button } from "@clemperl/ui";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type JSX } from "react";
 import { authClient } from "../../../../lib/auth-client";
 
@@ -15,6 +16,7 @@ export default function ConnexionPage(): JSX.Element {
     const t = useTranslations("authentification.connexion");
     const tErreurs = useTranslations("authentification.erreurs");
     const [erreur, setErreur] = useState<string | null>(null);
+    const routeur = useRouter();
 
     async function soumettre(evenement: FormEvent<HTMLFormElement>): Promise<void> {
         evenement.preventDefault();
@@ -44,8 +46,16 @@ export default function ConnexionPage(): JSX.Element {
         // mène ailleurs, au moment précis où l'utilisateur vient d'accorder sa confiance.
         const suite = new URLSearchParams(window.location.search).get("suite");
         const destination = new URL(suite ?? "/", window.location.origin);
-        window.location.href =
-            destination.origin === window.location.origin ? destination.href : "/";
+        const interne = destination.origin === window.location.origin;
+
+        // Le routeur, et non `window.location` : ce dernier recharge tout le document,
+        // ce qui inflige un écran blanc et lance une navigation que l'application ne
+        // contrôle plus. `refresh()` fait relire la session aux composants serveur, la
+        // seule raison pour laquelle un rechargement complet semblait nécessaire.
+        // Seuls le chemin et la requête sont transmis : passer l'adresse entière ferait
+        // repasser une URL absolue par un chemin censé la refuser.
+        routeur.replace(interne ? `${destination.pathname}${destination.search}` : "/");
+        routeur.refresh();
     }
 
     return (
