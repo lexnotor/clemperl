@@ -365,3 +365,77 @@ Observé le 2026-09-18, sur `@clemperl/db#typecheck` en CI.
 Ce qui protège maintenant : `db:generate` est une tâche Turbo à part entière, avec
 `generated/**` en sortie, et `@clemperl/db#typecheck` comme `@clemperl/db#build` en
 dépendent explicitement.
+
+---
+
+**Les migrations de `supabase/storage-api` référencent le rôle `postgres` en dur, et
+`DB_SUPER_USER` ne couvre pas ce cas.**
+
+La migration `storage-schema` du service écrit des `GRANT` vers un rôle nommé
+littéralement `postgres`. Le réglage `DB_SUPER_USER` sert aux migrations qui le lisent,
+pas à celles qui codent le nom en dur — et notre instance PostgreSQL a `clemperl` pour
+superutilisateur, pas `postgres`.
+
+Observé le 2026-09-19, image `supabase/storage-api:v1.79.4`, à l'ajout du service au
+compose. Le conteneur démarrait puis restait `unhealthy` indéfiniment ; le message
+n'apparaissait qu'au fond d'un log JSON d'une seule ligne de 6 000 caractères, sous
+`"Reason: role \"postgres\" does not exist"`. `docker compose ps` se contentait
+d'afficher `unhealthy`, sans jamais dire pourquoi.
+
+Ce qui protège maintenant : `docker/postgres/init/10-storage.sql` crée le rôle
+`postgres` et lui donne la base `storage`, et le service pointe dessus. Ce script n'est
+joué qu'à la **création du volume** : le modifier sans `down -v` ne produit aucun effet,
+et laisse croire que la correction ne marche pas.
+
+---
+
+**Créer un bucket qui existe déjà renvoie HTTP 400, pas 409 : le 409 n'est que dans le
+corps de la réponse.**
+
+`POST /bucket` sur un nom déjà pris répond avec le statut HTTP `400` et un corps
+`{"statusCode":"409","code":"BucketAlreadyExists"}`. Un amorçage idempotent qui teste
+`response.status === 409`, ou même `response.ok`, conclut à un échec.
+
+Mesuré le 2026-09-19 sur `supabase/storage-api:v1.79.4`, en rejouant la création du
+bucket `vendor-documents`.
+
+Ce qui rend le piège difficile à voir : le premier démarrage d'une stack neuve réussit
+toujours. L'échec n'apparaît qu'au **second** `pnpm docker:up`, c'est-à-dire chez
+quelqu'un d'autre, ou le lendemain.
+
+Ce qui protège maintenant : le service `storage-init` du compose teste
+`code === "BucketAlreadyExists"` dans le corps, et non le statut HTTP.
+
+---
+
+**Un littéral de gabarit JavaScript dans une commande de `docker-compose.yml` est
+interpolé par Compose avant d'atteindre Node.**
+
+Compose substitue `${...}` dans tout le fichier, y compris à l'intérieur d'une commande.
+Une ligne `node -e "...'Bearer ${cle}'..."` voit donc `${cle}` remplacé par une chaîne
+vide, et Compose avertit « The "cle" variable is not set » — un avertissement, pas une
+erreur : le conteneur démarre et échoue plus loin, à l'authentification.
+
+Observé le 2026-09-19, en écrivant le service `storage-init`.
+
+Ce qui protège maintenant : ce script n'emploie que de la concaténation
+(`'Bearer ' + cle`). La règle vaut pour **toute** commande inline d'un compose, pas
+seulement celle-ci.
+
+---
+
+**`STORAGE_S3_BUCKET` sert de racine de chemin même avec le backend fichier, et son
+absence produit un répertoire nommé `undefined`.**
+
+Le nom trahit l'héritage S3 du service : la variable désigne la racine des objets quel
+que soit le backend. Sans elle, le chemin sur disque devient
+`/var/lib/storage/undefined/<tenant>/<bucket>/…`.
+
+Observé le 2026-09-19, en inspectant le volume après le premier téléversement réussi.
+
+Ce qui rend le piège difficile à voir : **rien ne casse.** Le téléversement, la
+relecture et les URL signées fonctionnent parfaitement avec `undefined` dans le chemin.
+Ce n'est découvert qu'en regardant le disque — donc, en général, jamais.
+
+Ce qui protège maintenant : `STORAGE_S3_BUCKET: clemperl` et `TENANT_ID: clemperl` dans
+le service `storage` du compose.
