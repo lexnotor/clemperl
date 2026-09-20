@@ -1,23 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
-import { creerSmtpSender } from "./smtp-sender.utils.js";
+import { createSmtpSender } from "./smtp-sender.utils.js";
 
-const envoiSimule = vi.fn();
+const sendMailMock = vi.fn();
 vi.mock("nodemailer", () => ({
-    default: { createTransport: () => ({ sendMail: envoiSimule }) },
+    default: { createTransport: () => ({ sendMail: sendMailMock }) },
 }));
 
-describe("creerSmtpSender", () => {
+describe("createSmtpSender", () => {
     it("transmet destinataire, sujet et corps au transport", async () => {
-        envoiSimule.mockClear();
-        const sender = creerSmtpSender("smtp://mailpit:1025", "ClemPerl <a@b.test>");
+        sendMailMock.mockClear();
+        const sender = createSmtpSender("smtp://mailpit:1025", "ClemPerl <a@b.test>");
 
-        await sender.envoyer({
-            destinataire: "client@exemple.test",
-            sujet: "Vérifiez votre adresse",
-            texte: "Bonjour",
+        await sender.send({
+            recipient: "client@exemple.test",
+            subject: "Vérifiez votre adresse",
+            text: "Bonjour",
         });
 
-        expect(envoiSimule).toHaveBeenCalledWith(
+        expect(sendMailMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 to: "client@exemple.test",
                 subject: "Vérifiez votre adresse",
@@ -28,6 +28,6 @@ describe("creerSmtpSender", () => {
     });
 
     it("refuse une URL SMTP vide plutôt que d'échouer au premier envoi", () => {
-        expect(() => creerSmtpSender("", "a@b.test")).toThrow("URL SMTP");
+        expect(() => createSmtpSender("", "a@b.test")).toThrow("URL SMTP");
     });
 });

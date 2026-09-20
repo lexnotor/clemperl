@@ -4,7 +4,13 @@ import type { NextConfig } from "next";
 // aucune négociation à faire. Les libellés viennent du catalogue `admin`.
 const config: NextConfig = {
     output: "standalone",
-    transpilePackages: ["@clemperl/ui", "@clemperl/core", "@clemperl/i18n", "@clemperl/auth"],
+    transpilePackages: [
+        "@clemperl/ui",
+        "@clemperl/core",
+        "@clemperl/i18n",
+        "@clemperl/auth",
+        "@clemperl/domain",
+    ],
 };
 
 export default config;

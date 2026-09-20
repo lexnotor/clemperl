@@ -1,2 +1,2 @@
-export * from "./messages-verification.utils.js";
-export * from "./messages-reinitialisation.utils.js";
+export * from "./password-reset-message.utils.js";
+export * from "./verification-message.utils.js";

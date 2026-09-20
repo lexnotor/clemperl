@@ -25,20 +25,20 @@ export const baseEnvSchema = z.object({
     STORAGE_BUCKET: z.string().min(1),
 });
 
-export type TBaseEnv = z.infer<typeof envSchemaAvecTls>;
+export type TBaseEnv = z.infer<typeof envSchemaWithTls>;
 
-const envSchemaAvecTls = baseEnvSchema.refine(
+const envSchemaWithTls = baseEnvSchema.refine(
     (env) => env.NODE_ENV === "development" || env.STORAGE_URL.startsWith("https://"),
     { path: ["STORAGE_URL"], message: "doit être en https hors développement" },
 );
 
 export function parseBaseEnv(source: Record<string, string | undefined>): TBaseEnv {
-    const resultat = envSchemaAvecTls.safeParse(source);
-    if (!resultat.success) {
-        const details = resultat.error.issues
+    const result = envSchemaWithTls.safeParse(source);
+    if (!result.success) {
+        const details = result.error.issues
             .map((issue) => `  ${issue.path.join(".")}: ${issue.message}`)
             .join("\n");
         throw new Error(`Environnement invalide :\n${details}`);
     }
-    return resultat.data;
+    return result.data;
 }

@@ -1,1 +1,1 @@
-export * from "./dossier-vendeur.repository.js";
+export * from "./vendor-application.repository.js";

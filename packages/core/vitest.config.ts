@@ -18,7 +18,7 @@ export default defineConfig({
                 "**/index.ts",
                 "**/*.config.ts",
                 "**/test-setup.ts",
-                "src/utils/stockage-pieces.utils.ts",
+                "src/utils/document-storage.utils.ts",
             ],
             // Plancher mesuré, pas souhaité.
             thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },

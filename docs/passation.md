@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-09-18.
+Dernière mise à jour : 2026-09-19.
 
 ## Où en est le projet
 
@@ -16,7 +16,7 @@ plan, exécution, un commit.
 | --- | --- | --- |
 | T0 | Fondations du monorepo | **Livrée** — commit `776f3d6` |
 | T1a | Identité et sessions | **Livrée** — ce commit |
-| T1b | Vendeurs : demande d'ouverture et validation | à cadrer |
+| T1b | Vendeurs : demande d'ouverture et validation | **Livrée** |
 | T2 | Catalogue et médias | non commencée |
 | T3 | Panier et commande | non commencée |
 | T4 | Paiement, point d'extension | non commencée |
@@ -94,6 +94,37 @@ requalifier quand la production se montera.
 
 **T0, critère 8 : l'affichage sur téléphone n'a pas été constaté.** Il demande un
 appareil réel sur le réseau local.
+
+**Le premier administrateur naît par `/setup`, sans jeton.** La seule barrière est
+l'absence d'administrateur en base : la page disparaît dès qu'il en existe un. La
+fenêtre entre le déploiement et la première connexion est donc ouverte à qui connaît
+l'URL. Décision explicite, prise en connaissance du risque — la refermer consiste à
+ouvrir l'administration **immédiatement** après le déploiement, avant toute annonce
+publique. Un jeton d'amorçage reste ajoutable sans toucher au reste.
+
+**Le seed ne crée plus aucun utilisateur.** Le compte d'administration de T0 était une
+ligne `users` sans ligne `accounts` : Better Auth n'avait aucun identifiant à vérifier,
+donc personne ne pouvait ouvrir l'administration. Il a été retiré plutôt que doté d'un
+mot de passe écrit dans le dépôt.
+
+**Le chemin Supabase hébergé n'a jamais été joué.** Le développement fait tourner
+`supabase/storage-api` en conteneur, donc le vrai client et les vraies routes — mais
+aucun projet Supabase distant n'existe, et les clés de production restent à créer.
+
+**Aucun balayage des objets orphelins.** Si une transaction échoue après un
+téléversement, la compensation supprime les objets ; si cette suppression échoue à son
+tour, l'objet reste. Un orphelin coûte de l'espace, pas de la correction. Le balayage
+relève de T7, avec les traitements de fond.
+
+**Aucun écran ne permet de modifier une boutique validée.** Un nom mal saisi se corrige
+en base. C'est le premier écran que T2 devra livrer.
+
+**`apps/vendor` est toujours une coquille.** On ne demande pas d'entrer dans l'espace
+vendeur avant d'être vendeur ; son back-office est le sujet de T2.
+
+**Le sélecteur de thème n'existe pas.** Le clair est le défaut et ne dépend pas du
+système. `data-theme="dark"` et `data-theme="system"` fonctionnent déjà : il ne manque
+que l'interface pour les poser, et la persistance du choix.
 
 ## Ce qui a été vérifié, et comment
 

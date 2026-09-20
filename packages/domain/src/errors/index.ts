@@ -1,1 +1,1 @@
-export * from "./erreurs-dossier.error.js";
+export * from "./vendor-application.error.js";

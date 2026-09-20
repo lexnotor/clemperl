@@ -1,29 +1,93 @@
-/* Tokens partagés par les trois fronts. Les couleurs sont déclarées en variables
-   plutôt qu'en classes utilitaires figées : le thème sombre les redéfinit sans
-   toucher un seul composant. */
+/* Jetons partagés par les trois fronts. Les couleurs sont déclarées en variables plutôt
+   qu'en classes utilitaires figées : le thème sombre les redéfinit sans toucher un seul
+   composant. */
 @import "tailwindcss";
 
+/* Les sources sont DÉCLARÉES et non devinées. La détection automatique de Tailwind part
+   du fichier CSS, que les applications atteignent par un lien de `node_modules` — elle
+   n'y retrouve pas de façon fiable les composants de ce package, et les utilitaires
+   qu'eux seuls emploient manquent alors à la feuille. Le symptôme est trompeur : la page
+   se rend, les classes sont bien sur les éléments, elles ne correspondent à rien. */
+@source "../**/*.{ts,tsx}";
+@source "../../../../apps/*/src/**/*.{ts,tsx}";
+
 @theme {
-    --color-fond: oklch(100% 0 0);
-    --color-texte: oklch(20% 0 0);
-    --color-accent: oklch(55% 0.18 15);
-    --color-bordure: oklch(90% 0 0);
-    --radius-controle: 0.5rem;
+    --color-fond: #ffffff;
+    --color-texte: #000000;
+
+    /* Texte secondaire : libellés, aides, dates. Assez sombre pour rester lisible sur
+       blanc, assez clair pour que la hiérarchie se voie sans changer de taille. */
+    --color-muet: oklch(48% 0 0);
+
+    /* Le filet. C'est le seul séparateur de l'interface : pas de carte, pas d'ombre. */
+    --color-bordure: oklch(87% 0 0);
+
+    /* Réservé à ce qui ne va pas — erreur, refus, champ invalide. Il ne remplit aucun
+       bouton : un accent qui sert de décor ne signale plus rien. */
+    --color-accent: oklch(52% 0.21 25);
+
+    --radius-controle: 0.25rem;
+
+    /* Les familles sont injectées par chaque application via `next/font`, qui les
+       auto-héberge. Le repli n'est pas décoratif : il tient la page si le chargement
+       échoue. */
+    --font-titre: var(--police-titre), Georgia, "Times New Roman", serif;
+    --font-interface: var(--police-interface), system-ui, sans-serif;
 }
 
-/* Le thème sombre redéfinit les variables sur `:root`, et NON dans un second bloc
-   `@theme` : cette directive déclare le thème et ne s'imbrique pas dans une media
-   query. Les tokens étant exposés comme propriétés personnalisées, les réaffecter
-   ici suffit à basculer tout le thème. */
+/* Le clair est le défaut, et il ne dépend PAS du réglage du système : une place de
+   marché montre des produits dont les photos sont préparées sur fond clair, et un thème
+   sombre subi les dénature chez un visiteur qui n'a rien demandé.
+   `color-scheme` compte autant que les couleurs : sans lui, les contrôles natifs et les
+   barres de défilement suivent le système pendant que la page reste claire. */
+:root {
+    color-scheme: light;
+}
+
+/* Le sombre s'applique sur décision, jamais de lui-même. Un attribut absent vaut clair,
+   ce qui rend le défaut correct avant même que le sélecteur de thème existe :
+   `dark` l'impose, `system` s'en remet au réglage de la machine.
+   Les deux blocs portent les mêmes valeurs et doivent le rester — la règle `system` vit
+   dans une media query, qui ne se combine pas avec l'autre sélecteur. */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --color-fond: oklch(16% 0 0);
+    --color-texte: oklch(97% 0 0);
+    --color-muet: oklch(70% 0 0);
+    --color-bordure: oklch(32% 0 0);
+    --color-accent: oklch(70% 0.17 25);
+}
+
 @media (prefers-color-scheme: dark) {
-    :root {
-        --color-fond: oklch(18% 0 0);
-        --color-texte: oklch(95% 0 0);
-        --color-bordure: oklch(30% 0 0);
+    :root[data-theme="system"] {
+        color-scheme: dark;
+        --color-fond: oklch(16% 0 0);
+        --color-texte: oklch(97% 0 0);
+        --color-muet: oklch(70% 0 0);
+        --color-bordure: oklch(32% 0 0);
+        --color-accent: oklch(70% 0.17 25);
     }
 }
 
 body {
     background-color: var(--color-fond);
     color: var(--color-texte);
+    font-family: var(--font-interface);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Le focus ne disparaît jamais : c'est la seule façon de traverser un formulaire au
+   clavier. Il suit le texte plutôt que l'accent, qui est réservé à l'erreur. */
+:focus-visible {
+    outline: 2px solid var(--color-texte);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
 }

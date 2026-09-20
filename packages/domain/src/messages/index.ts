@@ -1,1 +1,1 @@
-export * from "./messages-dossier.utils.js";
+export * from "./vendor-application-messages.utils.js";

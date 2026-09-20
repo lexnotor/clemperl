@@ -1,6 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
-import { E_USER_ROLE } from "../generated/prisma/enums";
 
 const connectionString = process.env["DATABASE_URL"];
 if (!connectionString) {
@@ -9,20 +8,15 @@ if (!connectionString) {
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
-// Compte d'administration de développement. `upsert` plutôt que `create` : le seed
-// doit pouvoir être rejoué sur une base déjà peuplée sans échouer sur la contrainte
-// d'unicité de l'adresse.
+// Ce seed ne crée AUCUN utilisateur. Le premier administrateur naît par la page
+// d'amorçage de `apps/admin`, qui n'existe que tant qu'aucun compte ne porte le rôle
+// `ADMIN`. Semer un compte reviendrait soit à écrire un mot de passe dans le dépôt,
+// soit à produire une ligne sans identifiants — donc un compte avec lequel personne ne
+// peut se connecter.
+//
+// Le script reste en place : il accueillera les données de référence du catalogue.
 async function main(): Promise<void> {
-    const admin = await prisma.user.upsert({
-        where: { email: "admin@clemperl.test" },
-        update: {},
-        create: {
-            email: "admin@clemperl.test",
-            name: "Administration ClemPerl",
-            role: E_USER_ROLE.ADMIN,
-        },
-    });
-    console.log(`Compte d'administration prêt : ${admin.email} (${admin.id})`);
+    console.log("Aucune donnée à semer : l'administration s'amorce par /setup.");
 }
 
 main()

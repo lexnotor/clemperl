@@ -1,25 +1,87 @@
 {
-  "accueil": {
-    "titre": "Administration ClemPerl"
+  "home": {
+    "title": "Administration ClemPerl"
   },
   "errors": {
     "vendor_application": {
       "forbidden_transition": "Ce dossier a déjà été traité.",
-      "missing_document": "Il manque une pièce obligatoire : {nature}.",
-      "duplicate_document": "Une seule pièce est attendue pour : {nature}.",
-      "document_too_large": "La pièce {nature} dépasse la taille maximale autorisée.",
-      "unsupported_media_type": "Le format de la pièce {nature} n'est pas accepté. Déposez un PDF, un JPEG ou un PNG.",
+      "missing_document": "Il manque une pièce obligatoire : {kind}.",
+      "duplicate_document": "Une seule pièce est attendue pour : {kind}.",
+      "document_too_large": "La pièce {kind} dépasse la taille maximale autorisée.",
+      "unsupported_media_type": "Le format de la pièce {kind} n'est pas accepté. Déposez un PDF, un JPEG ou un PNG.",
       "reason_required": "Un refus doit indiquer un motif.",
       "reason_forbidden_on_accept": "Une acceptation ne porte pas de motif de refus.",
       "comment_required": "Le motif « autre » demande un commentaire.",
-      "self_decision": "Vous ne pouvez pas décider sur votre propre dossier."
+      "self_decision": "Vous ne pouvez pas décider sur votre propre dossier.",
+      "invalid_field": "Le champ « {field} » est invalide.",
+      "already_open": "Vous avez déjà une demande en cours d'examen.",
+      "submit_failed": "Votre demande n'a pas pu être enregistrée. Réessayez dans un instant.",
+      "not_resubmittable": "Ce dossier ne peut pas être renvoyé en l'état.",
+      "not_found": "Ce dossier est introuvable.",
+      "already_decided": "Ce dossier a déjà été traité.",
+      "slug_conflict": "Une boutique porte déjà ce nom. Demandez au candidat d'en choisir un autre.",
+      "decide_failed": "La décision n'a pas pu être enregistrée."
+    },
+    "setup": {
+      "already_installed": "Un administrateur existe déjà.",
+      "failed": "Le compte n'a pas pu être créé. Vérifiez l'adresse et le mot de passe."
     }
   },
-  "vendeur": {
-    "piece": {
+  "vendor": {
+    "rejectionReason": {
+      "INCOMPLETE_FILE": "Le dossier est incomplet.",
+      "UNREADABLE_DOCUMENT": "Une pièce est illisible.",
+      "IDENTITY_MISMATCH": "L'identité déclarée ne correspond pas aux pièces.",
+      "INELIGIBLE_ACTIVITY": "L'activité ne relève pas de cette place de marché.",
+      "OTHER": "Autre motif."
+    },
+    "documentKind": {
       "REGISTRY": "Registre de commerce",
       "IDENTITY": "Pièce d'identité",
       "TAX": "Attestation fiscale"
+    },
+    "category": {
+      "APPAREL": "Habillement",
+      "JEWELLERY": "Joaillerie",
+      "LEATHER_GOODS": "Maroquinerie"
     }
+  },
+  "setup": {
+    "title": "Installer l'administration",
+    "instruction": "Aucun administrateur n'existe encore. Créez le premier compte : vous serez ensuite invité à vous connecter, et cette page disparaîtra définitivement.",
+    "name": "Nom",
+    "email": "Adresse e-mail",
+    "password": "Mot de passe",
+    "submit": "Créer l'administrateur",
+    "submitting": "Création en cours…"
+  },
+  "applications": {
+    "title": "Dossiers à examiner",
+    "empty": "Aucun dossier en attente."
+  },
+  "application": {
+    "back": "← Retour aux dossiers",
+    "submittedOn": "Déposé le",
+    "declared": "Ce qui a été déclaré",
+    "description": "Description",
+    "contact": "Contact",
+    "categories": "Catégories",
+    "legalForm": "Forme juridique",
+    "legalName": "Raison sociale",
+    "registrationNumber": "Numéro d'enregistrement",
+    "taxNumber": "Numéro de TVA",
+    "country": "Pays",
+    "documents": "Pièces justificatives",
+    "journal": "Décisions",
+    "approved": "Accepté",
+    "rejected": "Refusé"
+  },
+  "decision": {
+    "title": "Décider",
+    "reason": "Motif (obligatoire pour un refus)",
+    "noReason": "—",
+    "comment": "Commentaire, lu par le candidat",
+    "approve": "Accepter",
+    "reject": "Refuser"
   }
 }

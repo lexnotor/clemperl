@@ -526,7 +526,7 @@ Jest fait tourner l'intégration dans le conteneur `api`. Un repository de
 `@clemperl/db`, éprouvé uniquement contre un vrai PostgreSQL, apparaît à 0 % côté
 Vitest — et un plancher à 100 % refuse le run.
 
-Observé le 2026-09-19, à l'ajout de `dossier-vendeur.repository.ts` : cinq tests
+Observé le 2026-09-19, à l'ajout de `vendor-application.repository.ts` : cinq tests
 d'intégration au vert, et `pnpm test` en échec sur « Coverage for statements (32.5%)
 does not meet global threshold (100%) ».
 
@@ -597,3 +597,93 @@ Ce qui protège maintenant : `@clemperl/db#build` déclare ses `outputs`. Toute 
 le seul champ qu'on veut changer. `@clemperl/db#typecheck` a repris `^build` pour la
 même raison : l'override l'avait fait disparaître, et le typage partait sans que ses
 dépendances soient construites.
+
+---
+
+**Renommer des identifiants au `sed` détruit les commentaires et les libellés français,
+sans que rien ne le signale.**
+
+Le dépôt mêle délibérément deux langues : le code en anglais, les commentaires et les
+libellés en français. Un remplacement global de `mot` ou d'`adresse` traverse donc les
+deux — un commentaire « soumettait le mot de passe en GET » devient « soumettait le
+newPassword de passe en GET », et une assertion sur « Vérifiez votre adresse » cesse de
+correspondre à l'écran.
+
+Observé le 2026-09-19, en passant les identifiants à l'anglais : `sed` sur `\bmot\b` et
+`\badresse\b` a corrompu quatre commentaires et deux assertions de `e2e/sign-up.spec.ts`.
+
+Ce qui rend le piège difficile à voir : **la compilation reste verte.** Un commentaire
+abîmé ne casse rien, et une assertion qui ne correspond plus ne se voit qu'en jouant
+Playwright, c'est-à-dire bien plus tard.
+
+Ce qui protège maintenant : rien d'automatique. Un renommage se fait par réécriture du
+fichier, ou par un `sed` dont chaque motif est un nom de symbole — jamais un mot isolé
+qui existe aussi en prose française.
+
+---
+
+**Les utilitaires Tailwind employés par `@clemperl/ui` ne sont pas générés si les sources
+ne sont pas déclarées : la page se rend, les classes sont sur les éléments, et elles ne
+correspondent à rien.**
+
+La détection automatique des sources part du fichier CSS. Les applications l'atteignent
+par `@clemperl/ui/styles/globals.css`, donc par un lien de `node_modules` — que Tailwind
+ignore. Le balayage retombe alors sur l'arborescence de l'application et rate une partie
+des composants du package.
+
+Observé le 2026-09-19, au premier rendu du design : le bouton principal sortait sans
+fond, sans hauteur et sans espacement. Dans la feuille servie, **aucun utilitaire `bg-*`
+ni `h-*` n'existait**, alors que `text-muet` et `border-bordure` y étaient — deux classes
+du même package, dans un fichier voisin.
+
+Ce qui rend le piège coûteux : rien n'échoue. Le HTML porte bien
+`class="bg-texte h-11 …"`, aucune erreur n'apparaît en console, et le test de fumée qui
+vérifie que le bouton « est visible » passe parfaitement — un bouton sans style reste
+visible. Seule une capture d'écran, ou un `getComputedStyle`, le montre.
+
+Ce qui protège maintenant : `packages/ui/src/styles/globals.css` déclare ses sources par
+`@source`, pour le package et pour les applications. Ne pas les retirer en supposant que
+la détection automatique suffit.
+
+---
+
+**Un fichier `"use server"` ne peut exporter QUE des fonctions asynchrones : toute
+constante qu'on y met arrive `undefined` au composant client.**
+
+Le fichier de server actions est traité comme une frontière réseau. Ce qui en sort est
+transformé en référence appelable ; une valeur ordinaire n'a pas de représentation dans
+ce protocole, et le client reçoit `undefined`.
+
+Observé le 2026-09-19, sur l'amorçage de l'administration : `INITIAL_SETUP_STATE`
+exporté depuis `actions.ts`, puis passé à `useActionState`, produisait
+`TypeError: Cannot read properties of undefined (reading 'length')` au premier rendu.
+
+Ce qui rend le piège coûteux : **rien n'échoue avant l'exécution.** Le typage est
+satisfait des deux côtés, `lint` et `typecheck` passent, et la page ne casse qu'au
+rendu — avec une erreur qui désigne l'endroit où la valeur est lue, jamais celui d'où
+elle vient.
+
+Ce qui protège maintenant : les états initiaux vivent dans un fichier
+`types/*.interface.ts` à côté de l'action, jamais dans le module `"use server"`.
+
+---
+
+**`revalidatePath` sur une route à segment dynamique exige le MOTIF de route et le
+paramètre `type` : une adresse littérale ne rafraîchit rien, et rien ne le signale.**
+
+La boutique monte ses pages sous `/[locale]/…`, même quand l'URL visible n'a pas de
+préfixe. `revalidatePath("/become-a-vendor")` ne correspond donc à aucune route, et la
+revalidation porte dans le vide. La forme correcte est
+`revalidatePath("/[locale]/become-a-vendor", "page")`.
+
+Observé le 2026-09-19, sur le dépôt d'un dossier vendeur : l'action répondait `200`, le
+dossier était bien écrit en base, aucune erreur n'apparaissait nulle part — et
+l'utilisateur revoyait son formulaire vide. Son réflexe suivant, renvoyer le formulaire,
+se serait heurté à « vous avez déjà une demande en cours d'examen ».
+
+Ce qui rend le piège coûteux : **aucun signal.** Pas d'exception, pas de log, pas
+d'avertissement au build ; la fonction accepte n'importe quelle chaîne. Seul un test de
+bout en bout qui vérifie ce que la page affiche APRÈS l'action le révèle.
+
+Ce qui protège maintenant : le test `e2e/vendor-application.spec.ts` attend le nouvel
+état de la page après chaque décision, et pas seulement l'absence d'erreur.

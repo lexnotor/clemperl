@@ -1,2 +1,2 @@
-export * from "./dossier-vendeur.interface.js";
-export * from "./violation-dossier.interface.js";
+export * from "./application-violation.interface.js";
+export * from "./vendor-application.interface.js";

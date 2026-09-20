@@ -21,6 +21,13 @@ Better Auth 1.7.5, Zod 4, next-intl 4, Vitest 5, Jest + Testcontainers, Playwrig
 **Spec** : `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md` — le plan argumente
 depuis elle ; les deux se lisent ensemble.
 
+> **Note du 2026-09-19, postérieure à la rédaction.** Le dépôt est passé à des
+> identifiants, noms de fichiers, segments d'URL et clés de traduction **en anglais**
+> (`CLAUDE.md`). Les noms français qu'emploient les extraits ci-dessous — `deposerDossier`,
+> `/devenir-vendeur`, `IPieceDeposee` — ont donc leur équivalent anglais dans le code
+> livré : `submitApplication`, `/become-a-vendor`, `ISubmittedDocument`. Le raisonnement,
+> lui, n'a pas changé.
+
 ---
 
 ## Contraintes globales
