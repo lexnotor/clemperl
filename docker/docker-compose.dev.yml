@@ -259,6 +259,7 @@ services:
       - ../packages/core/src:/app/packages/core/src
       - ../packages/db/src:/app/packages/db/src
       - ../packages/db/prisma:/app/packages/db/prisma
+      - ../packages/domain/src:/app/packages/domain/src
       # Testcontainers démarre de vrais conteneurs : il lui faut le démon Docker.
       # Les conteneurs qu'il crée sont FRÈRES de celui-ci, pas enfants — ils ne sont
       # donc joignables ni par localhost ni par un port publié, mais par leur adresse

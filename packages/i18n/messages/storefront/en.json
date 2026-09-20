@@ -41,5 +41,25 @@
       "identifiantsInvalides": "Incorrect email address or password.",
       "adresseNonVerifiee": "Verify your email address before signing in."
     }
+  },
+  "errors": {
+    "vendor_application": {
+      "forbidden_transition": "This application has already been processed.",
+      "missing_document": "A required document is missing: {nature}.",
+      "duplicate_document": "Only one document is expected for: {nature}.",
+      "document_too_large": "The {nature} document exceeds the maximum allowed size.",
+      "unsupported_media_type": "The {nature} document format is not accepted. Upload a PDF, JPEG or PNG.",
+      "reason_required": "A rejection must state a reason.",
+      "reason_forbidden_on_accept": "An approval carries no rejection reason.",
+      "comment_required": "The “other” reason requires a comment.",
+      "self_decision": "You cannot decide on your own application."
+    }
+  },
+  "vendeur": {
+    "piece": {
+      "REGISTRY": "Trade register",
+      "IDENTITY": "Identity document",
+      "TAX": "Tax certificate"
+    }
   }
 }

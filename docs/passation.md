@@ -23,6 +23,18 @@ plan, exécution, un commit.
 | T5 | Abonnements vendeurs | non commencée |
 | T6 | Administration | non commencée |
 | T7 | Temps réel | non commencée |
+| T8 | API GraphQL pour le mobile | à cadrer |
+
+**L'API passera en GraphQL, et ce sera sa propre tranche.** La raison n'est pas une
+préférence de style : une application mobile React Native (Expo) est prévue, donc l'API
+aura un consommateur hétérogène — ce qui n'est pas le cas aujourd'hui, où les trois
+fronts Next attaquent PostgreSQL directement par leurs server actions, comme T0 l'a
+décidé.
+
+Cette tranche devra trancher une question de niveau T0 : les fronts Next cessent-ils de
+parler à la base pour passer par l'API ? Deux chemins de lecture sur les mêmes données,
+c'est exactement le risque que T0 nommait — la même règle écrite à deux endroits, qui
+divergent en silence. La réponse conditionne le périmètre de la tranche, pas l'inverse.
 
 T1b dépend entièrement de T1a : le rôle vendeur y sera une **relation**, jamais une
 colonne du compte. La spécification T1a, section 1, porte cette décision et sa raison.

@@ -324,25 +324,29 @@ Dans `packages/db/package.json`, remplacer le bloc `exports` :
       "default": "./dist/src/index.js"
     },
     "./enums": {
-      "types": "./generated/prisma/enums.d.ts",
-      "default": "./generated/prisma/enums.js"
+      "types": "./dist/generated/prisma/enums.d.ts",
+      "default": "./dist/generated/prisma/enums.js"
     }
   },
 ```
 
-`generated/` n'est pas versionné : il est produit par `db:generate`, lui-même exécuté par
-le `build` du package. La sortie pointe donc vers un fichier qui n'existe qu'après build,
-ce qui est déjà le cas du point d'entrée `.` vers `dist/`.
+**Le générateur `prisma-client` émet du TypeScript, pas du JavaScript** : `generated/`
+contient `enums.ts`, et c'est le `build` du package qui produit
+`dist/generated/prisma/enums.js`. La sortie pointe donc vers `dist/`, comme le point
+d'entrée principal.
 
 - [ ] **Étape 2 : construire et prouver que le module est inerte**
 
 ```bash
 pnpm --filter @clemperl/db build
-grep -cE "^\s*(import|export)\s+.*\bfrom\b" packages/db/generated/prisma/enums.js
+grep -cE "^\s*(import|export)\s+.*\bfrom\b" packages/db/dist/generated/prisma/enums.js
+grep -cE "^\s*(import|export)\s+.*\bfrom\b" packages/db/dist/generated/prisma/enums.d.ts
 ```
 
-Attendu : `0`. **Un module sans aucun import ne peut pas entraîner le client** — c'est la
-preuve, et elle est statique donc non réfutable par un cas de test oublié.
+Attendu : `0`, pour le `.js` comme pour le `.d.ts`. **Un module sans aucun import ne peut
+pas entraîner le client** — preuve statique, non réfutable par un cas de test oublié.
+Prisma le confirme d'ailleurs en tête du fichier généré : « 🟢 You can import this file
+directly ».
 
 Si le compte n'est pas nul, lire les imports : s'ils pointent vers `./client.js` ou
 `./internal/`, la parade tombe et il faut basculer sur le repli écrit en spec — le schéma

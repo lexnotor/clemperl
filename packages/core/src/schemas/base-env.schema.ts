@@ -14,6 +14,12 @@ export const baseEnvSchema = z.object({
     BETTER_AUTH_SECRET: z.string().min(32),
     SMTP_URL: z.url(),
     EMAIL_FROM: z.string().min(1),
+
+    // Stockage des pièces justificatives. Le bucket est privé : rien n'y est lisible
+    // sans la clé de service, qui ne quitte jamais le serveur.
+    STORAGE_URL: z.url(),
+    STORAGE_SERVICE_KEY: z.string().min(1),
+    STORAGE_BUCKET: z.string().min(1),
 });
 
 export type TBaseEnv = z.infer<typeof baseEnvSchema>;

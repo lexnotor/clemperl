@@ -495,3 +495,75 @@ les dépendances déjà installées sur l'hôte.
 `root` sur l'hôte et ne peuvent plus être édités. `node:24-bookworm-slim` et non
 `-alpine` : les moteurs Prisma installés sur l'hôte sont liés à la glibc, et musl les
 refuse.
+
+---
+
+**L'index unique partiel de `vendor_applications` est écrit à la main dans la migration,
+et `prisma migrate dev` ne cherche pas à le supprimer.**
+
+Prisma ne sait pas déclarer `UNIQUE (colonne) WHERE condition` dans un schéma. La
+contrainte « un seul dossier ouvert par candidat » est donc du SQL ajouté à la fin du
+fichier de migration, invisible depuis `schema.prisma`. La tentation, en la découvrant,
+est de la retirer pour « laisser Prisma gérer ». Ce serait rouvrir la porte à deux
+dossiers ouverts pour un même compte, créés par deux onglets — et aucune vérification
+applicative ne gagne cette course.
+
+La détection de dérive compare le schéma à une base fantôme où les migrations sont
+rejouées : l'index y existe aussi, donc Prisma répond « Already in sync » et ne propose
+rien. Vérifié en relançant `migrate dev` après application.
+
+Ce qui protège maintenant : le commentaire en tête du bloc SQL, dans
+`packages/db/prisma/migrations/20260919105104_vendor_applications/migration.sql`, et le
+test d'intégration qui rejoue deux dépôts simultanés.
+
+---
+
+**Un fichier couvert par la suite d'intégration compte pour zéro dans le rapport Vitest,
+et fait donc échouer le plancher du package.**
+
+Les deux couches ont deux exécuteurs : Vitest mesure les tests unitaires du package,
+Jest fait tourner l'intégration dans le conteneur `api`. Un repository de
+`@clemperl/db`, éprouvé uniquement contre un vrai PostgreSQL, apparaît à 0 % côté
+Vitest — et un plancher à 100 % refuse le run.
+
+Observé le 2026-09-19, à l'ajout de `dossier-vendeur.repository.ts` : cinq tests
+d'intégration au vert, et `pnpm test` en échec sur « Coverage for statements (32.5%)
+does not meet global threshold (100%) ».
+
+Le réflexe est de baisser le plancher. C'est exactement ce que le cliquet interdit, et
+ça détruirait aussi l'exigence sur les fichiers réellement couverts par Vitest. La
+sortie est d'exclure ces fichiers du rapport **en disant où ils sont couverts**, jamais
+de céder sur le chiffre.
+
+Ce qui protège maintenant : `src/repositories/**` est dans `coverage.exclude` de
+`packages/db/vitest.config.ts`, avec le commentaire qui renvoie à la couche
+d'intégration. Tout fichier ajouté là doit avoir sa suite d'intégration, sinon il n'est
+couvert nulle part et plus rien ne le signale.
+
+---
+
+**Un package qui touche un global de Node doit déclarer `types: ["node"]` : la `lib`
+ES2023 du tsconfig de base ne connaît ni `process`, ni `console`, ni `Blob`.**
+
+`@clemperl/tsconfig/base.json` fixe `lib: ["ES2023"]` et ne déclare aucun `types`.
+L'inclusion automatique des `@types/*` ne suffit pas de façon fiable dans ce workspace :
+un package qui écrit `process.env` compile tant qu'il hérite des types de la racine, et
+cesse de compiler dès qu'il possède son propre `node_modules/@types`. `apps/api` porte
+déjà `"types": ["node", "jest"]` pour cette raison.
+
+Observé le 2026-09-19, à l'ajout de l'accès au stockage dans `@clemperl/core` : six
+erreurs `TS2591: Cannot find name 'process'` et `TS2304: Cannot find name 'Blob'`.
+
+**Ce qui a rendu le piège coûteux, et qui est le vrai sujet : le cache de Turbo l'a
+masqué.** `pnpm lint`, `pnpm typecheck` et `pnpm test` sont restés verts, parce que
+`@clemperl/core#build` était un succès en cache, antérieur au fichier fautif. La faute
+n'est apparue qu'au `docker compose build`, où aucun cache n'existe — donc loin du
+changement, et attribuée d'abord à Docker.
+
+Devant une erreur de compilation qui n'apparaît qu'en conteneur, **reproduire d'abord
+hors cache** : `pnpm --filter <package> exec tsc -p tsconfig.build.json`. Si elle se
+reproduit, le conteneur n'y est pour rien.
+
+Ce qui protège maintenant : `packages/core/tsconfig.json` déclare `types: ["node"]` et
+`@types/node` figure dans ses propres `devDependencies`. Tout package qui se met à
+utiliser un global de Node doit faire les deux.

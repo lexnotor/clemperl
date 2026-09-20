@@ -14,14 +14,15 @@
     "test:e2e": "jest --config jest.config.e2e.ts --runInBand"
   },
   "dependencies": {
+    "@clemperl/auth": "workspace:*",
     "@clemperl/core": "workspace:*",
     "@clemperl/db": "workspace:*",
+    "@clemperl/domain": "workspace:*",
     "@nestjs/common": "12.0.3",
     "@nestjs/core": "12.0.3",
     "@nestjs/platform-express": "12.0.3",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0",
-    "@clemperl/auth": "workspace:*"
+    "rxjs": "^7.8.0"
   },
   "devDependencies": {
     "@clemperl/eslint-config": "workspace:*",

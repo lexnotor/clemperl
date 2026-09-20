@@ -9,8 +9,13 @@ export default defineConfig({
             // les fichiers effectivement chargés par un test. Un fichier source jamais
             // importé n'apparaît pas dans le rapport, donc le plancher ne le voit pas.
             include: ["src/**/*.ts"],
-            exclude: ["**/index.ts"],
-            // Plancher : la couverture MESURÉE le 2026-09-18.
+            // Les repositories sont couverts par la suite d'INTÉGRATION, qui tourne sous
+            // Jest dans le conteneur `api` contre un vrai PostgreSQL. Ce que ces
+            // fonctions garantissent — un index partiel, une course entre deux écritures,
+            // l'atomicité d'une transaction — ne se prouve pas avec un client simulé.
+            // Les laisser dans ce rapport imposerait de baisser le plancher, ce que le
+            // cliquet interdit.
+            exclude: ["**/index.ts", "src/repositories/**"],
             thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
         },
     },

@@ -6,7 +6,13 @@ import { transform, transformIgnorePatterns } from "./jest.transform.ts";
 // arrivent en T1, avec la première couche d'intégration.
 const config: Config = {
     rootDir: ".",
-    testMatch: ["<rootDir>/src/**/*.int-spec.ts"],
+    testMatch: [
+        "<rootDir>/src/**/*.int-spec.ts",
+        // Les suites qui éprouvent le schéma et les repositories de `@clemperl/db`
+        // vivent ici : elles ne testent aucun module de l'API, qui ne fournit que le
+        // harnais Testcontainers.
+        "<rootDir>/test/**/*.int-spec.ts",
+    ],
     moduleFileExtensions: ["ts", "js", "mjs", "json"],
     transform,
     transformIgnorePatterns,
