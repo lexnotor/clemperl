@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-09-19.
+Dernière mise à jour : 2026-09-20.
 
 ## Où en est le projet
 
@@ -14,9 +14,9 @@ plan, exécution, un commit.
 
 | Tranche | Objet | État |
 | --- | --- | --- |
-| T0 | Fondations du monorepo | **Livrée** — commit `776f3d6` |
-| T1a | Identité et sessions | **Livrée** — ce commit |
-| T1b | Vendeurs : demande d'ouverture et validation | **Livrée** |
+| T0 | Fondations du monorepo | **Livrée** — commit `6918645` |
+| T1a | Identité et sessions | **Livrée** — commit `15e276a` |
+| T1b | Vendeurs : demande d'ouverture et validation | **Livrée** — `ef68c6c`..`c33188c` |
 | T2 | Catalogue et médias | non commencée |
 | T3 | Panier et commande | non commencée |
 | T4 | Paiement, point d'extension | non commencée |
@@ -36,8 +36,10 @@ parler à la base pour passer par l'API ? Deux chemins de lecture sur les mêmes
 c'est exactement le risque que T0 nommait — la même règle écrite à deux endroits, qui
 divergent en silence. La réponse conditionne le périmètre de la tranche, pas l'inverse.
 
-T1b dépend entièrement de T1a : le rôle vendeur y sera une **relation**, jamais une
-colonne du compte. La spécification T1a, section 1, porte cette décision et sa raison.
+T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
+(`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
+cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
+porte le modèle qui en découle.
 
 ## Reprendre sur une autre machine
 
@@ -69,7 +71,7 @@ ne suivent pas, et c'est sans conséquence — ce sont des comptes d'essai.
 
 ## Ce qui reste ouvert
 
-Rien de tout cela ne bloque T1b.
+Rien de tout cela ne bloque T2.
 
 **Le tour complet de Google n'a jamais été joué**, faute d'identifiants. La
 configuration est écrite et le bouton se monte, mais aucun aller-retour réel n'a eu
@@ -122,25 +124,37 @@ en base. C'est le premier écran que T2 devra livrer.
 **`apps/vendor` est toujours une coquille.** On ne demande pas d'entrer dans l'espace
 vendeur avant d'être vendeur ; son back-office est le sujet de T2.
 
-**Le sélecteur de thème n'existe pas.** Le clair est le défaut et ne dépend pas du
-système. `data-theme="dark"` et `data-theme="system"` fonctionnent déjà : il ne manque
-que l'interface pour les poser, et la persistance du choix.
+**Il n'y a qu'un thème, et c'est voulu.** Le clair est le seul thème servi, et il ne
+dépend pas du réglage du système : une place de marché montre des produits dont les
+photos sont préparées sur fond clair, et un thème sombre les dénature. Les règles
+`data-theme="dark"` et `data-theme="system"` existent dans `packages/ui` et sont
+correctes, mais aucune interface ne les pose — le sélecteur a été cadré puis écarté le
+2026-09-20. Le rouvrir consiste à monter un contrôle et à persister le choix ; rien
+d'autre n'est à écrire.
 
 ## Ce qui a été vérifié, et comment
 
 `docs/conventions/verification.md` sépare « vérifié en exécutant » de « vérifié sur
-pièce ». Pour T1a, tout ce qui est coché l'a été **en exécutant** :
+pièce ». Pour T1a comme pour T1b, tout ce qui est coché l'a été **en exécutant** :
 
     pnpm lint && pnpm typecheck && pnpm test && pnpm verify:thresholds
     pnpm docker:up && pnpm test:e2e
     docker exec clemperl_dev_api sh -c "cd apps/api && pnpm exec jest --config jest.config.integration.ts --runInBand"
     docker exec clemperl_dev_api sh -c "cd apps/api && pnpm exec jest --config jest.config.e2e.ts --runInBand"
 
-Les planchers de couverture valent la valeur **mesurée** ce jour-là, jamais une valeur
-souhaitée : 100 % pour `api`, `auth`, `i18n` et `ui`, 61 % pour `core` — dont l'écart
-est le schéma d'environnement hérité de T0, sans test. Le cliquet monte, il ne descend
-jamais.
+T1b a joué le parcours entier dans le navigateur, et c'est sa preuve principale :
+dépôt d'une demande avec pièces, refus motivé, lecture du motif par le candidat,
+resoumission corrigée, validation, puis existence de la boutique et de son propriétaire
+(`e2e/vendor-application.spec.ts`). La suite tourne désormais sur un **build de
+production** (`docker/docker-compose.e2e.yml`, `pnpm e2e:up`), pas sur le serveur de
+développement.
 
-`docs/pieges.md` tient le registre des pièges déjà payés. Le lire avant de « corriger »
-du code qui paraît bizarre : trois entrées y sont nées de T1a, et chacune a coûté une
-séance de débogage.
+Les planchers de couverture valent la valeur **mesurée** ce jour-là, jamais une valeur
+souhaitée. Ils sont à 100 % partout : `api`, `auth`, `core`, `db`, `domain`, `i18n` et
+`ui`. L'écart de `core` hérité de T0 — le schéma d'environnement sans test — a été
+comblé pendant T1b. Le cliquet monte, il ne descend jamais.
+
+`docs/pieges.md` tient le registre des pièges déjà payés — vingt-huit entrées, dont
+quinze nées de T1b. Le lire avant de « corriger » du code qui paraît bizarre : chacune a
+coûté une séance de débogage, et plusieurs décrivent un code qui a l'air faux et ne
+l'est pas.
