@@ -149,7 +149,11 @@ export async function decideOnApplication(
 
         const vendor = await tx.vendor.create({
             data: {
-                slug: input.slug ?? application.id,
+                // `??` ne suffirait pas : une chaîne vide n'est pas nullish, et elle
+                // donnerait un identifiant public vide que la boutique suivante ferait
+                // casser sur l'unicité. La validation l'empêche en amont ; ceci tient si
+                // un autre appelant arrive un jour.
+                slug: input.slug || application.id,
                 shopName: application.shopName,
                 shopDescription: application.shopDescription,
                 contactEmail: application.contactEmail,

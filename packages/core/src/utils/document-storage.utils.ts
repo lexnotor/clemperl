@@ -48,8 +48,16 @@ export async function deleteDocuments(paths: readonly string[]): Promise<void> {
     if (paths.length === 0) {
         return;
     }
+    // Le client RENVOIE son erreur au lieu de la lever : un `try/catch` seul ne verrait
+    // jamais un ménage raté, et l'orphelin resterait sans que rien ne l'indique. Les deux
+    // chemins sont donc traités, et aucun ne fait échouer l'appelant.
     try {
-        await client().from(bucket()).remove([...paths]);
+        const { error } = await client()
+            .from(bucket())
+            .remove([...paths]);
+        if (error) {
+            console.error("Suppression de pièces refusée", { paths, error });
+        }
     } catch (error) {
         console.error("Suppression de pièces impossible", { paths, error });
     }

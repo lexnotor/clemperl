@@ -44,14 +44,20 @@ export default function SignInPage(): JSX.Element {
         // Une page protégée renvoie ici en portant sa propre adresse. La destination est
         // contrainte à un chemin interne : une URL absolue permettrait à un lien forgé de
         // rediriger vers un site tiers après une connexion réussie.
+        // La destination est contrainte à la MÊME ORIGINE, et cela se vérifie en la
+        // résolvant — jamais en inspectant ses premiers caractères. Le navigateur traite
+        // la barre inverse comme un séparateur d'autorité : `/\\ailleurs.test` ressemble à
+        // un chemin interne et mène ailleurs, au moment précis où l'utilisateur vient
+        // d'accorder sa confiance.
         const next = new URLSearchParams(window.location.search).get("next");
-        const internal = next?.startsWith("/") === true && !next.startsWith("//");
+        const destination = new URL(next ?? "/", window.location.origin);
+        const internal = destination.origin === window.location.origin;
 
         // `router` et non `window.location` : ce dernier recharge tout le document, ce
         // qui inflige un écran blanc et rend la navigation incontrôlable. `refresh()`
         // fait relire la session aux composants serveur, ce qui est la seule raison pour
         // laquelle un rechargement complet semblait nécessaire.
-        router.replace(internal ? (next as string) : "/");
+        router.replace(internal ? `${destination.pathname}${destination.search}` : "/");
         router.refresh();
     }
 

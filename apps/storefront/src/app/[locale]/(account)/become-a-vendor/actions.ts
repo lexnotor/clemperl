@@ -154,9 +154,15 @@ async function sendAcknowledgement(
     locale: string,
     recipient: string,
 ): Promise<void> {
-    // Hors transaction : un relais indisponible ne doit pas annuler un dépôt valide.
+    // Hors transaction, ET sans pouvoir la défaire : le dossier est déjà enregistré.
+    // Lever ici rendrait la main sur une erreur alors que le dépôt a réussi, et le
+    // candidat qui renverrait son formulaire se heurterait à « demande déjà en cours ».
     const message = buildAcknowledgementMessage(shopName, locale);
-    await createSmtpSender(env.SMTP_URL, env.EMAIL_FROM).send({ ...message, recipient });
+    try {
+        await createSmtpSender(env.SMTP_URL, env.EMAIL_FROM).send({ ...message, recipient });
+    } catch (error) {
+        console.error("Accusé de réception non envoyé", { shopName, error });
+    }
 }
 
 export async function submitApplication(
