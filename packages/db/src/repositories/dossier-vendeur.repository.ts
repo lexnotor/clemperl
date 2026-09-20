@@ -142,7 +142,11 @@ export async function deciderSurDossier(
 
         const vendeur = await tx.vendor.create({
             data: {
-                slug: entree.slug ?? dossier.id,
+                // `??` ne suffirait pas : une chaîne vide n'est pas nullish, et elle
+                // donnerait un identifiant public vide que la boutique suivante ferait
+                // casser sur l'unicité. La validation l'empêche en amont ; ceci tient si
+                // un autre appelant arrive un jour.
+                slug: entree.slug || dossier.id,
                 shopName: dossier.shopName,
                 shopDescription: dossier.shopDescription,
                 contactEmail: dossier.contactEmail,

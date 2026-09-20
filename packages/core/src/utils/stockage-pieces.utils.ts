@@ -48,8 +48,16 @@ export async function supprimerPieces(chemins: readonly string[]): Promise<void>
     if (chemins.length === 0) {
         return;
     }
+    // Le client RENVOIE son erreur au lieu de la lever : un `try/catch` seul ne verrait
+    // jamais un ménage raté, et l'orphelin resterait sans que rien ne l'indique. Les deux
+    // chemins sont donc traités, et aucun ne fait échouer l'appelant.
     try {
-        await client().from(seau()).remove([...chemins]);
+        const { error } = await client()
+            .from(seau())
+            .remove([...chemins]);
+        if (error) {
+            console.error("Suppression de pièces refusée", { chemins, error });
+        }
     } catch (erreur) {
         console.error("Suppression de pièces impossible", { chemins, erreur });
     }

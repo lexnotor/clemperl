@@ -121,12 +121,18 @@ export async function deposerDossier(
         return { ...ETAT_INITIAL, message: [doublon ? t("already_open") : t("submit_failed")] };
     }
 
-    // Hors transaction : un relais indisponible ne doit pas annuler un dépôt valide.
+    // Hors transaction, ET sans pouvoir la défaire : le dossier est déjà enregistré.
+    // Lever ici rendrait la main sur une erreur alors que le dépôt a réussi, et le
+    // candidat qui renverrait son formulaire se heurterait à « demande déjà en cours ».
     const message = construireMessageAccuseReception(champs.data.shopName, locale);
-    await creerSmtpSender(env.SMTP_URL, env.EMAIL_FROM).envoyer({
-        ...message,
-        destinataire: session.user.email,
-    });
+    try {
+        await creerSmtpSender(env.SMTP_URL, env.EMAIL_FROM).envoyer({
+            ...message,
+            destinataire: session.user.email,
+        });
+    } catch (erreur) {
+        console.error("Accusé de réception non envoyé", { dossier: champs.data.shopName, erreur });
+    }
 
     revalidatePath("/devenir-vendeur");
     return { message: [], succes: true };

@@ -20,9 +20,8 @@ export default defineConfig({
                 "**/test-setup.ts",
                 "src/utils/stockage-pieces.utils.ts",
             ],
-            // Plancher mesuré, pas souhaité. L'écart au 100 % est le schéma
-            // d'environnement, qu'aucun test ne traverse.
-            thresholds: { statements: 73, branches: 83, functions: 75, lines: 73 },
+            // Plancher mesuré, pas souhaité.
+            thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
         },
     },
 });

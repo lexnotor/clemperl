@@ -25,6 +25,20 @@ describe("schéma de dépôt d'un dossier", () => {
         expect(analyse.shopName).toBe("Chez Clem");
     });
 
+    // Sans cette règle, le nom passe la validation et ne produit aucun slug : la boutique
+    // se retrouve sans identifiant public, et la deuxième du genre casse sur l'unicité.
+    it("refuse un nom de boutique dont aucun slug ne peut sortir", () => {
+        for (const shopName of ["日本橋工房", "!!!", "— —", "Ателье"]) {
+            expect(schemaDepotDossier.safeParse({ ...VALIDE, shopName }).success).toBe(false);
+        }
+    });
+
+    it("accepte les noms latins usuels, accents et apostrophes compris", () => {
+        for (const shopName of ["Chez Clem", "Éclat", "L'Atelier", "A1"]) {
+            expect(schemaDepotDossier.safeParse({ ...VALIDE, shopName }).success).toBe(true);
+        }
+    });
+
     it("exige au moins une catégorie", () => {
         expect(schemaDepotDossier.safeParse({ ...VALIDE, categories: [] }).success).toBe(false);
     });
