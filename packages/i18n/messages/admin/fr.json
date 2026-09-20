@@ -48,7 +48,7 @@
   },
   "setup": {
     "title": "Installer l'administration",
-    "instruction": "Aucun administrateur n'existe encore. Créez le premier compte : cette page disparaîtra ensuite définitivement.",
+    "instruction": "Aucun administrateur n'existe encore. Créez le premier compte : vous serez ensuite invité à vous connecter, et cette page disparaîtra définitivement.",
     "name": "Nom",
     "email": "Adresse e-mail",
     "password": "Mot de passe",

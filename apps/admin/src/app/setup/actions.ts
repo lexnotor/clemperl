@@ -38,5 +38,9 @@ export async function createFirstAdministrator(
         data: { role: "ADMIN", emailVerified: true },
     });
 
-    redirect("/applications");
+    // Vers la connexion, et non vers l'administration : `signUpEmail` appelé côté serveur
+    // ne pose aucun cookie dans le NAVIGATEUR, donc la personne ne serait pas connectée.
+    // Et même si elle l'était, sa session porterait le rôle accordé à l'inscription —
+    // `CUSTOMER` — puisque le rôle est posé juste après. Se connecter règle les deux.
+    redirect(`${process.env["NEXT_PUBLIC_STOREFRONT_URL"] ?? ""}/sign-in`);
 }
