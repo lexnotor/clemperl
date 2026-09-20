@@ -567,3 +567,33 @@ reproduit, le conteneur n'y est pour rien.
 Ce qui protège maintenant : `packages/core/tsconfig.json` déclare `types: ["node"]` et
 `@types/node` figure dans ses propres `devDependencies`. Tout package qui se met à
 utiliser un global de Node doit faire les deux.
+
+---
+
+**Une définition `paquet#tâche` dans `turbo.json` REMPLACE la tâche générique au lieu de
+la compléter : `@clemperl/db#build` perdait ainsi ses `outputs`, et ne mettait donc rien
+en cache.**
+
+La tâche `build` générique déclare `outputs: ["dist/**"]`. L'entrée
+`"@clemperl/db#build"`, écrite pour ajouter une dépendance à `db:generate`, écrase
+entièrement cette définition — `outputs` compris. La tâche s'exécute correctement, mais
+son résultat n'entre jamais dans le cache.
+
+Le piège ne se déclenche qu'au **succès** du cache. Cache froid, la tâche tourne pour de
+vrai et `dist/` existe : tout va bien. Cache chaud, Turbo annonce `cache hit, replaying
+logs`, ne restaure rien, et `packages/db/dist` reste absent.
+
+Observé le 2026-09-20 en CI. L'erreur n'accuse jamais le coupable : elle sort du
+storefront, en `Module not found: Can't resolve '@clemperl/db'`, à dix fichiers de la
+cause. Reproduit localement en trois commandes — construire, supprimer `dist`,
+reconstruire : l'empreinte `236793e26dd1a27c` était identique à celle de la CI.
+
+Ce qui rend le piège durable : la CI restaure le cache par la clé de repli
+`turbo-build-`, donc n'importe quel run précédent. Une machine de développement qui a
+déjà construit une fois ne le reverra jamais.
+
+Ce qui protège maintenant : `@clemperl/db#build` déclare ses `outputs`. Toute entrée
+`paquet#tâche` doit réécrire **l'ensemble** de ce que la tâche générique donnait, jamais
+le seul champ qu'on veut changer. `@clemperl/db#typecheck` a repris `^build` pour la
+même raison : l'override l'avait fait disparaître, et le typage partait sans que ses
+dépendances soient construites.

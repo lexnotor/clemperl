@@ -60,6 +60,7 @@
     },
     "@clemperl/db#typecheck": {
       "dependsOn": [
+        "^build",
         "db:generate"
       ]
     },
@@ -67,6 +68,9 @@
       "dependsOn": [
         "^build",
         "db:generate"
+      ],
+      "outputs": [
+        "dist/**"
       ]
     }
   }
