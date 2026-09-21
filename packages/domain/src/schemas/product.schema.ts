@@ -31,13 +31,26 @@ export const productOptionSchema = z.object({
         }),
 });
 
-// Trois axes au plus : au-delà, la grille dépasse la centaine de lignes et l'écran
-// cesse d'être utilisable bien avant que la base ne s'en plaigne.
+// Le nombre de variantes qu'une boutique peut décrire d'un seul produit. Ce n'est pas
+// la limite de la base : c'est celle de l'écran, qui rend un champ de prix par ligne, et
+// celle de la transaction, qui insère chaque variante séquentiellement.
+export const MAX_VARIANTS_PER_PRODUCT = 100;
+
 export const productOptionsSchema = z
     .array(productOptionSchema)
+    // Trois axes au plus.
     .max(3)
     .refine((options) => new Set(options.map((option) => option.name)).size === options.length, {
         message: "deux axes portent le même nom",
-    });
+    })
+    // Borner les AXES ne borne pas la grille : trois axes de vingt valeurs font huit
+    // mille variantes, toutes issues d'une saisie parfaitement valide. C'est le produit
+    // cartésien qu'il faut plafonner, pas ses facteurs.
+    .refine(
+        (options) =>
+            options.reduce((total, option) => total * Math.max(option.values.length, 1), 1) <=
+            MAX_VARIANTS_PER_PRODUCT,
+        { message: `plus de ${MAX_VARIANTS_PER_PRODUCT} déclinaisons pour un seul produit` },
+    );
 
 export type TProductOption = z.infer<typeof productOptionSchema>;

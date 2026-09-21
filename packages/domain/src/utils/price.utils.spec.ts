@@ -61,3 +61,20 @@ describe("formatPrice", () => {
         expect(rendu).toContain("12");
     });
 });
+
+describe("la borne de parsePrice", () => {
+    // La colonne est un `Int` PostgreSQL. Sans ce refus, une saisie trop longue traverse
+    // toute la validation et n'échoue qu'à l'écriture, sur un message qui ne dit pas que
+    // c'est le prix.
+    it("accepte le montant maximal exact", () => {
+        expect(parsePrice("2147483647", "XOF")).toBe(2_147_483_647);
+    });
+
+    it("refuse un montant au-delà de la colonne", () => {
+        expect(() => parsePrice("2147483648", "XOF")).toThrow(/montants acceptés/i);
+    });
+
+    it("refuse un montant si long qu'il cesse d'être un entier sûr", () => {
+        expect(() => parsePrice("99999999999999999999", "XOF")).toThrow();
+    });
+});

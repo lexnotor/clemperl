@@ -1,6 +1,11 @@
 "use server";
 
-import { ERROR_PRODUCT_SLUG_TAKEN, createProduct, prisma } from "@clemperl/db";
+import {
+    ERROR_CURRENCY_CHANGED,
+    ERROR_PRODUCT_SLUG_TAKEN,
+    createProduct,
+    prisma,
+} from "@clemperl/db";
 import { parsePrice, productDetailsSchema, slugifyProductTitle } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { redirect } from "next/navigation";
@@ -44,16 +49,22 @@ export async function createProductAction(
             title: parsed.data.title,
             description: parsed.data.description,
             priceAmount,
+            // La devise sous laquelle `parsePrice` vient de convertir. Le dépôt la relit
+            // après avoir pris son verrou et refuse si elle a changé entre-temps.
+            expectedCurrency: vendor.currency,
         });
     } catch (error) {
         console.error("createProductAction", error);
         // Un titre déjà pris n'est pas une panne : « réessayez » enverrait le vendeur
         // reproduire exactement le même slug.
-        const taken = error instanceof Error && error.message === ERROR_PRODUCT_SLUG_TAKEN;
-        return {
-            message: [taken ? messages.errors.slugTaken : messages.errors.failed],
-            saved: false,
-        };
+        const code = error instanceof Error ? error.message : "";
+        const raison =
+            code === ERROR_PRODUCT_SLUG_TAKEN
+                ? messages.errors.slugTaken
+                : code === ERROR_CURRENCY_CHANGED
+                  ? messages.errors.currencyChanged
+                  : messages.errors.failed;
+        return { message: [raison], saved: false };
     }
 
     // `redirect` lève pour interrompre le rendu : il doit rester HORS du `try`, sinon le

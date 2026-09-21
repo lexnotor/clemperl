@@ -6,6 +6,8 @@ export interface ICreateProduct {
     title: string;
     description: string;
     priceAmount: number;
+    /** La devise sous laquelle l'appelant a converti `priceAmount`. */
+    expectedCurrency: string;
 }
 
 export interface IOptionToWrite {
@@ -33,6 +35,8 @@ export interface ISaveProduct {
 
 export const ERROR_PRODUCT_NOT_FOUND = "PRODUCT_NOT_FOUND";
 export const ERROR_PRODUCT_SLUG_TAKEN = "PRODUCT_SLUG_TAKEN";
+export const ERROR_CURRENCY_CHANGED = "CURRENCY_CHANGED";
+export const ERROR_VARIANTS_REQUIRED = "VARIANTS_REQUIRED";
 
 // Prisma signale une violation d'unicité par ce code. Le distinguer d'une panne permet
 // de dire au vendeur de changer son titre plutôt que de « réessayer » — un conseil qui
@@ -107,6 +111,20 @@ export async function createProduct(
         // plutôt que probable.
         await lockVendor(tx, input.vendorId);
 
+        // Sérialiser ne suffit PAS. L'appelant a converti « 49,00 » en `4900` avec la
+        // devise qu'il a lue avant d'entrer ici. Si un changement de devise a obtenu le
+        // verrou en premier, cette création l'obtient ensuite et insère un montant
+        // converti sous une devise qui n'est plus la bonne — 4900 centimes d'euro
+        // deviendraient 4900 francs CFA. On relit donc la devise APRÈS le verrou, et on
+        // refuse plutôt que d'écrire un montant dont on ne sait plus ce qu'il vaut.
+        const vendor = await tx.vendor.findUnique({
+            where: { id: input.vendorId },
+            select: { currency: true },
+        });
+        if (vendor?.currency !== input.expectedCurrency) {
+            throw new Error(ERROR_CURRENCY_CHANGED);
+        }
+
         try {
             return await tx.product.create({
                 data: {
@@ -133,6 +151,15 @@ export async function createProduct(
 // écriture partielle laisserait un produit sans variante, ou des variantes orphelines de
 // leur combinaison : tout passe donc par une seule transaction.
 export async function saveProduct(prisma: PrismaClient, input: ISaveProduct): Promise<void> {
+    // Avant la transaction, donc avant toute suppression : une grille vide supprimerait
+    // toutes les variantes sans en recréer, et laisserait un produit sans prix. La liste
+    // calculerait ensuite une fourchette sur un tableau vide. Aucun appelant ne peut
+    // produire ce cas aujourd'hui — mais dans ce dépôt, la garde est dans la signature,
+    // pas dans la bonne volonté de l'appelant.
+    if (input.variants.length === 0) {
+        throw new Error(ERROR_VARIANTS_REQUIRED);
+    }
+
     await prisma.$transaction(async (tx) => {
         const product = await tx.product.findFirst({
             where: { id: input.productId, vendorId: input.vendorId, deletedAt: null },

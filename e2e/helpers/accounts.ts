@@ -156,6 +156,14 @@ export async function createApprovedVendorShop(
     await page.getByLabel("Pièce d'identité").setInputFiles("e2e/fixtures/identity.png");
     await page.getByRole("button", { name: "Déposer ma demande" }).click();
 
+    // Attendre que le dépôt soit CONSTATÉ avant d'ouvrir l'administration : un clic ne
+    // fait que déclencher la server action, et la liste d'examen lue trop tôt ne porte
+    // pas encore ce dossier. Le piège a déjà été payé en T1b, et `vendor-shop.spec.ts`
+    // l'évite ainsi.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+        "Votre demande est en cours d'examen",
+    );
+
     // L'administrateur travaille dans un contexte SÉPARÉ : deux sessions dans le même
     // contexte partageraient le cookie et s'écraseraient.
     const adminContext = await browser.newContext();

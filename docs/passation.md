@@ -212,6 +212,33 @@ est un choix, écrit pour que le jour où il gêne, on sache qu'il a été vu.
 **La devise d'une boutique se fige dès qu'un produit existe**, brouillon compris. Le
 déblocage est la suppression du brouillon, et le message le dit. Accepté.
 
+**L'arithmétique monétaire attend T3, et elle passera par une bibliothèque.** Aujourd'hui
+`packages/core` porte `IMoney`, `CURRENCY_EXPONENT`, `parsePrice` et `formatPrice` — de
+quoi ranger un entier et l'afficher, ce que T2b demande et rien de plus. **T2b ne fait
+aucun calcul.**
+
+Le calcul arrive avec le panier : additionner des lignes, appliquer une remise, et surtout
+**répartir un total entre plusieurs boutiques sans perdre un centime**. C'est là que le
+code monétaire écrit à la main se trompe, et là qu'une bibliothèque dédiée gagne son
+droit d'entrée. `dinero.js` 2.0.2 est le candidat : ESM, sans aucune dépendance, et sa
+représentation — unité mineure entière plus `{ code, base, exponent }` — est exactement
+celle qu'on range déjà. L'adopter ne demandera donc **aucune migration**.
+
+Deux choses resteront à notre charge quoi qu'il arrive : lire « 1 200,50 » depuis un
+formulaire français et refuser une décimale en franc CFA — aucune bibliothèque monétaire
+n'analyse une saisie ; et le formatage, qui n'est qu'un `Intl.NumberFormat`.
+
+Le seul point d'attention : `docs/ce-qui-casse.md` dit qu'une dépendance ajoutée à
+`@clemperl/core` fait que « le cœur métier cesse d'être importable partout ». Dinero étant
+sans dépendance, il passe ce test — mais c'est une décision à prendre explicitement.
+
+**Les clés étrangères de `ProductVariantValue` ne garantissent pas la cohérence
+hiérarchique.** Elles valident chaque identifiant séparément : rien en base n'interdit une
+variante du produit A portant un axe du produit B. Aucun appelant ne peut le produire —
+`saveProduct` construit ces lignes depuis ses propres tables, dans la transaction d'un
+seul produit. La fermer demande des clés composites sur trois tables et une migration.
+C'est la bonne direction, et c'est un chantier.
+
 **Les fronts n'ont pas `packages/db` monté, ils l'embarquent.** Le compose monte
 `packages/core/src`, `packages/domain/src`, `packages/ui/src` et `packages/auth/src` dans
 les trois applications Next, dont le `tsc --watch` recompile les `dist` à chaud. Pas

@@ -80,9 +80,18 @@ export async function saveProductAction(
     // La grille est recalculée SERVEUR à partir des axes soumis : ce que le navigateur a
     // affiché n'engage personne. La fonction étant pure et déterministe, les positions
     // qu'elle attribue ici sont celles que le formulaire a rendues.
-    const grid = buildVariantMatrix(options.data, [], prices[0] ?? 0).map((variant) => ({
+    const shape = buildVariantMatrix(options.data, [], 0);
+
+    // CHAQUE position doit porter son prix. Sans cette exigence, une requête à laquelle
+    // il manque un champ voit sa variante chiffrée à zéro sans que rien ne le signale —
+    // et une action serveur est une route publique, appelable sans le formulaire.
+    if (shape.some((variant) => prices[variant.position] === undefined)) {
+        return { message: [messages.errors.priceMissing], saved: false };
+    }
+
+    const grid = shape.map((variant) => ({
         selections: variant.selections,
-        priceAmount: prices[variant.position] ?? variant.priceAmount,
+        priceAmount: prices[variant.position] as number,
         position: variant.position,
     }));
 

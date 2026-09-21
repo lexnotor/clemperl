@@ -65,3 +65,26 @@ describe("productOptionsSchema", () => {
         ).toBe(false);
     });
 });
+
+describe("le plafond de déclinaisons", () => {
+    // Borner les AXES ne borne pas la grille : trois axes de vingt valeurs font huit
+    // mille variantes, toutes issues d'une saisie parfaitement valide.
+    it("refuse un produit cartésien qui dépasse la centaine", () => {
+        const vingt = Array.from({ length: 20 }, (_, index) => `v${index}`);
+        expect(
+            productOptionsSchema.safeParse([
+                { name: "A", values: vingt },
+                { name: "B", values: vingt },
+            ]).success,
+        ).toBe(false);
+    });
+
+    it("accepte une grille qui tient sous le plafond", () => {
+        expect(
+            productOptionsSchema.safeParse([
+                { name: "Taille", values: ["S", "M", "L"] },
+                { name: "Couleur", values: ["Noir", "Écru"] },
+            ]).success,
+        ).toBe(true);
+    });
+});

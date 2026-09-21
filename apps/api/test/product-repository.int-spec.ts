@@ -1,5 +1,7 @@
 import {
+    ERROR_CURRENCY_CHANGED,
     ERROR_PRODUCT_SLUG_TAKEN,
+    ERROR_VARIANTS_REQUIRED,
     countProductsForVendor,
     createProduct,
     listProductsForVendor,
@@ -46,6 +48,7 @@ async function createTeeShirt(vendorId: string): Promise<string> {
         title: "Tee-shirt",
         description: DESCRIPTION,
         priceAmount: 4900,
+        expectedCurrency: "EUR",
     });
     return id;
 }
@@ -318,12 +321,64 @@ describe("le slug d'un produit", () => {
     it("signale un titre déjà pris plutôt qu'une panne", async () => {
         const vendorId = await createShop();
         const slug = `${PREFIX}-doublon`;
-        const commun = { vendorId, slug, description: DESCRIPTION, priceAmount: 4900 };
+        const commun = {
+            vendorId,
+            slug,
+            description: DESCRIPTION,
+            priceAmount: 4900,
+            expectedCurrency: "EUR",
+        };
 
         await createProduct(prisma, { ...commun, title: "Sac cabas" });
 
         await expect(createProduct(prisma, { ...commun, title: "Sac cabas" })).rejects.toThrow(
             ERROR_PRODUCT_SLUG_TAKEN,
         );
+    });
+});
+
+describe("la devise au moment de l'écriture", () => {
+    // Sérialiser les deux transactions ne suffit pas : l'appelant a converti son prix
+    // AVANT d'entrer. Si la devise a changé entre-temps, `4900` ne vaut plus la même
+    // chose, et l'écrire quand même serait précisément la corruption que le verrou est
+    // censé empêcher.
+    it("refuse une création dont la devise attendue n'est plus celle de la boutique", async () => {
+        const vendorId = await createShop();
+
+        await expect(
+            createProduct(prisma, {
+                vendorId,
+                slug: `${PREFIX}-devise-changee`,
+                title: "Sac cabas",
+                description: DESCRIPTION,
+                priceAmount: 4900,
+                expectedCurrency: "XOF",
+            }),
+        ).rejects.toThrow(ERROR_CURRENCY_CHANGED);
+
+        expect(await countProductsForVendor(prisma, vendorId)).toBe(0);
+    });
+});
+
+describe("l'invariant « au moins une variante »", () => {
+    it("refuse une grille vide avant de supprimer quoi que ce soit", async () => {
+        const vendorId = await createShop();
+        const productId = await createTeeShirt(vendorId);
+
+        await expect(
+            saveProduct(prisma, {
+                productId,
+                vendorId,
+                title: "Tee-shirt",
+                slug: `${PREFIX}-tee-vide`,
+                description: DESCRIPTION,
+                options: [],
+                variants: [],
+            }),
+        ).rejects.toThrow(ERROR_VARIANTS_REQUIRED);
+
+        // La moitié qui compte : les variantes existantes sont intactes.
+        const product = await readProductForVendor(prisma, { productId, vendorId });
+        expect(product?.variants).toHaveLength(1);
     });
 });

@@ -44,7 +44,9 @@
     "currencyLocked": "Vos produits sont déjà chiffrés dans cette devise : elle ne change plus.",
     "currencyMissing": "Choisissez d'abord la devise de vos prix, dans Ma boutique.",
     "priceInvalid": "Ce prix n'est pas lisible dans la devise de votre boutique.",
-    "slugTaken": "Vous avez déjà un produit portant ce titre. Choisissez-en un autre."
+    "slugTaken": "Vous avez déjà un produit portant ce titre. Choisissez-en un autre.",
+    "currencyChanged": "La devise de votre boutique a changé pendant la saisie. Vérifiez le prix et recommencez.",
+    "priceMissing": "Un prix manque pour l'une des déclinaisons."
   },
   "currency": {
     "EUR": "Euro (€)",
