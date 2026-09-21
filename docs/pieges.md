@@ -907,3 +907,30 @@ Observé le 2026-09-21.
 
 Ce qui protège maintenant : la liste de `global-setup.ts` porte une entrée par route
 dynamique, avec un identifiant volontairement inexistant.
+
+---
+
+**Une tâche Turbo qui passe par CHANCE d'ordonnancement finit par échouer, et pas sur la
+machine où on l'a écrite.**
+
+`@clemperl/db` se teste contre `generated/prisma/`, produit par `prisma generate`. Sa
+tâche `test` ne dépendait que de `^build` — les dépendances du paquet, donc `core`, jamais
+ce que le paquet génère pour lui-même. Elle réussissait quand même : `@clemperl/api#test`
+dépend de `^build`, qui inclut `@clemperl/db#build`, qui déclenche `db:generate`. La
+génération arrivait donc *à temps*, par un chemin qui ne la garantissait pas.
+
+Turbo parallélise. Le jour où `@clemperl/db#test` démarre avant la tâche qui générait pour
+lui, il échoue sur `Cannot find module '../generated/prisma/client.js'`. En local le
+dossier existe déjà : **ça ne se voit que sur un dépôt fraîchement cloné**, et de façon
+intermittente.
+
+Observé le 2026-09-21, en CI, sur un run où rien de pertinent n'avait changé — le même
+code était passé deux runs plus tôt.
+
+Ce qui protège maintenant : `@clemperl/db#test` et `@clemperl/db#lint` déclarent
+`db:generate`, comme `#typecheck` et `#build` le faisaient déjà. Règle générale : une
+tâche dépend de ce dont elle a besoin, jamais de ce qu'une voisine lui procure.
+
+Attention en l'écrivant : une entrée `<paquet>#<tâche>` **remplace** l'entrée générique.
+Ses `outputs` doivent être repris, sinon la mise en cache de cette tâche disparaît en
+silence.
