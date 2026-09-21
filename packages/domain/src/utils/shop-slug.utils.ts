@@ -1,13 +1,7 @@
-const MAX_SLUG_LENGTH = 60;
+import { slugify } from "./slug.utils.js";
 
-// Les accents sont dépliés et non encodés : `créations` et `creations` désigneraient
-// sinon deux boutiques dont personne ne saurait dire laquelle il a visitée.
+// Le slug d'une boutique est figé à la validation : il part dans les URL publiques, et
+// une URL qui bouge est une URL cassée.
 export function slugifyShopName(name: string): string {
-    return name
-        .normalize("NFD")
-        .replace(/[̀-ͯ]/g, "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .slice(0, MAX_SLUG_LENGTH)
-        .replace(/^-+|-+$/g, "");
+    return slugify(name);
 }

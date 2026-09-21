@@ -16,6 +16,14 @@ const ROUTES = [
     `${URL_STOREFRONT}/verify-email`,
     `${URL_STOREFRONT}/become-a-vendor`,
     `${URL_VENDOR}/`,
+    `${URL_VENDOR}/shop`,
+    `${URL_VENDOR}/products`,
+    `${URL_VENDOR}/products/new`,
+    // Une route DYNAMIQUE se compile aussi, et l'identifiant n'a pas à exister : la page
+    // est assemblée avant de décider qu'elle répond 404. Sans cette ligne, la première
+    // fiche produit coûte sept secondes au test qui vient de la créer, et l'assertion
+    // expire avant que le rendu n'arrive.
+    `${URL_VENDOR}/products/inexistant`,
     `${URL_ADMIN}/`,
     `${URL_ADMIN}/setup`,
     `${URL_ADMIN}/applications`,

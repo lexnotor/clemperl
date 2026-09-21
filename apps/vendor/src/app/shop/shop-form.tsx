@@ -1,9 +1,10 @@
 "use client";
 
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
-import { Button, CheckboxField, Field, FormSection, TextAreaField } from "@clemperl/ui";
+import { E_CURRENCY } from "@clemperl/db/enums";
+import { Button, CheckboxField, Field, FormSection, SelectField, TextAreaField } from "@clemperl/ui";
 import { useActionState, type JSX } from "react";
-import { saveShopProfile } from "./actions";
+import { saveShopCurrency, saveShopProfile } from "./actions";
 import { INITIAL_STATE } from "./types/shop-form-state.interface";
 
 const CATEGORIES = ["APPAREL", "JEWELLERY", "LEATHER_GOODS"] as const;
@@ -14,14 +15,22 @@ interface ShopFormProps {
     contactEmail: string;
     contactPhone: string;
     categories: readonly string[];
+    currency: string | null;
+    currencyLocked: boolean;
 }
 
 export function ShopForm(shop: ShopFormProps): JSX.Element {
     const t = messages.shop;
     const labels = messages.category as Record<string, string>;
+    const currencyLabels = messages.currency as Record<string, string>;
     const [state, action, pending] = useActionState(saveShopProfile, INITIAL_STATE);
+    const [currencyState, currencyAction, currencyPending] = useActionState(
+        saveShopCurrency,
+        INITIAL_STATE,
+    );
 
     return (
+        <>
         <form action={action} className="mt-12 flex flex-col gap-12">
             <FormSection title={t.commercialSection}>
                 <Field
@@ -82,5 +91,37 @@ export function ShopForm(shop: ShopFormProps): JSX.Element {
                 {t.save}
             </Button>
         </form>
+
+        {/* Une form SÉPARÉE : la devise a sa propre action serveur, et imbriquer deux
+            formulaires produit un HTML que le navigateur répare comme il peut. */}
+        <form action={currencyAction} className="mt-12 flex flex-col gap-6">
+            <FormSection title={t.currencySection}>
+                <SelectField
+                    label={t.currency}
+                    name="currency"
+                    required
+                    defaultValue={shop.currency ?? ""}
+                    disabled={shop.currencyLocked}
+                    placeholder={t.currencyPlaceholder}
+                    hint={shop.currencyLocked ? t.currencyLocked : t.currencyHint}
+                    options={Object.values(E_CURRENCY).map((code) => ({
+                        value: code,
+                        label: currencyLabels[code] as string,
+                    }))}
+                />
+            </FormSection>
+
+            {currencyState.message.length > 0 && (
+                <p role="alert" className="text-sm text-accent">
+                    {currencyState.message.join(" ")}
+                </p>
+            )}
+            {currencyState.saved && <p className="text-sm text-muet">{t.currencySaved}</p>}
+
+            <Button type="submit" disabled={currencyPending || shop.currencyLocked}>
+                {t.saveCurrency}
+            </Button>
+        </form>
+        </>
     );
 }

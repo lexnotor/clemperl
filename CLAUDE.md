@@ -41,6 +41,7 @@ commentaire de revue.
 | Du code qui paraît bizarre et qu'on s'apprête à « corriger », ou un symptôme qu'on ne s'explique pas | [Pièges déjà payés](docs/pieges.md)             |
 | Monter le monorepo, un Dockerfile, le compose, Prisma, l'i18n, la CI  | [Design T0](docs/superpowers/specs/2026-09-17-t0-fondations-monorepo-design.md) |
 | S'inscrire, se connecter, partager une session entre les fronts       | [Design T1a](docs/superpowers/specs/2026-09-18-t1a-identite-design.md)          |
+| Modéliser un produit, ses axes, ses variantes ou un prix              | [Design T2b](docs/superpowers/specs/2026-09-21-t2b-produit-variantes-design.md) |
 | Reprendre le travail sur une autre machine, ou après une interruption | [Passation](docs/passation.md)                                                  |
 
 Un travail qui traverse plusieurs disciplines est tenu aux deux standards à la

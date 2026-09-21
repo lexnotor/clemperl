@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-09-20.
+Dernière mise à jour : 2026-09-21.
 
 ## Où en est le projet
 
@@ -18,7 +18,7 @@ plan, exécution, un commit.
 | T1a | Identité et sessions | **Livrée** — commit `15e276a` |
 | T1b | Vendeurs : demande d'ouverture et validation | **Livrée** — `ef68c6c`..`c33188c` |
 | T2a | Espace vendeur et boutique | **Livrée** |
-| T2b | Produit et variantes | non commencée |
+| T2b | Produit et variantes | **Livrée** |
 | T2c | Pipeline médias (BullMQ, sharp, worker) | non commencée |
 | T2d | Catalogue public : liste, filtres, fiche | non commencée |
 | T3 | Panier et commande | non commencée |
@@ -71,6 +71,21 @@ Google le jour où on les crée.
 `migrate` du compose déploie les migrations avant que les applications démarrent, et
 celles-ci l'attendent : `pnpm docker:up` suffit. Les comptes créés sur l'ancienne machine
 ne suivent pas, et c'est sans conséquence — ce sont des comptes d'essai.
+
+**Un `.env` déjà présent peut être PÉRIMÉ.** Le document couvrait la machine neuve, pas
+la machine qu'on retrouve après quelques tranches. Une tranche qui ajoute une variable
+l'écrit dans `.env.example` seulement : le `.env` local, lui, ne bouge pas. Le symptôme
+est un conteneur qui sort en erreur sur un nom de variable — `PGRST_JWT_SECRET is
+undefined` pour le stockage. Comparer avant de chercher ailleurs :
+
+    comm -23 <(grep -oE "^[A-Z_]+=" .env.example | sort -u) <(grep -oE "^[A-Z_]+=" .env | sort -u)
+
+**Un volume PostgreSQL peut aussi être périmé.** T1b a écrasé l'historique des migrations.
+Un volume antérieur porte les anciens types, et `migrate deploy` échoue sur
+`type "user_role" already exists` (P3018). La réponse est de supprimer le volume — il ne
+contient que des comptes d'essai :
+
+    pnpm docker:down && docker volume rm clemperl_dev_pg_data clemperl_dev_storage_data
 
 **Les navigateurs de Playwright ne sont pas dans le dépôt.** `pnpm install` ne les pose
 pas : il faut `pnpm exec playwright install`. Sans eux, `pnpm test:e2e` échoue sur
@@ -183,6 +198,62 @@ notamment d'être choisie, pas subie.
 conteneurs, pas leur santé ni la fin de `storage-init`. La CI compense par une boucle
 d'attente explicite (`ci.yml`) ; en local, rien. Lancer `pnpm test:e2e` dans la foulée
 produit des échecs qu'on attribue au code.
+
+**Un produit n'a aucune image, et aucun stock.** Les médias sont T2c, le stock T3. Rien
+à l'écran ne prétend le contraire.
+
+**Rien de publié n'est visible hors de l'espace vendeur.** Le catalogue public est T2d.
+Publier ne fait aujourd'hui que changer un état et figer le slug.
+
+**`ProductVariant.priceAmount` est un `Int`**, plafonné à 2 147 483 647 : 2,1 milliards de
+francs CFA, environ 3,2 M€. Au-dessus de tout article des trois métiers visés. Le plafond
+est un choix, écrit pour que le jour où il gêne, on sache qu'il a été vu.
+
+**La devise d'une boutique se fige dès qu'un produit existe**, brouillon compris. Le
+déblocage est la suppression du brouillon, et le message le dit. Accepté.
+
+**L'arithmétique monétaire attend T3, et elle passera par une bibliothèque.** Aujourd'hui
+`packages/core` porte `IMoney`, `CURRENCY_EXPONENT`, `parsePrice` et `formatPrice` — de
+quoi ranger un entier et l'afficher, ce que T2b demande et rien de plus. **T2b ne fait
+aucun calcul.**
+
+Le calcul arrive avec le panier : additionner des lignes, appliquer une remise, et surtout
+**répartir un total entre plusieurs boutiques sans perdre un centime**. C'est là que le
+code monétaire écrit à la main se trompe, et là qu'une bibliothèque dédiée gagne son
+droit d'entrée. `dinero.js` 2.0.2 est le candidat : ESM, sans aucune dépendance, et sa
+représentation — unité mineure entière plus `{ code, base, exponent }` — est exactement
+celle qu'on range déjà. L'adopter ne demandera donc **aucune migration**.
+
+Deux choses resteront à notre charge quoi qu'il arrive : lire « 1 200,50 » depuis un
+formulaire français et refuser une décimale en franc CFA — aucune bibliothèque monétaire
+n'analyse une saisie ; et le formatage, qui n'est qu'un `Intl.NumberFormat`.
+
+Le seul point d'attention : `docs/ce-qui-casse.md` dit qu'une dépendance ajoutée à
+`@clemperl/core` fait que « le cœur métier cesse d'être importable partout ». Dinero étant
+sans dépendance, il passe ce test — mais c'est une décision à prendre explicitement.
+
+**Les clés étrangères de `ProductVariantValue` ne garantissent pas la cohérence
+hiérarchique.** Elles valident chaque identifiant séparément : rien en base n'interdit une
+variante du produit A portant un axe du produit B. Aucun appelant ne peut le produire —
+`saveProduct` construit ces lignes depuis ses propres tables, dans la transaction d'un
+seul produit. La fermer demande des clés composites sur trois tables et une migration.
+C'est la bonne direction, et c'est un chantier.
+
+**Les fronts n'ont pas `packages/db` monté, ils l'embarquent.** Le compose monte
+`packages/core/src`, `packages/domain/src`, `packages/ui/src` et `packages/auth/src` dans
+les trois applications Next, dont le `tsc --watch` recompile les `dist` à chaud. Pas
+`packages/db` : tout changement du schéma ou d'un dépôt exige `pnpm docker:up`, et le
+symptôme accuse une route sans rapport. Trois reconstructions l'ont coûté pendant la
+seule tranche T2b.
+
+Le monter demanderait `src`, `generated` et `prisma` ensemble — `generated` n'étant pas
+dans `src`. C'est un changement de topologie à vérifier pour les quatre applications, et
+il mérite son propre chantier plutôt qu'un coin de tranche.
+
+**`@clemperl/core` n'a pas de sous-chemin navigateur.** `@clemperl/domain` en a un
+(`/browser`) depuis T2b, parce qu'un composant client qui importe son barillet fait entrer
+nodemailer dans le paquet. `core` a le même défaut latent : le premier composant client
+qui y cherchera `TCurrency` ou `CURRENCY_EXPONENT` le rouvrira.
 
 **Aucun sélecteur de boutique.** Le schéma autorise plusieurs `vendor_members` pour un
 même compte, mais rien ne les crée. Le sélecteur arrivera avec les invitations, pas

@@ -45,3 +45,55 @@ describe("TextAreaField", () => {
         expect(screen.getByText("Vingt caractères minimum.")).toBeVisible();
     });
 });
+
+// La raison d'être de la dissociation libellé / contrôle : un nom accessible EXACT.
+// Enveloppé, le contrôle héritait du `textContent` du `<label>` entier — indication
+// comprise, et pour un `<textarea>` sa valeur aussi, puisque React rend `defaultValue`
+// comme contenu de l'élément. Tout sélecteur par libellé attrapait alors le mauvais
+// élément, ou deux.
+describe("le nom accessible", () => {
+    it("ne contient pas l'indication", () => {
+        render(<Field label="Prix" hint="Dans la devise de votre boutique." />);
+        expect(screen.getByRole("textbox", { name: "Prix" })).toBeInTheDocument();
+    });
+
+    it("ne contient pas la valeur d'une zone de texte", () => {
+        render(<TextAreaField label="Description" defaultValue="Joaillerie artisanale." />);
+        expect(screen.getByRole("textbox", { name: "Description" })).toBeInTheDocument();
+    });
+
+    it("lie l'indication au contrôle comme description", () => {
+        render(<Field label="Prix" hint="Dans la devise de votre boutique." />);
+        expect(screen.getByRole("textbox", { name: "Prix" })).toHaveAccessibleDescription(
+            "Dans la devise de votre boutique.",
+        );
+    });
+});
+
+describe("aria-describedby fourni par l'appelant", () => {
+    // Étalé avant, il écraserait l'indication du composant, qui resterait visible sans
+    // être annoncée par un lecteur d'écran.
+    it("coexiste avec l'indication", () => {
+        render(
+            <>
+                <span id="erreur">Ce champ est requis.</span>
+                <Field label="Prix" hint="Dans la devise de votre boutique." aria-describedby="erreur" />
+            </>,
+        );
+        expect(screen.getByRole("textbox", { name: "Prix" })).toHaveAccessibleDescription(
+            "Ce champ est requis. Dans la devise de votre boutique.",
+        );
+    });
+
+    it("reste seul quand le composant n'a pas d'indication", () => {
+        render(
+            <>
+                <span id="erreur">Ce champ est requis.</span>
+                <Field label="Prix" aria-describedby="erreur" />
+            </>,
+        );
+        expect(screen.getByRole("textbox", { name: "Prix" })).toHaveAccessibleDescription(
+            "Ce champ est requis.",
+        );
+    });
+});

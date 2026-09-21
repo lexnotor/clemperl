@@ -1,4 +1,4 @@
-import type { E_VENDOR_CATEGORY } from "../../generated/prisma/enums.js";
+import type { E_CURRENCY, E_VENDOR_CATEGORY } from "../../generated/prisma/enums.js";
 import type { PrismaClient } from "../../generated/prisma/client.js";
 
 type TCategory = (typeof E_VENDOR_CATEGORY)[keyof typeof E_VENDOR_CATEGORY];
@@ -27,4 +27,47 @@ export interface IUpdateShopProfile {
 export async function updateShopProfile(prisma: PrismaClient, input: IUpdateShopProfile) {
     const { vendorId, ...fields } = input;
     return prisma.vendor.update({ where: { id: vendorId }, data: fields });
+}
+
+type TShopCurrency = (typeof E_CURRENCY)[keyof typeof E_CURRENCY];
+
+export const ERROR_CURRENCY_LOCKED = "CURRENCY_LOCKED";
+
+export async function countProductsForVendor(
+    prisma: PrismaClient,
+    vendorId: string,
+): Promise<number> {
+    return prisma.product.count({ where: { vendorId, deletedAt: null } });
+}
+
+// La devise n'entre PAS dans `updateShopProfile`. Cette signature-là dit « ces champs se
+// corrigent librement », et la devise ne le fait pas : la changer après coup
+// transformerait `10000` de dix mille francs CFA en cent euros sur tout le catalogue,
+// sans erreur et sans trace. Elle a donc sa propre fonction, qui refuse.
+//
+// Le comptage et l'écriture sont dans la MÊME transaction : entre les deux, un autre
+// onglet peut créer un produit.
+export async function setShopCurrency(
+    prisma: PrismaClient,
+    input: { vendorId: string; currency: TShopCurrency },
+): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+        // Le verrou AVANT le comptage. Sans lui, PostgreSQL en `READ COMMITTED` laisse ce
+        // comptage voir zéro produit pendant qu'une création s'engage à côté : les deux
+        // transactions réussissent, et le prix du nouveau produit se retrouve interprété
+        // dans une devise qu'il n'avait pas quand le vendeur l'a saisi. `createProduct`
+        // prend le même verrou, sur la même ligne.
+        await tx.$executeRaw`SELECT id FROM vendors WHERE id = ${input.vendorId} FOR UPDATE`;
+
+        const products = await tx.product.count({
+            where: { vendorId: input.vendorId, deletedAt: null },
+        });
+        if (products > 0) {
+            throw new Error(ERROR_CURRENCY_LOCKED);
+        }
+        await tx.vendor.update({
+            where: { id: input.vendorId },
+            data: { currency: input.currency },
+        });
+    });
 }

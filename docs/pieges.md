@@ -710,10 +710,21 @@ vide.** Au dépôt du dossier, le test remplit la description par `.fill()`, qui
 n'apparaît que sur une page rendue depuis la base, donc seulement à la seconde visite,
 ce qui le fait ressembler à une régression de la page plutôt qu'à un défaut du sélecteur.
 
-Ce qui protège maintenant : `e2e/vendor-shop.spec.ts` vise les cases à cocher par
-`getByRole("checkbox", { name: … })`. Règle générale : sur un écran qui repart de données
-enregistrées, préférer `getByRole` avec un nom accessible à `getByLabel`, dont la
-correspondance par sous-chaîne dépend du contenu affiché.
+Ce qui protège maintenant, depuis T2b : **la cause est fermée**, pas contournée.
+`Field` et `TextAreaField` n'enveloppent plus leur contrôle — le libellé est associé par
+`htmlFor`, comme `FileField` le faisait déjà seul dans le paquet, et l'indication est
+passée en `aria-describedby`. Le nom accessible vaut donc exactement le libellé, quelle
+que soit la valeur affichée.
+
+Ce qui l'avait rouvert : en T2b, un champ « Prix » portant une indication s'est retrouvé
+nommé « PrixLe prix de vente, dans la devise de votre boutique. », et
+`getByRole("textbox", { name: "Prix", exact: true })` ne trouvait rien. Le contournement
+de T2a — viser par `getByRole` — ne suffisait pas, parce que le nom accessible était
+lui-même pollué.
+
+`packages/ui/src/components/field.spec.tsx` tient la propriété : un test vérifie que le
+nom ne contient ni l'indication ni la valeur. `CheckboxField` enveloppe encore, et c'est
+sans conséquence — une case n'a ni indication ni contenu.
 
 ---
 
@@ -742,3 +753,184 @@ jetons de thème.
 À noter pour qui lirait ce registre à rebours : les trois `rounded-[--radius-controle]`
 n'ont pas été réparées mais **supprimées**. Les contrôles sont carrés par décision de
 design — les rendre ronds aurait « corrigé » le code en cassant l'intention.
+
+---
+
+**Les fronts embarquent `packages/db` dans leur image ; un changement de schéma ne les
+atteint qu'après reconstruction — et le symptôme accuse une route sans rapport.**
+
+Le compose monte `packages/db/src` et `packages/db/prisma` sur le conteneur de l'API
+seulement. Les trois applications Next les reçoivent **compilés, au build de l'image**.
+Après un `prisma migrate deploy` et un `prisma generate` joués dans le conteneur de
+l'API, la base est à jour, l'API voit le nouveau client, et les trois fronts continuent
+de servir l'ancien.
+
+Ce qu'on lit alors n'évoque en rien un schéma :
+
+    The export E_CURRENCY was not found in module packages/db/dist/generated/prisma/enums.js
+    GET /api/health 500
+
+Toute l'application tombe, y compris sa sonde de santé, parce qu'un module importé en
+chaîne ne résout plus. Le premier test qui échoue est celui de l'inscription, qui ne
+reçoit aucun courriel.
+
+Observé le 2026-09-21, en ajoutant `E_CURRENCY` au schéma pendant T2b.
+
+Ce qui protège maintenant : rien dans le code — c'est une propriété du montage. Après
+toute modification de `schema.prisma`, relancer `pnpm docker:up`, qui reconstruit les
+images. Migrer la base sans reconstruire ne suffit que pour l'API.
+
+---
+
+**Deux suites d'intégration qui nomment leurs données pareil se percutent, et la panne
+s'affiche dans la suite VOISINE.**
+
+Les suites partagent une base et un run. Deux fichiers qui créent leurs boutiques en
+`atelier-${counter}` avec chacun leur compteur produisent les mêmes slugs, et
+`Vendor.slug` est unique. Le fichier qui échoue n'est pas forcément le dernier écrit :
+ici, c'est la suite de T2a qui est tombée à l'arrivée de celle de T2b, et on cherche
+d'abord la régression dans du code qu'on n'a pas touché.
+
+Observé le 2026-09-21, à l'arrivée de `product-repository.int-spec.ts`.
+
+Ce qui protège maintenant : chaque fichier d'intégration porte un `PREFIX` qui lui est
+propre, et le compose avec son compteur. Un compteur seul ne suffit pas — il est local
+au fichier, et c'est justement ce qui trompe.
+
+---
+
+**Prisma 7 a retiré `--to-schema-datamodel` de `migrate diff`.**
+
+L'option s'appelle désormais `--to-schema`. Le message le dit, mais la commande écrite
+dans les notes d'une tranche précédente, elle, ne le dit pas — et `migrate diff` échoue
+en écrivant un fichier de migration VIDE si la sortie est déjà redirigée.
+
+    prisma migrate diff --from-config-datasource prisma.config.ts \
+      --to-schema prisma/schema.prisma --script
+
+Observé le 2026-09-21.
+
+Ce qui protège maintenant : vérifier que le fichier produit n'est pas vide avant de le
+déposer dans `migrations/`. Une migration vide se déploie sans rien faire et sans rien
+dire.
+
+---
+
+**Un espace insécable dans une classe de caractères est invisible, et se lit comme un
+espace ordinaire.**
+
+Écrire `/[\s  ]/` et écrire `/[\s  ]/` avec les vrais caractères donne le même
+rendu à l'écran. Le second fonctionne, mais personne ne peut le relire, et un copier-
+coller le perd.
+
+Observé le 2026-09-21, dans `parsePrice` : la chaîne était correcte, seulement illisible.
+
+Ce qui protège maintenant : la règle ESLint `no-irregular-whitespace`, déjà active, l'a
+attrapée. Le réflexe quand elle parle : `cat -A` sur la ligne, et remplacer les
+caractères par leurs séquences d'échappement — jamais l'inverse.
+
+---
+
+**Un composant client qui importe le barillet d'un package interne fait entrer nodemailer
+dans le paquet navigateur, et Turbopack panique sans nommer aucun des maillons.**
+
+`@clemperl/domain` réexporte ses erreurs, qui importent `@clemperl/core`, dont le
+barillet expose l'envoi de courriels, qui tire nodemailer, qui tire `node:net`. Un
+composant `"use client"` qui importe une seule fonction pure de `@clemperl/domain`
+entraîne toute cette chaîne.
+
+Ce qu'on lit alors :
+
+    FATAL: An unexpected Turbopack error occurred.
+    Failed to write app endpoint /products/[id]/page
+    Caused by: the chunking context (unknown) does not support external modules
+               (request: node:net)
+
+Aucun de ces messages ne nomme `@clemperl/domain`, ni `@clemperl/core`, ni nodemailer. La
+page répond 500, et le test qui échoue accuse un texte manquant à l'écran.
+
+Observé le 2026-09-21, sur `product-form.tsx`.
+
+Ce qui protège maintenant : `@clemperl/domain` expose un sous-chemin `./browser` qui ne
+réexporte que des fonctions pures, sans aucune dépendance serveur. Même raisonnement que
+`@clemperl/db/enums`, et même règle : **un composant client n'importe jamais le barillet
+d'un package interne**, il importe un sous-chemin étroit.
+
+`@clemperl/core` n'en a pas encore, et le même défaut s'y ouvrira au premier composant
+client qui voudra un type ou une constante de là — `TCurrency`, `CURRENCY_EXPONENT`.
+L'échappatoire du jour : laisser le serveur faire le calcul et ne passer au client qu'une
+valeur déjà réduite.
+
+**Et ceci, qui coûte le plus de temps :** la carte `exports` vit dans le `package.json`
+d'un paquet, et les `package.json` ne sont PAS montés dans les conteneurs. Ajouter un
+sous-chemin exige donc `pnpm docker:up` — les sources, elles, sont montées et recompilées
+à chaud, ce qui fait croire que tout l'est.
+
+---
+
+**Un nom de champ de formulaire ne peut pas porter de caractère de contrôle, et l'erreur
+parle d'un en-tête MIME.**
+
+La clé d'une combinaison de variantes utilise `\u001e` et `\u001f` comme séparateurs —
+choisis précisément parce qu'un libellé a le droit de contenir « - » ou « = ». Écrite
+telle quelle dans un `name=` de champ, elle traverse un formulaire multipart… et la
+requête entière devient illisible :
+
+    ⨯ Error: Malformed part header
+    [browser] Uncaught Error: Malformed part header
+
+Aucune server action ne s'exécute, aucun message d'erreur n'apparaît à l'écran, et le
+test échoue sur une confirmation qui ne vient pas. Rien ne désigne le nom du champ.
+
+Observé le 2026-09-21, sur la grille de prix de T2b.
+
+Ce qui protège maintenant : les champs de prix sont nommés `price:<position>`. La grille
+est produite par une fonction PURE et déterministe, appelée des deux côtés avec les mêmes
+entrées — les positions correspondent donc sans qu'aucune clé n'ait à voyager. Règle
+générale : ce qui part dans un `name=` est un identifiant simple, jamais une clé
+composite.
+
+---
+
+**Une route dynamique se compile au premier accès, et le test qui vient de créer la
+ressource paie cette compilation dans son propre délai.**
+
+`e2e/global-setup.ts` préchauffe les routes pour cette raison, mais on ne pense pas à y
+mettre les routes dynamiques : elles n'ont pas d'URL fixe. Elles en ont pourtant une qui
+suffit — **l'identifiant n'a pas besoin d'exister**, la page est assemblée avant de
+décider qu'elle répond 404.
+
+Sans `${URL_VENDOR}/products/inexistant` dans la liste, la première fiche produit coûtait
+7,4 secondes, et l'assertion qui suivait expirait à 5. Le test accusait un texte manquant.
+
+Observé le 2026-09-21.
+
+Ce qui protège maintenant : la liste de `global-setup.ts` porte une entrée par route
+dynamique, avec un identifiant volontairement inexistant.
+
+---
+
+**Une tâche Turbo qui passe par CHANCE d'ordonnancement finit par échouer, et pas sur la
+machine où on l'a écrite.**
+
+`@clemperl/db` se teste contre `generated/prisma/`, produit par `prisma generate`. Sa
+tâche `test` ne dépendait que de `^build` — les dépendances du paquet, donc `core`, jamais
+ce que le paquet génère pour lui-même. Elle réussissait quand même : `@clemperl/api#test`
+dépend de `^build`, qui inclut `@clemperl/db#build`, qui déclenche `db:generate`. La
+génération arrivait donc *à temps*, par un chemin qui ne la garantissait pas.
+
+Turbo parallélise. Le jour où `@clemperl/db#test` démarre avant la tâche qui générait pour
+lui, il échoue sur `Cannot find module '../generated/prisma/client.js'`. En local le
+dossier existe déjà : **ça ne se voit que sur un dépôt fraîchement cloné**, et de façon
+intermittente.
+
+Observé le 2026-09-21, en CI, sur un run où rien de pertinent n'avait changé — le même
+code était passé deux runs plus tôt.
+
+Ce qui protège maintenant : `@clemperl/db#test` et `@clemperl/db#lint` déclarent
+`db:generate`, comme `#typecheck` et `#build` le faisaient déjà. Règle générale : une
+tâche dépend de ce dont elle a besoin, jamais de ce qu'une voisine lui procure.
+
+Attention en l'écrivant : une entrée `<paquet>#<tâche>` **remplace** l'entrée générique.
+Ses `outputs` doivent être repris, sinon la mise en cache de cette tâche disparaît en
+silence.

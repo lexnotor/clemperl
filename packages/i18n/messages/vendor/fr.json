@@ -3,7 +3,8 @@
     "title": "Espace vendeur"
   },
   "navigation": {
-    "shop": "Ma boutique"
+    "shop": "Ma boutique",
+    "products": "Mes produits"
   },
   "shop": {
     "title": "Ma boutique",
@@ -23,7 +24,14 @@
     "registrationNumber": "Numéro d'enregistrement",
     "taxNumber": "Numéro de TVA",
     "country": "Pays",
-    "notProvided": "Non renseigné"
+    "notProvided": "Non renseigné",
+    "currencySection": "Devise",
+    "currency": "Devise des prix",
+    "currencyHint": "Elle se fige dès que votre premier produit existe.",
+    "currencyLocked": "Vos produits sont déjà chiffrés dans cette devise : elle ne change plus.",
+    "currencyPlaceholder": "Choisir une devise",
+    "saveCurrency": "Enregistrer la devise",
+    "currencySaved": "Votre devise est enregistrée."
   },
   "category": {
     "APPAREL": "Habillement",
@@ -32,6 +40,47 @@
   },
   "errors": {
     "invalid": "Vérifiez les champs signalés.",
-    "failed": "L'enregistrement a échoué. Réessayez."
+    "failed": "L'enregistrement a échoué. Réessayez.",
+    "currencyLocked": "Vos produits sont déjà chiffrés dans cette devise : elle ne change plus.",
+    "currencyMissing": "Choisissez d'abord la devise de vos prix, dans Ma boutique.",
+    "priceInvalid": "Ce prix n'est pas lisible dans la devise de votre boutique.",
+    "slugTaken": "Vous avez déjà un produit portant ce titre. Choisissez-en un autre.",
+    "currencyChanged": "La devise de votre boutique a changé pendant la saisie. Vérifiez le prix et recommencez.",
+    "priceMissing": "Un prix manque pour l'une des déclinaisons."
+  },
+  "currency": {
+    "EUR": "Euro (€)",
+    "USD": "Dollar américain ($)",
+    "XOF": "Franc CFA — UEMOA (F CFA)",
+    "XAF": "Franc CFA — CEMAC (F CFA)",
+    "CDF": "Franc congolais (FC)"
+  },
+  "products": {
+    "title": "Mes produits",
+    "empty": "Vous n'avez pas encore de produit. Créez le premier.",
+    "create": "Nouveau produit",
+    "createTitle": "Nouveau produit",
+    "detailsSection": "Le produit",
+    "productTitle": "Titre",
+    "description": "Description",
+    "descriptionHint": "Vingt caractères au minimum.",
+    "price": "Prix",
+    "priceHint": "Le prix de vente, dans la devise de votre boutique.",
+    "save": "Créer le produit",
+    "DRAFT": "Brouillon",
+    "PUBLISHED": "Publié",
+    "variantCount": "{count} déclinaisons",
+    "singleVariant": "Une seule déclinaison",
+    "optionsSection": "Déclinaisons",
+    "optionsHint": "Déclarez ce qui distingue vos déclinaisons : une taille, une couleur, une finition. Laissez vide si votre produit est unique.",
+    "optionName": "Nom de l'axe",
+    "optionValues": "Valeurs, séparées par une virgule",
+    "addOption": "Ajouter un axe",
+    "removeOption": "Retirer cet axe",
+    "priceGrid": "Prix",
+    "saveProduct": "Enregistrer",
+    "publish": "Publier",
+    "unpublish": "Repasser en brouillon",
+    "savedProduct": "Votre produit est enregistré."
   }
 }

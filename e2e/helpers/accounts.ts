@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 import { URL_ADMIN, URL_MAILPIT, URL_STOREFRONT } from "../../playwright.config";
 
 export const PASSWORD = "motdepasse123";
@@ -120,4 +120,65 @@ export async function signInAsAdministrator(page: Page): Promise<void> {
     }
 
     await signInFromPage(page, ADMIN_EMAIL);
+}
+
+// Mène un compte neuf jusqu'à une boutique validée, et rend son nom.
+//
+// Le parcours lui-même — dépôt, examen, décision — est le SUJET de
+// `vendor-shop.spec.ts`, qui l'écrit en entier avec ses assertions. Ici il n'est qu'un
+// préalable : les suites qui commencent après la validation l'appellent plutôt que de
+// recopier une dizaine d'écrans dont elles ne vérifient rien.
+export async function createApprovedVendorShop(
+    page: Page,
+    request: APIRequestContext,
+    browser: Browser,
+): Promise<{ address: string; shopName: string }> {
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const address = `vendeur-${suffix}@exemple.test`;
+    const shopName = `Atelier ${suffix}`;
+
+    await createVerifiedAccount(request, address);
+    await signInFromPage(page, address);
+
+    await page.goto(`${URL_STOREFRONT}/become-a-vendor`);
+    await page.getByLabel("Nom de la boutique").fill(shopName);
+    await page
+        .getByLabel("Description")
+        .fill("Joaillerie artisanale, pièces uniques montées à la main.");
+    await page.getByLabel("Adresse e-mail de contact").fill(address);
+    await page.getByLabel("Téléphone de contact").fill("+32470000000");
+    await page.getByLabel("Joaillerie").check();
+    await page.getByLabel("Forme juridique").fill("SRL");
+    await page.getByLabel("Raison sociale").fill(`${shopName} SRL`);
+    await page.getByLabel("Numéro d'enregistrement").fill("0123456789");
+    await page.getByLabel("Pays (code à deux lettres)").fill("BE");
+    await page.getByLabel("Registre de commerce").setInputFiles("e2e/fixtures/registry.pdf");
+    await page.getByLabel("Pièce d'identité").setInputFiles("e2e/fixtures/identity.png");
+    await page.getByRole("button", { name: "Déposer ma demande" }).click();
+
+    // Attendre que le dépôt soit CONSTATÉ avant d'ouvrir l'administration : un clic ne
+    // fait que déclencher la server action, et la liste d'examen lue trop tôt ne porte
+    // pas encore ce dossier. Le piège a déjà été payé en T1b, et `vendor-shop.spec.ts`
+    // l'évite ainsi.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+        "Votre demande est en cours d'examen",
+    );
+
+    // L'administrateur travaille dans un contexte SÉPARÉ : deux sessions dans le même
+    // contexte partageraient le cookie et s'écraseraient.
+    const adminContext = await browser.newContext();
+    const adminPage = await adminContext.newPage();
+    await signInAsAdministrator(adminPage);
+
+    await adminPage.goto(`${URL_ADMIN}/applications`);
+    await adminPage.getByRole("link", { name: new RegExp(shopName) }).click();
+    await adminPage.getByRole("button", { name: "Accepter" }).click();
+
+    // Attendre que l'administration CONSTATE la décision : un clic ne fait que déclencher
+    // la server action, et repartir trop tôt trouve un dossier encore en examen. Le piège
+    // a déjà été payé en T1b.
+    await adminPage.getByText("Accepté", { exact: false }).waitFor();
+    await adminContext.close();
+
+    return { address, shopName };
 }

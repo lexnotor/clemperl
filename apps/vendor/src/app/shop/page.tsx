@@ -1,3 +1,4 @@
+import { countProductsForVendor, prisma } from "@clemperl/db";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { FormSection } from "@clemperl/ui";
 import type { JSX } from "react";
@@ -13,6 +14,10 @@ const t = messages.shop;
 
 export default async function ShopPage(): Promise<JSX.Element> {
     const { vendor } = await requireVendorMembership();
+
+    // Le verrou se lit ici et non dans le composant : c'est la base qui refuse, et
+    // l'écran ne fait que ne pas proposer ce qui sera refusé.
+    const productCount = await countProductsForVendor(prisma, vendor.id);
 
     // Des tuples DÉCLARÉS, pas un tableau de tableaux : `noUncheckedIndexedAccess` est
     // activé dans `packages/tsconfig/base.json`, et une cellule lue par indice y vaut
@@ -35,6 +40,8 @@ export default async function ShopPage(): Promise<JSX.Element> {
                 contactEmail={vendor.contactEmail}
                 contactPhone={vendor.contactPhone}
                 categories={vendor.categories}
+                currency={vendor.currency}
+                currencyLocked={productCount > 0}
             />
 
             <div className="mt-12">

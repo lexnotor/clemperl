@@ -93,7 +93,7 @@ test("la réinitialisation de mot de passe fonctionne de bout en bout", async ({
 
     await page.goto(await linkFor(request, address, "/api/auth/reset-password"));
     await page.locator("input[name='password']").fill(newPassword);
-    await page.getByRole("button", { name: "Enregistrer" }).click();
+    await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
 
     // Critère 7 : le nouveau mot de passe ouvre la session, et l'ancien ne l'ouvre plus.
     // Sans la seconde moitié, une réinitialisation qui n'écraserait rien passerait.

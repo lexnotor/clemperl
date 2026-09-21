@@ -73,6 +73,21 @@
       "outputs": [
         "dist/**"
       ]
+    },
+    "@clemperl/db#test": {
+      "dependsOn": [
+        "^build",
+        "db:generate"
+      ],
+      "outputs": [
+        "coverage/**"
+      ]
+    },
+    "@clemperl/db#lint": {
+      "dependsOn": [
+        "^build",
+        "db:generate"
+      ]
     }
   }
 }

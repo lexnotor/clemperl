@@ -1,4 +1,4 @@
-import { E_VENDOR_CATEGORY } from "@clemperl/db/enums";
+import { E_CURRENCY, E_VENDOR_CATEGORY } from "@clemperl/db/enums";
 import { z } from "zod";
 
 // Les champs COMMERCIAUX d'une boutique — ceux qu'un vendeur corrige lui-même. Partagés
@@ -29,3 +29,10 @@ export const shopProfileFields = {
 export const shopProfileSchema = z.object(shopProfileFields);
 
 export type TShopProfile = z.infer<typeof shopProfileSchema>;
+
+// La devise vit à part des champs commerciaux, et ce n'est pas un rangement : ceux-ci se
+// corrigent librement, la devise cesse de le faire dès qu'un produit existe. Un schéma
+// distinct pour une règle distincte.
+export const shopCurrencySchema = z.object({ currency: z.enum(E_CURRENCY) });
+
+export type TShopCurrency = z.infer<typeof shopCurrencySchema>;
