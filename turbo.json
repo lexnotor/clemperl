@@ -18,7 +18,8 @@
     "COOKIE_DOMAIN",
     "STORAGE_URL",
     "STORAGE_BUCKET",
-    "STORAGE_SERVICE_KEY"
+    "STORAGE_SERVICE_KEY",
+    "STORAGE_ALLOW_PLAINTEXT"
   ],
   "tasks": {
     "build": {

@@ -13,7 +13,7 @@ export function CheckboxField({ label, className, ...props }: CheckboxFieldProps
         <label className="inline-flex items-center gap-2 text-sm">
             <input
                 type="checkbox"
-                className={cn("size-4 accent-[--color-texte]", className)}
+                className={cn("size-4 accent-texte", className)}
                 {...props}
             />
             <span>{label}</span>

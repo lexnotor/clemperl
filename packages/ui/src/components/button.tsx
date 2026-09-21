@@ -15,8 +15,8 @@ const buttonVariants = cva(
                 quiet: "text-muet underline underline-offset-4 hover:text-texte",
             },
             size: {
-                normal: "h-11 px-5 text-sm rounded-[--radius-controle]",
-                large: "h-12 px-6 text-base rounded-[--radius-controle]",
+                normal: "h-11 px-5 text-sm",
+                large: "h-12 px-6 text-base",
                 bare: "h-auto p-0 text-sm",
             },
             full: { true: "w-full", false: "" },
