@@ -687,3 +687,30 @@ bout en bout qui vérifie ce que la page affiche APRÈS l'action le révèle.
 
 Ce qui protège maintenant : le test `e2e/vendor-application.spec.ts` attend le nouvel
 état de la page après chaque décision, et pas seulement l'absence d'erreur.
+
+---
+
+**`getByLabel` d'un contrôle enveloppé par son `<label>` matche aussi le CONTENU d'un
+`<textarea>` voisin : un `defaultValue` rendu par le serveur devient une partie du
+libellé.**
+
+Playwright calcule le texte d'un libellé enveloppant à partir du `textContent` du
+`<label>`. Pour un `<textarea>`, React rend `defaultValue` comme **contenu de l'élément**,
+pas comme attribut — le `<label>` contient donc « Description » suivi du texte saisi par
+l'utilisateur. Et `getByLabel` cherche par sous-chaîne.
+
+Observé le 2026-09-20 sur la fiche boutique. La description valait « Joaillerie
+artisanale, pièces uniques montées à la main. » et
+`page.getByLabel("Joaillerie").uncheck()` a levé une violation de mode strict : deux
+éléments, la case à cocher « Joaillerie » et le textarea de description.
+
+Ce qui rend le piège difficile à voir : **le même sélecteur passe sur un formulaire
+vide.** Au dépôt du dossier, le test remplit la description par `.fill()`, qui écrit la
+*propriété* `value` et laisse le `textContent` vide — aucune ambiguïté. Le piège
+n'apparaît que sur une page rendue depuis la base, donc seulement à la seconde visite,
+ce qui le fait ressembler à une régression de la page plutôt qu'à un défaut du sélecteur.
+
+Ce qui protège maintenant : `e2e/vendor-shop.spec.ts` vise les cases à cocher par
+`getByRole("checkbox", { name: … })`. Règle générale : sur un écran qui repart de données
+enregistrées, préférer `getByRole` avec un nom accessible à `getByLabel`, dont la
+correspondance par sous-chaîne dépend du contenu affiché.

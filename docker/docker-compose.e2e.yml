@@ -16,6 +16,12 @@
 #
 # Les montages de sources hérités du développement restent déclarés : ils sont inertes
 # ici, une sortie autonome ne lisant jamais les fichiers d'origine.
+#
+# `STORAGE_ALLOW_PLAINTEXT` lève l'exigence de chiffrement vers le stockage. Elle est
+# posée ICI et nulle part ailleurs : ces conteneurs portent un build de production mais
+# parlent à un `storage` qui vit sur le réseau Docker local, cas que la règle couvrait
+# sous `NODE_ENV=development` et plus sous celui-ci. Aucun déploiement réel ne doit la
+# porter — la clé de service y voyagerait en clair, et tous les justificatifs avec.
 services:
   storefront:
     build:
@@ -25,6 +31,7 @@ services:
       # boucle locale du conteneur et le port publié ne mène nulle part.
       PORT: "3000"
       HOSTNAME: 0.0.0.0
+      STORAGE_ALLOW_PLAINTEXT: "1"
 
   vendor:
     build:
@@ -32,6 +39,7 @@ services:
     environment:
       PORT: "3001"
       HOSTNAME: 0.0.0.0
+      STORAGE_ALLOW_PLAINTEXT: "1"
 
   admin:
     build:
@@ -39,7 +47,10 @@ services:
     environment:
       PORT: "3002"
       HOSTNAME: 0.0.0.0
+      STORAGE_ALLOW_PLAINTEXT: "1"
 
   api:
     build:
       target: runner
+    environment:
+      STORAGE_ALLOW_PLAINTEXT: "1"

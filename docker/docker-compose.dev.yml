@@ -200,6 +200,7 @@ services:
       - ../apps/vendor/src:/app/apps/vendor/src
       - ../packages/auth/src:/app/packages/auth/src
       - ../packages/core/src:/app/packages/core/src
+      - ../packages/domain/src:/app/packages/domain/src
       - ../packages/ui/src:/app/packages/ui/src
       - ../packages/i18n/messages:/app/packages/i18n/messages
     depends_on:

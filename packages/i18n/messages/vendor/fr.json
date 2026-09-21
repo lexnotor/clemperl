@@ -1,5 +1,37 @@
 {
   "home": {
     "title": "Espace vendeur"
+  },
+  "navigation": {
+    "shop": "Ma boutique"
+  },
+  "shop": {
+    "title": "Ma boutique",
+    "commercialSection": "Informations commerciales",
+    "shopName": "Nom de la boutique",
+    "description": "Description",
+    "descriptionHint": "Vingt caractères au minimum.",
+    "contactEmail": "Adresse e-mail de contact",
+    "contactPhone": "Téléphone",
+    "categories": "Catégories",
+    "save": "Enregistrer",
+    "saved": "Vos informations sont enregistrées.",
+    "legalSection": "Informations légales",
+    "legalNotice": "Ces informations ont été validées avec vos pièces justificatives. Pour les corriger, écrivez à l'administration.",
+    "legalForm": "Forme juridique",
+    "legalName": "Raison sociale",
+    "registrationNumber": "Numéro d'enregistrement",
+    "taxNumber": "Numéro de TVA",
+    "country": "Pays",
+    "notProvided": "Non renseigné"
+  },
+  "category": {
+    "APPAREL": "Habillement",
+    "JEWELLERY": "Joaillerie",
+    "LEATHER_GOODS": "Maroquinerie"
+  },
+  "errors": {
+    "invalid": "Vérifiez les champs signalés.",
+    "failed": "L'enregistrement a échoué. Réessayez."
   }
 }

@@ -1,5 +1,5 @@
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
-import { URL_MAILPIT, URL_STOREFRONT } from "../../playwright.config";
+import { URL_ADMIN, URL_MAILPIT, URL_STOREFRONT } from "../../playwright.config";
 
 export const PASSWORD = "motdepasse123";
 
@@ -87,3 +87,25 @@ export async function signInFromPage(page: Page, address: string): Promise<void>
     });
 }
 
+export const ADMIN_EMAIL = "administration@clemperl.test";
+
+// Aucun administrateur n'est semé : sur une base neuve, l'instance s'amorce par cette
+// page, qui disparaît dès qu'un compte porte le rôle.
+//
+// La connexion est tentée DANS TOUS LES CAS, et aucune redirection n'est attendue après
+// le clic. Deux fichiers de test tournent en parallèle et peuvent voir le bouton de
+// création tous les deux : le perdant de la course reçoit « déjà installé » et reste sur
+// la page. Se connecter ensuite vaut quel que soit celui qui a créé le compte.
+export async function signInAsAdministrator(page: Page): Promise<void> {
+    await page.goto(`${URL_ADMIN}/setup`);
+
+    const bootstrap = page.getByRole("button", { name: "Créer l'administrateur" });
+    if (await bootstrap.isVisible()) {
+        await page.getByLabel("Nom").fill("Administration");
+        await page.getByLabel("Adresse e-mail").fill(ADMIN_EMAIL);
+        await page.getByLabel("Mot de passe").fill(PASSWORD);
+        await bootstrap.click();
+    }
+
+    await signInFromPage(page, ADMIN_EMAIL);
+}

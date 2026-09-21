@@ -23,13 +23,27 @@ export const baseEnvSchema = z.object({
     STORAGE_URL: z.url(),
     STORAGE_SERVICE_KEY: z.string().min(1),
     STORAGE_BUCKET: z.string().min(1),
+
+    // Lève l'exigence de chiffrement. Elle existe pour la stack e2e locale, qui monte un
+    // build de PRODUCTION contre un stockage vivant sur le réseau Docker — donc le cas
+    // que `NODE_ENV === "development"` couvrait, mais sous un autre `NODE_ENV`.
+    //
+    // Un drapeau explicite plutôt qu'une détection d'hôte « privé » : personne ne
+    // l'active par accident, `grep` le retrouve, et celui qui l'écrit assume la décision.
+    STORAGE_ALLOW_PLAINTEXT: z.literal("1").optional(),
 });
 
 export type TBaseEnv = z.infer<typeof envSchemaWithTls>;
 
 const envSchemaWithTls = baseEnvSchema.refine(
-    (env) => env.NODE_ENV === "development" || env.STORAGE_URL.startsWith("https://"),
-    { path: ["STORAGE_URL"], message: "doit être en https hors développement" },
+    (env) =>
+        env.NODE_ENV === "development" ||
+        env.STORAGE_ALLOW_PLAINTEXT === "1" ||
+        env.STORAGE_URL.startsWith("https://"),
+    {
+        path: ["STORAGE_URL"],
+        message: "doit être en https hors développement, sauf si STORAGE_ALLOW_PLAINTEXT vaut 1",
+    },
 );
 
 export function parseBaseEnv(source: Record<string, string | undefined>): TBaseEnv {

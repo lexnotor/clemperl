@@ -43,4 +43,29 @@ describe("environnement de base", () => {
             }).STORAGE_URL,
         ).toBe("http://storage:5000");
     });
+
+    // La stack e2e monte un build de PRODUCTION contre un stockage sur le réseau Docker :
+    // le cas que `development` couvrait, sous un autre `NODE_ENV`. Le drapeau est la
+    // seule façon de le dire, et il doit rester la seule.
+    it("tolère le clair en production quand STORAGE_ALLOW_PLAINTEXT vaut 1", () => {
+        expect(
+            parseBaseEnv({
+                ...VALIDE,
+                STORAGE_URL: "http://storage:5000",
+                STORAGE_ALLOW_PLAINTEXT: "1",
+            }).STORAGE_URL,
+        ).toBe("http://storage:5000");
+    });
+
+    // Une valeur approchante ne suffit pas : lever une garantie se fait exactement, ou
+    // pas du tout.
+    it("refuse le clair pour toute autre valeur du drapeau", () => {
+        expect(() =>
+            parseBaseEnv({
+                ...VALIDE,
+                STORAGE_URL: "http://storage:5000",
+                STORAGE_ALLOW_PLAINTEXT: "true",
+            }),
+        ).toThrow(/STORAGE_ALLOW_PLAINTEXT/);
+    });
 });

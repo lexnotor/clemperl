@@ -85,7 +85,8 @@
       },
       "approved": {
         "title": "“{shop}” has been approved",
-        "next": "Your vendor area will open with the next slice."
+        "next": "Your vendor area is open.",
+        "openVendorSpace": "Open my vendor area"
       },
       "descriptionHint": "Say what you make or resell, and what sets your work apart.",
       "chooseFile": "Choose a file",

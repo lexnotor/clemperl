@@ -42,8 +42,14 @@ COPY --from=pruner /app/out/json/ .
 # ni supertest n'entrent dans l'image finale.
 RUN pnpm install --frozen-lockfile --prod
 COPY --from=installer /app/apps/api/dist ./apps/api/dist
+# TOUTES les dépendances de workspace d'exécution, pas seulement celles d'origine.
+# `pnpm install --prod` crée bien les liens vers `packages/*`, mais un paquet sans `dist`
+# ne résout pas son `main` : l'image démarre et meurt sur MODULE_NOT_FOUND. Ajouter une
+# dépendance de workspace à `apps/api` exige d'ajouter sa ligne ici.
+COPY --from=installer /app/packages/auth/dist ./packages/auth/dist
 COPY --from=installer /app/packages/core/dist ./packages/core/dist
 COPY --from=installer /app/packages/db/dist ./packages/db/dist
+COPY --from=installer /app/packages/domain/dist ./packages/domain/dist
 USER node
 EXPOSE 3003
 CMD ["node", "apps/api/dist/main.js"]
