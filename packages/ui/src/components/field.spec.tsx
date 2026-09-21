@@ -69,3 +69,31 @@ describe("le nom accessible", () => {
         );
     });
 });
+
+describe("aria-describedby fourni par l'appelant", () => {
+    // Étalé avant, il écraserait l'indication du composant, qui resterait visible sans
+    // être annoncée par un lecteur d'écran.
+    it("coexiste avec l'indication", () => {
+        render(
+            <>
+                <span id="erreur">Ce champ est requis.</span>
+                <Field label="Prix" hint="Dans la devise de votre boutique." aria-describedby="erreur" />
+            </>,
+        );
+        expect(screen.getByRole("textbox", { name: "Prix" })).toHaveAccessibleDescription(
+            "Ce champ est requis. Dans la devise de votre boutique.",
+        );
+    });
+
+    it("reste seul quand le composant n'a pas d'indication", () => {
+        render(
+            <>
+                <span id="erreur">Ce champ est requis.</span>
+                <Field label="Prix" aria-describedby="erreur" />
+            </>,
+        );
+        expect(screen.getByRole("textbox", { name: "Prix" })).toHaveAccessibleDescription(
+            "Ce champ est requis.",
+        );
+    });
+});

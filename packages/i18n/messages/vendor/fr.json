@@ -43,7 +43,8 @@
     "failed": "L'enregistrement a échoué. Réessayez.",
     "currencyLocked": "Vos produits sont déjà chiffrés dans cette devise : elle ne change plus.",
     "currencyMissing": "Choisissez d'abord la devise de vos prix, dans Ma boutique.",
-    "priceInvalid": "Ce prix n'est pas lisible dans la devise de votre boutique."
+    "priceInvalid": "Ce prix n'est pas lisible dans la devise de votre boutique.",
+    "slugTaken": "Vous avez déjà un produit portant ce titre. Choisissez-en un autre."
   },
   "currency": {
     "EUR": "Euro (€)",

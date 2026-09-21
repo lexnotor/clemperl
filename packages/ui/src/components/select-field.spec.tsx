@@ -39,3 +39,43 @@ describe("SelectField", () => {
         expect(screen.getByLabelText("Devise des prix")).toBeDisabled();
     });
 });
+
+// La raison d'être de la dissociation libellé / contrôle, comme pour `Field`.
+describe("le nom accessible du select", () => {
+    it("ne contient pas l'indication", () => {
+        render(
+            <SelectField
+                label="Devise des prix"
+                hint="Elle se fige dès que votre premier produit existe."
+                options={CURRENCIES}
+            />,
+        );
+        expect(screen.getByRole("combobox", { name: "Devise des prix" })).toBeInTheDocument();
+    });
+
+    it("lie l'indication au contrôle comme description", () => {
+        render(<SelectField label="Devise des prix" hint="Elle se fige." options={CURRENCIES} />);
+        expect(
+            screen.getByRole("combobox", { name: "Devise des prix" }),
+        ).toHaveAccessibleDescription("Elle se fige.");
+    });
+
+    // Étalé avant, un `aria-describedby` fourni par l'appelant écraserait l'indication,
+    // qui resterait visible sans être annoncée.
+    it("conserve l'indication quand l'appelant ajoute sa propre description", () => {
+        render(
+            <>
+                <span id="externe">Ce champ est requis.</span>
+                <SelectField
+                    label="Devise des prix"
+                    hint="Elle se fige."
+                    aria-describedby="externe"
+                    options={CURRENCIES}
+                />
+            </>,
+        );
+        expect(
+            screen.getByRole("combobox", { name: "Devise des prix" }),
+        ).toHaveAccessibleDescription("Ce champ est requis. Elle se fige.");
+    });
+});

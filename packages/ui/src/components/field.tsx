@@ -22,6 +22,13 @@ interface LabelledProps {
     hint?: string;
 }
 
+// `aria-describedby` accepte PLUSIEURS identifiants, séparés par des espaces. Les
+// concaténer laisse coexister l'indication du composant et ce que l'appelant ajoute.
+function describedIds(...ids: (string | undefined)[]): string | undefined {
+    const kept = ids.filter((id): id is string => id !== undefined && id.length > 0);
+    return kept.length > 0 ? kept.join(" ") : undefined;
+}
+
 export interface FieldProps extends InputHTMLAttributes<HTMLInputElement>, LabelledProps {}
 
 // Le libellé est associé par `htmlFor`, et le contrôle n'est PAS enveloppé dedans.
@@ -35,7 +42,14 @@ export interface FieldProps extends InputHTMLAttributes<HTMLInputElement>, Label
 //
 // L'indication devient une `aria-describedby` : elle reste lue, après le nom, sans
 // entrer dedans.
-export function Field({ label, hint, className, id, ...props }: FieldProps): JSX.Element {
+export function Field({
+    label,
+    hint,
+    className,
+    id,
+    "aria-describedby": describedBy,
+    ...props
+}: FieldProps): JSX.Element {
     const generated = useId();
     const controlId = id ?? generated;
     const hintId = `${controlId}-hint`;
@@ -47,9 +61,12 @@ export function Field({ label, hint, className, id, ...props }: FieldProps): JSX
             </label>
             <input
                 id={controlId}
-                aria-describedby={hint !== undefined ? hintId : undefined}
                 className={cn(CONTROL, className)}
                 {...props}
+                // APRÈS le spread, et fusionné : étalé avant, un `aria-describedby`
+                // fourni par l'appelant — un message d'erreur, typiquement — écraserait
+                // l'indication, qui resterait visible sans être annoncée.
+                aria-describedby={describedIds(describedBy, hint === undefined ? undefined : hintId)}
             />
             {hint !== undefined && (
                 <span id={hintId} className="text-xs text-muet">
@@ -69,6 +86,7 @@ export function TextAreaField({
     hint,
     className,
     id,
+    "aria-describedby": describedBy,
     ...props
 }: TextAreaFieldProps): JSX.Element {
     const generated = useId();
@@ -82,9 +100,9 @@ export function TextAreaField({
             </label>
             <textarea
                 id={controlId}
-                aria-describedby={hint !== undefined ? hintId : undefined}
                 className={cn(CONTROL, "resize-y", className)}
                 {...props}
+                aria-describedby={describedIds(describedBy, hint === undefined ? undefined : hintId)}
             />
             {hint !== undefined && (
                 <span id={hintId} className="text-xs text-muet">

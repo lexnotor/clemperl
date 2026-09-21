@@ -212,6 +212,17 @@ est un choix, écrit pour que le jour où il gêne, on sache qu'il a été vu.
 **La devise d'une boutique se fige dès qu'un produit existe**, brouillon compris. Le
 déblocage est la suppression du brouillon, et le message le dit. Accepté.
 
+**Les fronts n'ont pas `packages/db` monté, ils l'embarquent.** Le compose monte
+`packages/core/src`, `packages/domain/src`, `packages/ui/src` et `packages/auth/src` dans
+les trois applications Next, dont le `tsc --watch` recompile les `dist` à chaud. Pas
+`packages/db` : tout changement du schéma ou d'un dépôt exige `pnpm docker:up`, et le
+symptôme accuse une route sans rapport. Trois reconstructions l'ont coûté pendant la
+seule tranche T2b.
+
+Le monter demanderait `src`, `generated` et `prisma` ensemble — `generated` n'étant pas
+dans `src`. C'est un changement de topologie à vérifier pour les quatre applications, et
+il mérite son propre chantier plutôt qu'un coin de tranche.
+
 **`@clemperl/core` n'a pas de sous-chemin navigateur.** `@clemperl/domain` en a un
 (`/browser`) depuis T2b, parce qu'un composant client qui importe son barillet fait entrer
 nodemailer dans le paquet. `core` a le même défaut latent : le premier composant client

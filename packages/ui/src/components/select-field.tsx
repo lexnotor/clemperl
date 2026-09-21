@@ -1,4 +1,6 @@
-import type { JSX, SelectHTMLAttributes } from "react";
+"use client";
+
+import { useId, type JSX, type SelectHTMLAttributes } from "react";
 import { cn } from "../utils";
 
 // Le même filet sous le contrôle que `Field`, pour que l'œil descende d'un champ au
@@ -18,18 +20,42 @@ export interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement
     placeholder?: string;
 }
 
+function describedIds(...ids: (string | undefined)[]): string | undefined {
+    const kept = ids.filter((id): id is string => id !== undefined && id.length > 0);
+    return kept.length > 0 ? kept.join(" ") : undefined;
+}
+
+// Libellé, contrôle et indication sont FRÈRES, comme dans `Field`. Envelopper le
+// `<select>` dans son `<label>` ferait entrer l'indication dans le nom accessible du
+// contrôle — « Devise des prix Elle se fige dès que… » — et un sélecteur par nom exact
+// ne trouverait plus rien.
 export function SelectField({
     label,
     hint,
     options,
     placeholder,
     className,
+    id,
+    "aria-describedby": describedBy,
     ...props
 }: SelectFieldProps): JSX.Element {
+    const generated = useId();
+    const controlId = id ?? generated;
+    const hintId = `${controlId}-hint`;
+
     return (
-        <label className="flex flex-col gap-1">
-            <span className="text-sm text-muet">{label}</span>
-            <select className={cn(CONTROL, className)} {...props}>
+        <div className="flex flex-col gap-1">
+            <label htmlFor={controlId} className="text-sm text-muet">
+                {label}
+            </label>
+            <select
+                id={controlId}
+                className={cn(CONTROL, className)}
+                {...props}
+                // APRÈS le spread, et fusionné : étalé avant, un `aria-describedby`
+                // fourni par l'appelant écraserait l'indication.
+                aria-describedby={describedIds(describedBy, hint === undefined ? undefined : hintId)}
+            >
                 {placeholder !== undefined && (
                     <option value="" disabled>
                         {placeholder}
@@ -41,7 +67,11 @@ export function SelectField({
                     </option>
                 ))}
             </select>
-            {hint !== undefined && <span className="text-xs text-muet">{hint}</span>}
-        </label>
+            {hint !== undefined && (
+                <span id={hintId} className="text-xs text-muet">
+                    {hint}
+                </span>
+            )}
+        </div>
     );
 }

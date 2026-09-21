@@ -24,12 +24,40 @@ export interface ISaveProduct {
     productId: string;
     vendorId: string;
     title: string;
+    /** Dérivé du titre. Ignoré dès que le produit a été publié une fois. */
+    slug: string;
     description: string;
     options: readonly IOptionToWrite[];
     variants: readonly IVariantToWrite[];
 }
 
 export const ERROR_PRODUCT_NOT_FOUND = "PRODUCT_NOT_FOUND";
+export const ERROR_PRODUCT_SLUG_TAKEN = "PRODUCT_SLUG_TAKEN";
+
+// Prisma signale une violation d'unicité par ce code. Le distinguer d'une panne permet
+// de dire au vendeur de changer son titre plutôt que de « réessayer » — un conseil qui
+// ne marchera jamais, puisque le second essai portera le même slug.
+function isUniqueViolation(error: unknown): boolean {
+    return (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code: unknown }).code === "P2002"
+    );
+}
+
+// Verrouille la ligne de la boutique jusqu'à la fin de la transaction courante.
+//
+// Sans lui, `setShopCurrency` compte zéro produit pendant qu'une création s'engage à
+// côté : les deux transactions réussissent, et le prix du nouveau produit se retrouve
+// interprété dans une devise qu'il n'avait pas au moment de sa saisie. PostgreSQL est en
+// `READ COMMITTED` par défaut, où un comptage ne bloque personne.
+async function lockVendor(
+    tx: { $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number> },
+    vendorId: string,
+): Promise<void> {
+    await tx.$executeRaw`SELECT id FROM vendors WHERE id = ${vendorId} FOR UPDATE`;
+}
 
 // Ce dépôt ne calcule AUCUNE règle : la grille de variantes lui arrive déjà construite.
 // `packages/domain`, qui la construit, dépend déjà de `@clemperl/db/enums` — l'importer
@@ -73,17 +101,31 @@ export async function createProduct(
     prisma: PrismaClient,
     input: ICreateProduct,
 ): Promise<{ id: string }> {
-    return prisma.product.create({
-        data: {
-            vendorId: input.vendorId,
-            slug: input.slug,
-            title: input.title,
-            description: input.description,
-            variants: {
-                create: { priceAmount: input.priceAmount, combinationKey: "", position: 0 },
-            },
-        },
-        select: { id: true },
+    return prisma.$transaction(async (tx) => {
+        // Le verrou se prend AVANT l'insertion : il sérialise cette création avec tout
+        // changement de devise concurrent, et c'est ce qui rend le gel de la devise vrai
+        // plutôt que probable.
+        await lockVendor(tx, input.vendorId);
+
+        try {
+            return await tx.product.create({
+                data: {
+                    vendorId: input.vendorId,
+                    slug: input.slug,
+                    title: input.title,
+                    description: input.description,
+                    variants: {
+                        create: { priceAmount: input.priceAmount, combinationKey: "", position: 0 },
+                    },
+                },
+                select: { id: true },
+            });
+        } catch (error) {
+            if (isUniqueViolation(error)) {
+                throw new Error(ERROR_PRODUCT_SLUG_TAKEN, { cause: error });
+            }
+            throw error;
+        }
     });
 }
 
@@ -94,7 +136,7 @@ export async function saveProduct(prisma: PrismaClient, input: ISaveProduct): Pr
     await prisma.$transaction(async (tx) => {
         const product = await tx.product.findFirst({
             where: { id: input.productId, vendorId: input.vendorId, deletedAt: null },
-            select: { id: true },
+            select: { id: true, publishedAt: true },
         });
         if (!product) {
             throw new Error(ERROR_PRODUCT_NOT_FOUND);
@@ -151,10 +193,24 @@ export async function saveProduct(prisma: PrismaClient, input: ISaveProduct): Pr
             });
         }
 
-        await tx.product.update({
-            where: { id: product.id },
-            data: { title: input.title, description: input.description },
-        });
+        try {
+            await tx.product.update({
+                where: { id: product.id },
+                data: {
+                    title: input.title,
+                    description: input.description,
+                    // Le slug suit le titre tant que le produit n'a JAMAIS été publié.
+                    // Après la première publication il est figé : il est parti dans une
+                    // URL publique, et une URL qui bouge est une URL cassée.
+                    ...(product.publishedAt === null ? { slug: input.slug } : {}),
+                },
+            });
+        } catch (error) {
+            if (isUniqueViolation(error)) {
+                throw new Error(ERROR_PRODUCT_SLUG_TAKEN, { cause: error });
+            }
+            throw error;
+        }
     });
 }
 

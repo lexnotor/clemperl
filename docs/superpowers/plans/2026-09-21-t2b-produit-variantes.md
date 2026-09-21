@@ -257,7 +257,7 @@ conteneur. Passer par `migrate diff` puis `migrate deploy` :
 docker exec clemperl_dev_api sh -c "cd packages/db && \
   pnpm exec prisma migrate diff \
     --from-config-datasource prisma.config.ts \
-    --to-schema-datamodel prisma/schema.prisma \
+    --to-schema prisma/schema.prisma \
     --script" > /tmp/products.sql
 ```
 

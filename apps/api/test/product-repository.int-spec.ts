@@ -1,4 +1,5 @@
 import {
+    ERROR_PRODUCT_SLUG_TAKEN,
     countProductsForVendor,
     createProduct,
     listProductsForVendor,
@@ -94,6 +95,7 @@ describe("l'isolation entre boutiques", () => {
                 productId,
                 vendorId: mine,
                 title: "Détourné",
+                slug: "detourne",
                 description: DESCRIPTION,
                 options: [],
                 variants: [{ selections: {}, priceAmount: 1, position: 0 }],
@@ -114,6 +116,7 @@ describe("saveProduct", () => {
             productId,
             vendorId,
             title: "Tee-shirt",
+            slug: `${PREFIX}-tee-grille`,
             description: DESCRIPTION,
             options: [{ name: "Taille", values: ["S", "M", "L"] }],
             variants: [
@@ -134,7 +137,13 @@ describe("saveProduct", () => {
     it("retirer une valeur supprime ses variantes, et jamais les autres", async () => {
         const vendorId = await createShop();
         const productId = await createTeeShirt(vendorId);
-        const base = { productId, vendorId, title: "Tee-shirt", description: DESCRIPTION };
+        const base = {
+            productId,
+            vendorId,
+            title: "Tee-shirt",
+            slug: `${PREFIX}-tee-slug`,
+            description: DESCRIPTION,
+        };
 
         await saveProduct(prisma, {
             ...base,
@@ -159,7 +168,13 @@ describe("saveProduct", () => {
     it("retomber à zéro axe ramène à une variante unique et sans valeur", async () => {
         const vendorId = await createShop();
         const productId = await createTeeShirt(vendorId);
-        const base = { productId, vendorId, title: "Tee-shirt", description: DESCRIPTION };
+        const base = {
+            productId,
+            vendorId,
+            title: "Tee-shirt",
+            slug: `${PREFIX}-tee-slug`,
+            description: DESCRIPTION,
+        };
 
         await saveProduct(prisma, {
             ...base,
@@ -192,6 +207,7 @@ describe("saveProduct", () => {
                 productId,
                 vendorId,
                 title: "Tee-shirt",
+                slug: `${PREFIX}-tee-rollback`,
                 description: DESCRIPTION,
                 options: [{ name: "Taille", values: ["S"] }],
                 // Deux variantes de même combinaison : la base refuse la seconde, après
@@ -253,5 +269,61 @@ describe("listProductsForVendor", () => {
 
         expect(await listProductsForVendor(prisma, vendorId)).toHaveLength(0);
         expect(await readProductForVendor(prisma, { productId, vendorId })).toBeNull();
+    });
+});
+
+describe("le slug d'un produit", () => {
+    it("suit le titre tant que le produit n'a jamais été publié", async () => {
+        const vendorId = await createShop();
+        const productId = await createTeeShirt(vendorId);
+
+        await saveProduct(prisma, {
+            productId,
+            vendorId,
+            title: "Tee-shirt en lin",
+            slug: `${PREFIX}-tee-shirt-en-lin`,
+            description: DESCRIPTION,
+            options: [],
+            variants: [{ selections: {}, priceAmount: 4900, position: 0 }],
+        });
+
+        const product = await readProductForVendor(prisma, { productId, vendorId });
+        expect(product?.slug).toBe(`${PREFIX}-tee-shirt-en-lin`);
+    });
+
+    // Le slug est parti dans une URL publique : une URL qui bouge est une URL cassée.
+    it("ne bouge plus après la première publication", async () => {
+        const vendorId = await createShop();
+        const productId = await createTeeShirt(vendorId);
+        const avant = (await readProductForVendor(prisma, { productId, vendorId }))?.slug;
+
+        await setProductStatus(prisma, { productId, vendorId, publish: true });
+        await setProductStatus(prisma, { productId, vendorId, publish: false });
+
+        await saveProduct(prisma, {
+            productId,
+            vendorId,
+            title: "Un tout autre titre",
+            slug: `${PREFIX}-un-tout-autre-titre`,
+            description: DESCRIPTION,
+            options: [],
+            variants: [{ selections: {}, priceAmount: 4900, position: 0 }],
+        });
+
+        const product = await readProductForVendor(prisma, { productId, vendorId });
+        expect(product?.slug).toBe(avant);
+    });
+
+    // « Réessayez » enverrait le vendeur reproduire exactement le même slug.
+    it("signale un titre déjà pris plutôt qu'une panne", async () => {
+        const vendorId = await createShop();
+        const slug = `${PREFIX}-doublon`;
+        const commun = { vendorId, slug, description: DESCRIPTION, priceAmount: 4900 };
+
+        await createProduct(prisma, { ...commun, title: "Sac cabas" });
+
+        await expect(createProduct(prisma, { ...commun, title: "Sac cabas" })).rejects.toThrow(
+            ERROR_PRODUCT_SLUG_TAKEN,
+        );
     });
 });

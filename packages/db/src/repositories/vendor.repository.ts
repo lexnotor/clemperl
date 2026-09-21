@@ -52,6 +52,13 @@ export async function setShopCurrency(
     input: { vendorId: string; currency: TShopCurrency },
 ): Promise<void> {
     await prisma.$transaction(async (tx) => {
+        // Le verrou AVANT le comptage. Sans lui, PostgreSQL en `READ COMMITTED` laisse ce
+        // comptage voir zéro produit pendant qu'une création s'engage à côté : les deux
+        // transactions réussissent, et le prix du nouveau produit se retrouve interprété
+        // dans une devise qu'il n'avait pas quand le vendeur l'a saisi. `createProduct`
+        // prend le même verrou, sur la même ligne.
+        await tx.$executeRaw`SELECT id FROM vendors WHERE id = ${input.vendorId} FOR UPDATE`;
+
         const products = await tx.product.count({
             where: { vendorId: input.vendorId, deletedAt: null },
         });

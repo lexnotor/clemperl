@@ -1,6 +1,6 @@
 "use server";
 
-import { createProduct, prisma } from "@clemperl/db";
+import { ERROR_PRODUCT_SLUG_TAKEN, createProduct, prisma } from "@clemperl/db";
 import { parsePrice, productDetailsSchema, slugifyProductTitle } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { redirect } from "next/navigation";
@@ -47,7 +47,13 @@ export async function createProductAction(
         });
     } catch (error) {
         console.error("createProductAction", error);
-        return { message: [messages.errors.failed], saved: false };
+        // Un titre déjà pris n'est pas une panne : « réessayez » enverrait le vendeur
+        // reproduire exactement le même slug.
+        const taken = error instanceof Error && error.message === ERROR_PRODUCT_SLUG_TAKEN;
+        return {
+            message: [taken ? messages.errors.slugTaken : messages.errors.failed],
+            saved: false,
+        };
     }
 
     // `redirect` lève pour interrompre le rendu : il doit rester HORS du `try`, sinon le

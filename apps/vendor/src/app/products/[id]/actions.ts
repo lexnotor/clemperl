@@ -1,11 +1,17 @@
 "use server";
 
-import { prisma, saveProduct, setProductStatus } from "@clemperl/db";
+import {
+    ERROR_PRODUCT_SLUG_TAKEN,
+    prisma,
+    saveProduct,
+    setProductStatus,
+} from "@clemperl/db";
 import {
     buildVariantMatrix,
     parsePrice,
     productDetailsSchema,
     productOptionsSchema,
+    slugifyProductTitle,
 } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { revalidatePath } from "next/cache";
@@ -27,7 +33,14 @@ function readOptions(form: FormData): { name: string; values: string[] }[] {
                 .map((value) => value.trim())
                 .filter((value) => value.length > 0),
         }))
-        .filter((option) => option.name.length > 0 && option.values.length > 0);
+        // Une ligne entièrement vide n'est pas une saisie : elle disparaît, sinon le
+        // vendeur ne pourrait plus enregistrer après avoir cliqué « Ajouter un axe ».
+        //
+        // Un axe sans NOM mais avec des valeurs est une saisie INCOMPLÈTE : il passe à
+        // la validation, qui le refuse. Le jeter ici ferait une grille serveur plus
+        // courte que celle affichée, et les prix indexés par position se décaleraient —
+        // sans erreur, et sans que rien ne le montre.
+        .filter((option) => option.name.length > 0 || option.values.length > 0);
 }
 
 export async function saveProductAction(
@@ -80,13 +93,20 @@ export async function saveProductAction(
             productId,
             vendorId: vendor.id,
             title: details.data.title,
+            // Le slug suit le titre tant que le produit n'a jamais été publié. Le dépôt
+            // l'ignore après la première publication — c'est lui qui connaît cette date.
+            slug: slugifyProductTitle(details.data.title),
             description: details.data.description,
             options: options.data,
             variants: grid,
         });
     } catch (error) {
         console.error("saveProductAction", error);
-        return { message: [messages.errors.failed], saved: false };
+        const taken = error instanceof Error && error.message === ERROR_PRODUCT_SLUG_TAKEN;
+        return {
+            message: [taken ? messages.errors.slugTaken : messages.errors.failed],
+            saved: false,
+        };
     }
 
     revalidatePath(`/products/${productId}`);
