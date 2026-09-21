@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-09-19.
+Dernière mise à jour : 2026-09-20.
 
 ## Où en est le projet
 
@@ -14,10 +14,13 @@ plan, exécution, un commit.
 
 | Tranche | Objet | État |
 | --- | --- | --- |
-| T0 | Fondations du monorepo | **Livrée** — commit `776f3d6` |
-| T1a | Identité et sessions | **Livrée** — ce commit |
-| T1b | Vendeurs : demande d'ouverture et validation | **Livrée** |
-| T2 | Catalogue et médias | non commencée |
+| T0 | Fondations du monorepo | **Livrée** — commit `6918645` |
+| T1a | Identité et sessions | **Livrée** — commit `15e276a` |
+| T1b | Vendeurs : demande d'ouverture et validation | **Livrée** — `ef68c6c`..`c33188c` |
+| T2a | Espace vendeur et boutique | **Livrée** |
+| T2b | Produit et variantes | non commencée |
+| T2c | Pipeline médias (BullMQ, sharp, worker) | non commencée |
+| T2d | Catalogue public : liste, filtres, fiche | non commencée |
 | T3 | Panier et commande | non commencée |
 | T4 | Paiement, point d'extension | non commencée |
 | T5 | Abonnements vendeurs | non commencée |
@@ -36,12 +39,14 @@ parler à la base pour passer par l'API ? Deux chemins de lecture sur les mêmes
 c'est exactement le risque que T0 nommait — la même règle écrite à deux endroits, qui
 divergent en silence. La réponse conditionne le périmètre de la tranche, pas l'inverse.
 
-T1b dépend entièrement de T1a : le rôle vendeur y sera une **relation**, jamais une
-colonne du compte. La spécification T1a, section 1, porte cette décision et sa raison.
+T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
+(`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
+cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
+porte le modèle qui en découle.
 
 ## Reprendre sur une autre machine
 
-Le dépôt ne suffit pas : trois choses n'y sont pas, volontairement.
+Le dépôt ne suffit pas : quatre choses n'y sont pas.
 
 **`.env` n'est pas versionné.** Le partir de `.env.example`, puis :
 
@@ -67,9 +72,45 @@ Google le jour où on les crée.
 celles-ci l'attendent : `pnpm docker:up` suffit. Les comptes créés sur l'ancienne machine
 ne suivent pas, et c'est sans conséquence — ce sont des comptes d'essai.
 
+**Les navigateurs de Playwright ne sont pas dans le dépôt.** `pnpm install` ne les pose
+pas : il faut `pnpm exec playwright install`. Sans eux, `pnpm test:e2e` échoue sur
+« Executable doesn't exist », et le message accuse le premier test plutôt que
+l'installation.
+
+### Faire tourner la suite bout en bout
+
+Deux bancs, et ils ne disent pas la même chose.
+
+    pnpm docker:up && pnpm test:e2e     # développement — ce que la CI exerce
+    pnpm e2e:up    && pnpm test:e2e     # build de production
+
+Le premier doit être **vert en entier** : c'est celui de `ci.yml`. Le second ne l'est pas
+encore — trois suites de T1a et T1b y butent sur la limitation de débit de Better Auth
+(voir « Ce qui reste ouvert »). Les suites de T2a y passent.
+
+Dans les deux cas, **attendre la santé des conteneurs avant de lancer les tests** :
+`up -d` rend la main au démarrage, pas à la disponibilité.
+
+    docker compose --env-file .env -f docker/docker-compose.dev.yml ps
+
+### Si Docker Desktop tourne sous WSL
+
+Deux pannes d'interop ont coûté une séance le 2026-09-20, toutes deux étrangères au code
+et toutes deux muettes sur leur cause :
+
+- `error getting credentials - err: exit status 1` à la construction. L'assistant
+  d'identifiants passe par Windows. Contournement sans toucher à `~/.docker/config.json` :
+  un `DOCKER_CONFIG` jetable contenant `{}`, les images publiques ne demandant aucune
+  authentification.
+- `mount ... no such file or directory` au démarrage d'un conteneur, sur un fichier qui
+  existe pourtant. Le cache de montage de Docker Desktop est périmé : un `touch` sur le
+  fichier concerné le fait réévaluer.
+
+Un redémarrage de Docker Desktop règle les deux.
+
 ## Ce qui reste ouvert
 
-Rien de tout cela ne bloque T1b.
+Rien de tout cela ne bloque T2.
 
 **Le tour complet de Google n'a jamais été joué**, faute d'identifiants. La
 configuration est écrite et le bouton se monte, mais aucun aller-retour réel n'a eu
@@ -116,31 +157,76 @@ téléversement, la compensation supprime les objets ; si cette suppression éch
 tour, l'objet reste. Un orphelin coûte de l'espace, pas de la correction. Le balayage
 relève de T7, avec les traitements de fond.
 
-**Aucun écran ne permet de modifier une boutique validée.** Un nom mal saisi se corrige
-en base. C'est le premier écran que T2 devra livrer.
+**Les informations légales ne se corrigent nulle part.** Le vendeur les voit en lecture
+et lit où écrire ; côté administration, le chemin reste la base. C'est une décision de
+T2a — un administrateur les a validées contre les pièces téléversées, et
+`updateShopProfile` ne les prend pas en paramètres, elles sont absentes de sa signature.
+Ça devient un vrai manque le jour où une société change de forme juridique.
 
-**`apps/vendor` est toujours une coquille.** On ne demande pas d'entrer dans l'espace
-vendeur avant d'être vendeur ; son back-office est le sujet de T2.
+**Deux onglets qui enregistrent en même temps : la dernière écriture gagne.** Aucun
+verrou optimiste. Accepté tant qu'une boutique n'a qu'un membre — rien ne crée le second
+aujourd'hui. À rouvrir avec les invitations.
 
-**Le sélecteur de thème n'existe pas.** Le clair est le défaut et ne dépend pas du
-système. `data-theme="dark"` et `data-theme="system"` fonctionnent déjà : il ne manque
-que l'interface pour les poser, et la persistance du choix.
+**La limitation de débit de Better Auth n'est pas déclarée, et elle mord en production.**
+`/sign-up/email` accepte trois requêtes puis répond `429`. Le réglage est hérité du
+framework, qui l'active en production et la désactive en développement — donc il ne se
+voit qu'en production. Mesuré le 2026-09-21 : trois `200` puis trois `429` d'affilée.
+Conséquence immédiate : `sign-up.spec.ts` et `vendor-application.spec.ts` échouent contre
+la surcharge de production, qui crée des comptes plus vite qu'aucun humain. La CI n'est
+pas concernée, elle tourne sur la stack de développement. Le corriger consiste à déclarer
+la politique dans `packages/auth/src/config/auth.config.ts` plutôt qu'à l'hériter, et à
+relever le plafond dans `docker-compose.e2e.yml`. À traiter comme une décision de
+sécurité, pas comme un correctif de test — la règle sur « mot de passe oublié » mérite
+notamment d'être choisie, pas subie.
+
+**`pnpm e2e:up` rend la main avant que la stack soit prête.** Il attend le démarrage des
+conteneurs, pas leur santé ni la fin de `storage-init`. La CI compense par une boucle
+d'attente explicite (`ci.yml`) ; en local, rien. Lancer `pnpm test:e2e` dans la foulée
+produit des échecs qu'on attribue au code.
+
+**Aucun sélecteur de boutique.** Le schéma autorise plusieurs `vendor_members` pour un
+même compte, mais rien ne les crée. Le sélecteur arrivera avec les invitations, pas
+avant.
+
+**Il n'y a qu'un thème, et c'est voulu.** Le clair est le seul thème servi, et il ne
+dépend pas du réglage du système : une place de marché montre des produits dont les
+photos sont préparées sur fond clair, et un thème sombre les dénature. Les règles
+`data-theme="dark"` et `data-theme="system"` existent dans `packages/ui` et sont
+correctes, mais aucune interface ne les pose — le sélecteur a été cadré puis écarté le
+2026-09-20. Le rouvrir consiste à monter un contrôle et à persister le choix ; rien
+d'autre n'est à écrire.
 
 ## Ce qui a été vérifié, et comment
 
 `docs/conventions/verification.md` sépare « vérifié en exécutant » de « vérifié sur
-pièce ». Pour T1a, tout ce qui est coché l'a été **en exécutant** :
+pièce ». Pour T1a comme pour T1b, tout ce qui est coché l'a été **en exécutant** :
 
     pnpm lint && pnpm typecheck && pnpm test && pnpm verify:thresholds
     pnpm docker:up && pnpm test:e2e
     docker exec clemperl_dev_api sh -c "cd apps/api && pnpm exec jest --config jest.config.integration.ts --runInBand"
     docker exec clemperl_dev_api sh -c "cd apps/api && pnpm exec jest --config jest.config.e2e.ts --runInBand"
 
-Les planchers de couverture valent la valeur **mesurée** ce jour-là, jamais une valeur
-souhaitée : 100 % pour `api`, `auth`, `i18n` et `ui`, 61 % pour `core` — dont l'écart
-est le schéma d'environnement hérité de T0, sans test. Le cliquet monte, il ne descend
-jamais.
+T1b a joué le parcours entier dans le navigateur, et c'est sa preuve principale :
+dépôt d'une demande avec pièces, refus motivé, lecture du motif par le candidat,
+resoumission corrigée, validation, puis existence de la boutique et de son propriétaire
+(`e2e/vendor-application.spec.ts`). La suite tourne désormais sur un **build de
+production** (`docker/docker-compose.e2e.yml`, `pnpm e2e:up`), pas sur le serveur de
+développement.
 
-`docs/pieges.md` tient le registre des pièges déjà payés. Le lire avant de « corriger »
-du code qui paraît bizarre : trois entrées y sont nées de T1a, et chacune a coûté une
-séance de débogage.
+Les planchers de couverture valent la valeur **mesurée** ce jour-là, jamais une valeur
+souhaitée. Ils sont à 100 % partout : `api`, `auth`, `core`, `db`, `domain`, `i18n` et
+`ui`. L'écart de `core` hérité de T0 — le schéma d'environnement sans test — a été
+comblé pendant T1b. Le cliquet monte, il ne descend jamais.
+
+T2a a été la première tranche jouée contre un **build de production** (`pnpm e2e:up`).
+Cette surcharge existait depuis T1b sans avoir jamais tourné, et elle a révélé quatre
+défauts qu'aucune autre vérification ne voyait : le stockage refusé au démarrage, l'image
+de l'API qui ne démarrait pas depuis T1a, une décision d'administration lue avant d'être
+écrite, et la limitation de débit ci-dessus. Les trois premiers sont corrigés. La leçon
+tient en une ligne : **une suite qui ne passe que contre un serveur de développement ne
+dit rien de ce qui sera déployé.**
+
+`docs/pieges.md` tient le registre des pièges déjà payés — vingt-neuf entrées, dont
+quinze nées de T1b. Le lire avant de « corriger » du code qui paraît bizarre : chacune a
+coûté une séance de débogage, et plusieurs décrivent un code qui a l'air faux et ne
+l'est pas.

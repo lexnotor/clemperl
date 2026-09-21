@@ -52,7 +52,7 @@ export function FileField({
                 aria-hidden="true"
                 className="flex cursor-pointer items-center gap-4 border-b border-bordure py-3 peer-focus-visible:border-texte"
             >
-                <span className="rounded-[--radius-controle] border border-bordure px-4 py-2 text-sm">
+                <span className="border border-bordure px-4 py-2 text-sm">
                     {chooseLabel}
                 </span>
                 <span className={cn("text-sm", fileName === null ? "text-muet" : "text-texte")}>

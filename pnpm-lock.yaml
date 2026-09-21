@@ -403,6 +403,9 @@ importers:
       '@clemperl/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@clemperl/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@clemperl/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n

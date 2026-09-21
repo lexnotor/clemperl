@@ -3,11 +3,9 @@ import { URL_ADMIN, URL_STOREFRONT } from "../playwright.config";
 import {
     createVerifiedAccount,
     expectSubjectFor,
-    PASSWORD,
+    signInAsAdministrator,
     signInFromPage,
 } from "./helpers/accounts";
-
-const ADMIN_EMAIL = "administration@clemperl.test";
 
 // Les deux tests partagent un état global — l'existence d'un administrateur, que le
 // premier crée par la page d'amorçage. En parallèle, le second tomberait tantôt sur un
@@ -59,20 +57,7 @@ test("un candidat dépose, est refusé, corrige, et devient vendeur", async ({
     const adminContext = await browser.newContext();
     const adminPage = await adminContext.newPage();
 
-    // Aucun administrateur n'est semé : sur une base neuve, l'instance s'amorce ici. Une
-    // fois faite, la page disparaît — d'où la branche qui se connecte simplement.
-    await adminPage.goto(`${URL_ADMIN}/setup`);
-    const amorcage = adminPage.getByRole("button", { name: "Créer l'administrateur" });
-    if (await amorcage.isVisible()) {
-        await adminPage.getByLabel("Nom").fill("Administration");
-        await adminPage.getByLabel("Adresse e-mail").fill(ADMIN_EMAIL);
-        await adminPage.getByLabel("Mot de passe").fill(PASSWORD);
-        await amorcage.click();
-        // L'amorçage renvoie vers la connexion : il crée le compte, il n'ouvre pas de
-        // session. Se connecter ensuite vaut dans les deux cas, amorcé ou non.
-        await adminPage.waitForURL(/\/sign-in/);
-    }
-    await signInFromPage(adminPage, ADMIN_EMAIL);
+    await signInAsAdministrator(adminPage);
 
     await adminPage.goto(`${URL_ADMIN}/applications`);
     await adminPage.getByRole("link", { name: new RegExp(shopName) }).click();

@@ -687,3 +687,58 @@ bout en bout qui vérifie ce que la page affiche APRÈS l'action le révèle.
 
 Ce qui protège maintenant : le test `e2e/vendor-application.spec.ts` attend le nouvel
 état de la page après chaque décision, et pas seulement l'absence d'erreur.
+
+---
+
+**`getByLabel` d'un contrôle enveloppé par son `<label>` matche aussi le CONTENU d'un
+`<textarea>` voisin : un `defaultValue` rendu par le serveur devient une partie du
+libellé.**
+
+Playwright calcule le texte d'un libellé enveloppant à partir du `textContent` du
+`<label>`. Pour un `<textarea>`, React rend `defaultValue` comme **contenu de l'élément**,
+pas comme attribut — le `<label>` contient donc « Description » suivi du texte saisi par
+l'utilisateur. Et `getByLabel` cherche par sous-chaîne.
+
+Observé le 2026-09-20 sur la fiche boutique. La description valait « Joaillerie
+artisanale, pièces uniques montées à la main. » et
+`page.getByLabel("Joaillerie").uncheck()` a levé une violation de mode strict : deux
+éléments, la case à cocher « Joaillerie » et le textarea de description.
+
+Ce qui rend le piège difficile à voir : **le même sélecteur passe sur un formulaire
+vide.** Au dépôt du dossier, le test remplit la description par `.fill()`, qui écrit la
+*propriété* `value` et laisse le `textContent` vide — aucune ambiguïté. Le piège
+n'apparaît que sur une page rendue depuis la base, donc seulement à la seconde visite,
+ce qui le fait ressembler à une régression de la page plutôt qu'à un défaut du sélecteur.
+
+Ce qui protège maintenant : `e2e/vendor-shop.spec.ts` vise les cases à cocher par
+`getByRole("checkbox", { name: … })`. Règle générale : sur un écran qui repart de données
+enregistrées, préférer `getByRole` avec un nom accessible à `getByLabel`, dont la
+correspondance par sous-chaîne dépend du contenu affiché.
+
+---
+
+**Tailwind 4 accepte `classe-[--variable]` sans rien dire, et produit une déclaration
+invalide que le navigateur jette.**
+
+En Tailwind 3, `accent-[--color-texte]` désignait la variable CSS. En Tailwind 4, les
+crochets ne portent plus qu'une valeur *littérale*, et la variable se passe entre
+parenthèses. Compilé avec le Tailwind 4.3.3 du dépôt :
+
+    accent-[--color-texte]   →  accent-color: --color-texte       ✗ invalide, ignorée
+    accent-(--color-texte)   →  accent-color: var(--color-texte)  ✓
+    accent-texte             →  accent-color: var(--color-texte)  ✓
+
+Rien n'échoue : ni le build, ni le lint, ni un test. La classe est bien émise, la règle
+bien écrite, et seul le navigateur la rejette en silence. On ne s'en aperçoit qu'en
+regardant l'élément — ou jamais, si l'apparence par défaut passe pour voulue.
+
+Observé le 2026-09-21, sur quatre occurrences dont trois vivaient là depuis T1b.
+
+Ce qui protège maintenant : quand le jeton vient de `@theme`, l'utilitaire généré
+(`accent-texte`, `rounded-controle`) est la forme à écrire — elle est plus courte et ne
+peut pas se tromper de syntaxe. Réserver `(--variable)` aux variables qui ne sont pas des
+jetons de thème.
+
+À noter pour qui lirait ce registre à rebours : les trois `rounded-[--radius-controle]`
+n'ont pas été réparées mais **supprimées**. Les contrôles sont carrés par décision de
+design — les rendre ronds aurait « corrigé » le code en cassant l'intention.

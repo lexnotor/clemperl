@@ -85,7 +85,8 @@
       },
       "approved": {
         "title": "« {shop} » est validée",
-        "next": "Votre espace vendeur ouvrira avec la prochaine tranche."
+        "next": "Votre espace vendeur est ouvert.",
+        "openVendorSpace": "Ouvrir mon espace vendeur"
       },
       "descriptionHint": "Dites ce que vous fabriquez ou revendez, et ce qui distingue votre travail.",
       "chooseFile": "Choisir un fichier",
