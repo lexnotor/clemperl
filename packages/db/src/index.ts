@@ -16,7 +16,16 @@ export type {
     VendorDocument,
     VendorMember,
 } from "../generated/prisma/client.js";
+export type {
+    Product,
+    ProductOption,
+    ProductOptionValue,
+    ProductVariant,
+    ProductVariantValue,
+} from "../generated/prisma/client.js";
 export {
+    E_CURRENCY,
+    E_PRODUCT_STATUS,
     E_USER_ROLE,
     E_VENDOR_APPLICATION_STATUS,
     E_VENDOR_CATEGORY,

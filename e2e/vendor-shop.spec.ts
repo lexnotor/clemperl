@@ -77,7 +77,7 @@ test("un vendeur validé corrige sa boutique, et le slug ne bouge pas", async ({
     // slug n'est affiché par aucun écran de T2a.
     const renamed = `${shopName} & Cie`;
     await page.getByLabel("Nom de la boutique").fill(renamed);
-    await page.getByRole("button", { name: "Enregistrer" }).click();
+    await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
     await expect(page.getByText("Vos informations sont enregistrées.")).toBeVisible();
 
     await page.reload();
@@ -97,7 +97,7 @@ test("un vendeur validé corrige sa boutique, et le slug ne bouge pas", async ({
     // React comme CONTENU de l'élément. Le mot « Joaillerie » de la description fait donc
     // partie du libellé du textarea, et `getByLabel` en trouve deux.
     await page.getByRole("checkbox", { name: "Joaillerie" }).uncheck();
-    await page.getByRole("button", { name: "Enregistrer" }).click();
+    await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
     await expect(page.locator("main p[role='alert']")).toHaveText("Vérifiez les champs signalés.");
 
     // « N'écrit rien » est la moitié qui compte : sans elle, une action qui enregistre

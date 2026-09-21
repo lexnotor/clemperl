@@ -86,6 +86,18 @@ jobs:
           $compose logs
           exit 1
 
+      # The integration and API e2e layers run HERE, not in the `test` matrix job: both
+      # need the running stack — one starts a throwaway PostgreSQL through the mounted
+      # Docker socket, the other boots the Nest application against the live database.
+      #
+      # Until now neither ran anywhere. A controller renamed from `/moi` to `/me` in the
+      # English-code pass left its suite red for two slices, and nothing said so.
+      - name: Integration layer, against a real PostgreSQL
+        run: docker exec clemperl_dev_api sh -c "cd apps/api && pnpm exec jest --config jest.config.integration.ts --runInBand"
+
+      - name: API end-to-end
+        run: docker exec clemperl_dev_api sh -c "cd apps/api && pnpm exec jest --config jest.config.e2e.ts --runInBand"
+
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
 

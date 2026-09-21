@@ -30,7 +30,7 @@ async function ouvrirSession(adresse: string): Promise<string> {
     return couple;
 }
 
-describe("GET /moi", () => {
+describe("GET /me", () => {
     let app: INestApplication;
     const adresse = `api-${Date.now()}@exemple.test`;
 
@@ -47,14 +47,14 @@ describe("GET /moi", () => {
     });
 
     it("refuse une requête sans session", async () => {
-        await request(app.getHttpServer()).get("/moi").expect(401);
+        await request(app.getHttpServer()).get("/me").expect(401);
     });
 
     it("refuse un cookie de session fabriqué", async () => {
         // Ce test compte autant que le précédent : un garde qui accepterait n'importe
         // quel cookie passerait le premier sans rien protéger.
         await request(app.getHttpServer())
-            .get("/moi")
+            .get("/me")
             .set("Cookie", "better-auth.session_token=invente")
             .expect(401);
     });
@@ -63,7 +63,7 @@ describe("GET /moi", () => {
         // L'autre moitié du critère : un garde qui refuserait tout passerait les deux
         // tests précédents sans laisser personne entrer.
         const reponse = await request(app.getHttpServer())
-            .get("/moi")
+            .get("/me")
             .set("Cookie", await ouvrirSession(adresse))
             .expect(200);
 

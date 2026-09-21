@@ -45,3 +45,27 @@ describe("TextAreaField", () => {
         expect(screen.getByText("Vingt caractères minimum.")).toBeVisible();
     });
 });
+
+// La raison d'être de la dissociation libellé / contrôle : un nom accessible EXACT.
+// Enveloppé, le contrôle héritait du `textContent` du `<label>` entier — indication
+// comprise, et pour un `<textarea>` sa valeur aussi, puisque React rend `defaultValue`
+// comme contenu de l'élément. Tout sélecteur par libellé attrapait alors le mauvais
+// élément, ou deux.
+describe("le nom accessible", () => {
+    it("ne contient pas l'indication", () => {
+        render(<Field label="Prix" hint="Dans la devise de votre boutique." />);
+        expect(screen.getByRole("textbox", { name: "Prix" })).toBeInTheDocument();
+    });
+
+    it("ne contient pas la valeur d'une zone de texte", () => {
+        render(<TextAreaField label="Description" defaultValue="Joaillerie artisanale." />);
+        expect(screen.getByRole("textbox", { name: "Description" })).toBeInTheDocument();
+    });
+
+    it("lie l'indication au contrôle comme description", () => {
+        render(<Field label="Prix" hint="Dans la devise de votre boutique." />);
+        expect(screen.getByRole("textbox", { name: "Prix" })).toHaveAccessibleDescription(
+            "Dans la devise de votre boutique.",
+        );
+    });
+});

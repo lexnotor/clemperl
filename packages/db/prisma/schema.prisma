@@ -160,6 +160,27 @@ enum E_VENDOR_CATEGORY {
   @@map("vendor_category")
 }
 
+// Les mêmes codes ISO 4217 que `packages/core/src/enums/currency.enum.ts`, qui reste la
+// source pour le code. Le type PostgreSQL existe pour que la base refuse elle-même une
+// devise inventée — `CURRENCY_EXPONENT` ne connaît que ces cinq-là, et un code absent
+// de la table produirait un montant faux plutôt qu'une erreur.
+enum E_CURRENCY {
+  EUR
+  USD
+  XOF
+  XAF
+  CDF
+
+  @@map("currency")
+}
+
+enum E_PRODUCT_STATUS {
+  DRAFT
+  PUBLISHED
+
+  @@map("product_status")
+}
+
 // Le dossier est l'instantané de ce qui a été déclaré au dépôt. Il n'est jamais
 // resynchronisé depuis la boutique : les champs communs aux deux tables sont deux
 // vérités à deux dates.
@@ -261,12 +282,19 @@ model Vendor {
   taxNumber          String? @map("tax_number")
   country            String
 
+  // Nullable et SANS valeur par défaut. Un défaut faux est exactement ce qui produit des
+  // montants faux sans rien signaler : `10000` vaut dix mille francs CFA ou cent euros
+  // selon cette colonne, et rien à l'écran ne distingue les deux. Le vendeur la choisit
+  // dans `/shop`, et elle se fige dès qu'un produit existe.
+  currency E_CURRENCY?
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
   application VendorApplication?
   members     VendorMember[]
+  products    Product[]
 
   @@map("vendors")
 }
@@ -286,4 +314,100 @@ model VendorMember {
   @@unique([vendorId, userId])
   @@index([userId])
   @@map("vendor_members")
+}
+
+model Product {
+  id          String           @id @default(cuid(2))
+  vendorId    String           @map("vendor_id")
+  slug        String
+  title       String
+  description String
+  status      E_PRODUCT_STATUS @default(DRAFT)
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  publishedAt DateTime? @map("published_at")
+
+  // `Cascade` : fermer une boutique emporte son catalogue, qui n'a aucun sens sans elle.
+  // C'est l'inverse d'une décision administrative, qu'on conserve par `Restrict`.
+  vendor   Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  options  ProductOption[]
+  variants ProductVariant[]
+
+  // Le slug part dans les URL publiques en T2d. Unique par BOUTIQUE et non globalement :
+  // deux vendeurs ont le droit de vendre chacun leur « sac-cabas ».
+  @@unique([vendorId, slug])
+  @@index([vendorId, status])
+  @@map("products")
+}
+
+model ProductOption {
+  id        String @id @default(cuid(2))
+  productId String @map("product_id")
+  name      String
+  position  Int
+
+  product       Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values        ProductOptionValue[]
+  variantValues ProductVariantValue[]
+
+  @@unique([productId, name])
+  @@map("product_options")
+}
+
+model ProductOptionValue {
+  id       String @id @default(cuid(2))
+  optionId String @map("option_id")
+  label    String
+  position Int
+
+  option        ProductOption         @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  variantValues ProductVariantValue[]
+
+  @@unique([optionId, label])
+  @@map("product_option_values")
+}
+
+model ProductVariant {
+  id        String @id @default(cuid(2))
+  productId String @map("product_id")
+
+  // Entier, dans l'unité mineure de la devise de la BOUTIQUE. La devise n'est pas ici :
+  // une seule écriture par boutique, donc aucune divergence entre deux variantes d'un
+  // même produit.
+  priceAmount Int @map("price_amount")
+
+  // Les identifiants des valeurs de cette variante, TRIÉS puis joints. Sans le tri,
+  // « M|Noir » et « Noir|M » désigneraient la même combinaison sous deux clés, et
+  // l'index unique ne verrait aucun doublon. Vide quand le produit n'a aucun axe —
+  // l'unicité garantit alors EXACTEMENT une variante, sans qu'aucun code ne le vérifie.
+  combinationKey String @map("combination_key")
+  position       Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values  ProductVariantValue[]
+
+  @@unique([productId, combinationKey])
+  @@map("product_variants")
+}
+
+model ProductVariantValue {
+  id            String @id @default(cuid(2))
+  variantId     String @map("variant_id")
+  optionId      String @map("option_id")
+  optionValueId String @map("option_value_id")
+
+  variant     ProductVariant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  option      ProductOption      @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  optionValue ProductOptionValue @relation(fields: [optionValueId], references: [id], onDelete: Cascade)
+
+  // `optionId` paraît redondant — une jointure le retrouverait depuis la valeur. Il est
+  // là pour porter CET index, qui interdit qu'une variante déclare deux tailles. Une
+  // colonne dénormalisée contre une contrainte que la base tient seule.
+  @@unique([variantId, optionId])
+  @@map("product_variant_values")
 }

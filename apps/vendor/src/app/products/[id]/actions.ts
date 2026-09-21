@@ -1,0 +1,106 @@
+"use server";
+
+import { prisma, saveProduct, setProductStatus } from "@clemperl/db";
+import {
+    buildVariantMatrix,
+    parsePrice,
+    productDetailsSchema,
+    productOptionsSchema,
+} from "@clemperl/domain";
+import messages from "@clemperl/i18n/messages/vendor/fr.json";
+import { revalidatePath } from "next/cache";
+import { requireVendorMembership } from "../../../lib/session";
+import type { IProductFormState } from "../types/product-form-state.interface";
+
+// Les axes arrivent en deux champs parallèles répétés, `optionName` et `optionValues` :
+// un formulaire HTML n'envoie pas de structure, il envoie des paires. C'est ici qu'elles
+// redeviennent une liste.
+function readOptions(form: FormData): { name: string; values: string[] }[] {
+    const names = form.getAll("optionName").map(String);
+    const raw = form.getAll("optionValues").map(String);
+
+    return names
+        .map((name, index) => ({
+            name: name.trim(),
+            values: (raw[index] ?? "")
+                .split(",")
+                .map((value) => value.trim())
+                .filter((value) => value.length > 0),
+        }))
+        .filter((option) => option.name.length > 0 && option.values.length > 0);
+}
+
+export async function saveProductAction(
+    _previous: IProductFormState,
+    form: FormData,
+): Promise<IProductFormState> {
+    const { vendor } = await requireVendorMembership();
+    if (!vendor.currency) {
+        return { message: [messages.errors.currencyMissing], saved: false };
+    }
+
+    const productId = String(form.get("productId") ?? "");
+    const details = productDetailsSchema.safeParse({
+        title: form.get("title"),
+        description: form.get("description"),
+    });
+    const options = productOptionsSchema.safeParse(readOptions(form));
+    if (!details.success || !options.success) {
+        return { message: [messages.errors.invalid], saved: false };
+    }
+
+    // Les prix arrivent sous `price:<position>`. La position et non la combinaison : une
+    // clé de combinaison porte des caractères de contrôle, qu'un nom de champ multipart
+    // ne peut pas transporter.
+    const prices: Record<number, number> = {};
+    try {
+        for (const [field, value] of form.entries()) {
+            if (!field.startsWith("price:")) continue;
+            const position = Number(field.slice("price:".length));
+            if (!Number.isInteger(position)) continue;
+            prices[position] = parsePrice(String(value), vendor.currency);
+        }
+    } catch {
+        return { message: [messages.errors.priceInvalid], saved: false };
+    }
+
+    // La grille est recalculée SERVEUR à partir des axes soumis : ce que le navigateur a
+    // affiché n'engage personne. La fonction étant pure et déterministe, les positions
+    // qu'elle attribue ici sont celles que le formulaire a rendues.
+    const grid = buildVariantMatrix(options.data, [], prices[0] ?? 0).map((variant) => ({
+        selections: variant.selections,
+        priceAmount: prices[variant.position] ?? variant.priceAmount,
+        position: variant.position,
+    }));
+
+    try {
+        // `productId` vient du CLIENT. Le dépôt filtre sur `(id, vendorId)` : sans cela,
+        // un vendeur corrige le produit d'un autre en changeant un chiffre dans l'URL.
+        await saveProduct(prisma, {
+            productId,
+            vendorId: vendor.id,
+            title: details.data.title,
+            description: details.data.description,
+            options: options.data,
+            variants: grid,
+        });
+    } catch (error) {
+        console.error("saveProductAction", error);
+        return { message: [messages.errors.failed], saved: false };
+    }
+
+    revalidatePath(`/products/${productId}`);
+    return { message: [], saved: true };
+}
+
+export async function toggleProductStatus(form: FormData): Promise<void> {
+    const { vendor } = await requireVendorMembership();
+    const productId = String(form.get("productId") ?? "");
+
+    await setProductStatus(prisma, {
+        productId,
+        vendorId: vendor.id,
+        publish: form.get("publish") === "1",
+    });
+    revalidatePath(`/products/${productId}`);
+}

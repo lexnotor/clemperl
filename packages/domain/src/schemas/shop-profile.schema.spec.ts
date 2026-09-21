@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applicationSubmissionSchema } from "./application-submission.schema.js";
-import { shopProfileSchema } from "./shop-profile.schema.js";
+import { shopCurrencySchema, shopProfileSchema } from "./shop-profile.schema.js";
 
 const VALID = {
     shopName: "Atelier Lumière",
@@ -48,5 +48,17 @@ describe("shopProfileSchema", () => {
             locale: "fr" as const,
         };
         expect(applicationSubmissionSchema.safeParse(withLegal).success).toBe(false);
+    });
+});
+
+describe("shopCurrencySchema", () => {
+    it("accepte un code de la plateforme", () => {
+        expect(shopCurrencySchema.safeParse({ currency: "XOF" }).success).toBe(true);
+    });
+
+    // `CURRENCY_EXPONENT` ne connaît que cinq codes. Un code absent de la table
+    // produirait un montant faux plutôt qu'une erreur — d'où le refus ici.
+    it("refuse un code hors de la plateforme", () => {
+        expect(shopCurrencySchema.safeParse({ currency: "GBP" }).success).toBe(false);
     });
 });
