@@ -51,6 +51,15 @@ test("un vendeur dépose une photo, attend son traitement, puis publie", async (
 
     await page.getByRole("button", { name: "Publier" }).click();
     await expect(page.getByText("Publié")).toBeVisible();
+
+    // Une fiche EN LIGNE garde au moins une photo : la publication ne contrôle les images
+    // qu'une fois, et sans ce refus le vendeur laisserait une fiche publiée sans aucune
+    // image — la garantie même sur laquelle T2d s'appuie. On refuse plutôt que de
+    // dépublier dans son dos, et on lui dit quoi faire.
+    await page.getByRole("button", { name: "Supprimer" }).click();
+    await expect(page.locator("main p[role='alert']")).toContainText("Dépubliez d'abord");
+    await expect(page.getByTestId("vignette")).toBeVisible();
+    await expect(page.getByText("Publié")).toBeVisible();
 });
 
 test("une image illisible est signalée, pas escamotée, et bloque la publication", async ({

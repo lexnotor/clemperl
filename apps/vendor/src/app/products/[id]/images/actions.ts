@@ -2,6 +2,7 @@
 
 import { deleteMediaPrefix, redisConnectionOptions, uploadMedia } from "@clemperl/core";
 import {
+    ERROR_LAST_IMAGE_PUBLISHED,
     ERROR_POSITION_TAKEN,
     createPendingImage,
     deleteImage,
@@ -181,16 +182,31 @@ export async function retryImage(imageId: string): Promise<void> {
     revalidatePath(`/products/${image.productId}`);
 }
 
-export async function removeImage(imageId: string, productId: string): Promise<void> {
+// Rend une erreur au lieu de `void` : le dépôt refuse de retirer la dernière photo d'une
+// fiche en ligne, et un bouton qui ne fait rien sans dire pourquoi est indiscernable
+// d'une panne.
+export async function removeImage(
+    imageId: string,
+    productId: string,
+): Promise<{ error: string } | null> {
     const { vendor } = await requireVendorMembership();
 
-    const removed = await deleteImage(prisma, { imageId, vendorId: vendor.id });
+    let removed: { objectPath: string } | null;
+    try {
+        removed = await deleteImage(prisma, { imageId, vendorId: vendor.id });
+    } catch (error) {
+        console.error("removeImage", error);
+        const derniere = error instanceof Error && error.message === ERROR_LAST_IMAGE_PUBLISHED;
+        return { error: derniere ? messages.errors.imageLastPublished : messages.errors.failed };
+    }
+
     if (removed) {
         // APRÈS le commit : supprimer avant laisserait, si la transaction échouait, une
         // ligne pointant vers le vide.
         await deleteMediaPrefix(mediaPrefix(removed.objectPath));
     }
     revalidatePath(`/products/${productId}`);
+    return null;
 }
 
 export async function reorderProductImages(

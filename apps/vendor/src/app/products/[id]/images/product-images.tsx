@@ -89,6 +89,14 @@ export function ProductImages(props: ProductImagesProps): JSX.Element {
         }
     }
 
+    async function onRemove(imageId: string): Promise<void> {
+        setError(null);
+        const result = await removeImage(imageId, props.productId);
+        if (result) {
+            setError(result.error);
+        }
+    }
+
     function move(index: number, delta: number): void {
         const ordered = props.images.map((image) => image.id);
         const target = index + delta;
@@ -193,7 +201,7 @@ export function ProductImages(props: ProductImagesProps): JSX.Element {
                                 <button
                                     type="button"
                                     className="underline"
-                                    onClick={() => void removeImage(image.id, props.productId)}
+                                    onClick={() => void onRemove(image.id)}
                                 >
                                     {t.imageRemove}
                                 </button>

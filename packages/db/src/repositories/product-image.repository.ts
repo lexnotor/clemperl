@@ -2,6 +2,17 @@ import type { PrismaClient } from "../../generated/prisma/client.js";
 
 export const ERROR_IMAGE_NOT_FOUND = "IMAGE_NOT_FOUND";
 export const ERROR_POSITION_TAKEN = "IMAGE_POSITION_TAKEN";
+export const ERROR_LAST_IMAGE_PUBLISHED = "LAST_IMAGE_PUBLISHED";
+
+// Le verrou est pris sur la LIGNE du produit, pas sur la table des images : c'est lui qui
+// sérialise deux suppressions simultanées, dont chacune verrait sinon un décompte pris
+// avant que l'autre ait commité. Même mécanique que le verrou de devise en T2b.
+async function lockProduct(
+    tx: { $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number> },
+    productId: string,
+): Promise<void> {
+    await tx.$executeRaw`SELECT id FROM products WHERE id = ${productId} FOR UPDATE`;
+}
 
 function isUniqueViolation(error: unknown): boolean {
     return (
@@ -131,6 +142,12 @@ export async function markImageFailed(
 
 // Rend le chemin pour que l'appelant supprime les objets APRÈS le commit. Supprimer
 // avant laisserait, si la transaction échouait, une ligne pointant vers le vide.
+//
+// La publication contrôle les photos UNE FOIS, au moment où elle est demandée. Sans la
+// garde ci-dessous, un vendeur qui supprime ensuite sa dernière photo laisse une fiche
+// publiée sans image — la garantie même sur laquelle T2d doit pouvoir s'appuyer sans rien
+// vérifier. On REFUSE plutôt que de dépublier en silence : une fiche ne disparaît pas de
+// la boutique sans que son vendeur l'ait demandé.
 export async function deleteImage(
     prisma: PrismaClient,
     input: { imageId: string; vendorId: string },
@@ -138,11 +155,30 @@ export async function deleteImage(
     return prisma.$transaction(async (tx) => {
         const image = await tx.productImage.findFirst({
             where: { id: input.imageId, product: { vendorId: input.vendorId } },
-            select: { id: true, objectPath: true },
+            select: { id: true, objectPath: true, productId: true },
         });
         if (!image) {
             return null;
         }
+
+        // Le VERROU d'abord, comme pour la devise en T2b. Sans lui, deux suppressions
+        // simultanées sur un produit à deux photos lisent chacune « il en reste deux »,
+        // s'autorisent l'une et l'autre, et le produit finit publié sans aucune image.
+        await lockProduct(tx, image.productId);
+
+        const product = await tx.product.findUnique({
+            where: { id: image.productId },
+            select: { status: true },
+        });
+        if (product?.status === "PUBLISHED") {
+            const restantes = await tx.productImage.count({
+                where: { productId: image.productId, id: { not: image.id } },
+            });
+            if (restantes === 0) {
+                throw new Error(ERROR_LAST_IMAGE_PUBLISHED);
+            }
+        }
+
         await tx.productImage.delete({ where: { id: image.id } });
         return { objectPath: image.objectPath };
     });

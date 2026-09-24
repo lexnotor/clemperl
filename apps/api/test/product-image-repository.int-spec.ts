@@ -1,5 +1,6 @@
 import {
     ERROR_IMAGE_NOT_FOUND,
+    ERROR_LAST_IMAGE_PUBLISHED,
     ERROR_NO_READY_IMAGE,
     ERROR_POSITION_TAKEN,
     createPendingImage,
@@ -295,5 +296,63 @@ describe("productIsOwnedBy", () => {
         await expect(
             productIsOwnedBy(prisma, { productId: "c0000000000000000000000", vendorId }),
         ).resolves.toBe(false);
+    });
+});
+
+// La publication contrôle les photos UNE FOIS. Sans cette garde, un vendeur qui supprime
+// sa dernière photo laisse une fiche publiée sans image — exactement la garantie sur
+// laquelle T2d doit pouvoir s'appuyer sans rien vérifier. On refuse plutôt que de
+// dépublier dans son dos : sa fiche ne disparaît pas de la boutique sans qu'il l'ait
+// demandé.
+describe("deleteImage, sur un produit publié", () => {
+    async function publieAvecPhotos(nombre: number) {
+        const { productId, vendorId } = await createShopWithProduct();
+        const ids: string[] = [];
+        for (let i = 0; i < nombre; i += 1) {
+            const image = await createPendingImage(prisma, {
+                productId,
+                vendorId,
+                objectPath: `${productId}/1111111${i}-2222-3333-4444-555555555555/original.jpg`,
+                originalName: `photo-${i}.jpg`,
+            });
+            await markImageReady(prisma, { imageId: image.id, width: 1200, height: 800 });
+            ids.push(image.id);
+        }
+        await setProductStatus(prisma, { productId, vendorId, publish: true });
+        return { productId, vendorId, ids };
+    }
+
+    it("refuse de supprimer la dernière photo", async () => {
+        const { productId, vendorId, ids } = await publieAvecPhotos(1);
+
+        await expect(
+            deleteImage(prisma, { imageId: ids[0] as string, vendorId }),
+        ).rejects.toThrow(ERROR_LAST_IMAGE_PUBLISHED);
+
+        // Et rien n'a bougé : ni la ligne, ni l'état du produit.
+        expect(await prisma.productImage.count({ where: { productId } })).toBe(1);
+        const product = await prisma.product.findUnique({ where: { id: productId } });
+        expect(product?.status).toBe("PUBLISHED");
+    });
+
+    it("laisse supprimer tant qu'il en reste une", async () => {
+        const { productId, vendorId, ids } = await publieAvecPhotos(2);
+
+        await expect(
+            deleteImage(prisma, { imageId: ids[0] as string, vendorId }),
+        ).resolves.not.toBeNull();
+        expect(await prisma.productImage.count({ where: { productId } })).toBe(1);
+    });
+
+    // Un brouillon n'a rien à garantir : on n'empêche personne de vider sa fiche tant
+    // qu'elle n'est pas en ligne.
+    it("laisse un brouillon perdre sa dernière photo", async () => {
+        const { productId, vendorId, ids } = await publieAvecPhotos(1);
+        await setProductStatus(prisma, { productId, vendorId, publish: false });
+
+        await expect(
+            deleteImage(prisma, { imageId: ids[0] as string, vendorId }),
+        ).resolves.not.toBeNull();
+        expect(await prisma.productImage.count({ where: { productId } })).toBe(0);
     });
 });

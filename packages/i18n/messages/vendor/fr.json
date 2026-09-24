@@ -50,7 +50,8 @@
     "imageUploadFailed": "Le dépôt a échoué. Réessayez.",
     "imagePositionTaken": "Une autre photo vient d'être ajoutée. Réessayez.",
     "publishNeedsImages": "Ajoutez au moins une photo, et attendez qu'elles soient toutes traitées.",
-    "imageNotAnImage": "Ce fichier n'est pas une image."
+    "imageNotAnImage": "Ce fichier n'est pas une image.",
+    "imageLastPublished": "Dépubliez d'abord ce produit : une fiche en ligne garde au moins une photo."
   },
   "currency": {
     "EUR": "Euro (€)",
