@@ -35,6 +35,7 @@ export interface ISaveProduct {
 
 export const ERROR_PRODUCT_NOT_FOUND = "PRODUCT_NOT_FOUND";
 export const ERROR_PRODUCT_SLUG_TAKEN = "PRODUCT_SLUG_TAKEN";
+export const ERROR_NO_READY_IMAGE = "NO_READY_IMAGE";
 export const ERROR_CURRENCY_CHANGED = "CURRENCY_CHANGED";
 export const ERROR_VARIANTS_REQUIRED = "VARIANTS_REQUIRED";
 
@@ -245,13 +246,43 @@ export async function setProductStatus(
     prisma: PrismaClient,
     input: { productId: string; vendorId: string; publish: boolean },
 ): Promise<void> {
-    await prisma.product.updateMany({
-        where: { id: input.productId, vendorId: input.vendorId, deletedAt: null },
-        data: {
-            status: input.publish ? "PUBLISHED" : "DRAFT",
-            // `publishedAt` ne se remet jamais à zéro : il date le moment où le slug a
-            // cessé de pouvoir bouger, et dépublier ne rend pas une URL réutilisable.
-            ...(input.publish ? { publishedAt: new Date() } : {}),
-        },
+    await prisma.$transaction(async (tx) => {
+        // L'appartenance se vérifie AVANT les images. Sans cet ordre, un produit d'une
+        // autre boutique ne rend aucune image et l'on répondrait « aucune image prête »
+        // — un message qui ment sur la raison du refus. Un produit étranger n'est pas
+        // refusé bruyamment : il n'est simplement pas touché, comme avant T2c.
+        const owned = await tx.product.findFirst({
+            where: { id: input.productId, vendorId: input.vendorId, deletedAt: null },
+            select: { id: true },
+        });
+        if (!owned) {
+            return;
+        }
+
+        if (input.publish) {
+            // Le contrôle est DANS la transaction du dépôt, pas dans l'action : une
+            // action serveur est une route publique, et c'est sur cette garantie que T2d
+            // s'appuiera pour ne jamais rencontrer de fiche sans photo.
+            //
+            // Dépublier ne regarde rien : on n'empêche personne de retirer sa fiche.
+            const images = await tx.productImage.findMany({
+                where: { productId: input.productId, product: { vendorId: input.vendorId } },
+                select: { status: true },
+            });
+            if (images.length === 0 || images.some((image) => image.status !== "READY")) {
+                throw new Error(ERROR_NO_READY_IMAGE);
+            }
+        }
+
+        await tx.product.updateMany({
+            where: { id: input.productId, vendorId: input.vendorId, deletedAt: null },
+            data: {
+                status: input.publish ? "PUBLISHED" : "DRAFT",
+                // `publishedAt` ne se remet jamais à zéro : il date le moment où le slug
+                // a cessé de pouvoir bouger, et dépublier ne rend pas une URL
+                // réutilisable.
+                ...(input.publish ? { publishedAt: new Date() } : {}),
+            },
+        });
     });
 }

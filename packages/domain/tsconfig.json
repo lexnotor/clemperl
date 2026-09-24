@@ -1,4 +1,10 @@
 {
   "extends": "@clemperl/tsconfig/base.json",
+  "compilerOptions": {
+    // `media-path.server.utils.ts` manipule `node:crypto`. Les types sont de COMPILATION
+    // seulement : la séparation d'exécution reste celle de `browser.ts`, qui n'exporte
+    // que les fonctions pures et laisse ce fichier-là côté serveur.
+    "types": ["node"]
+  },
   "include": ["src/**/*.ts"]
 }

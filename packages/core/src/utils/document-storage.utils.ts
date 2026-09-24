@@ -1,15 +1,4 @@
-import { StorageClient } from "@supabase/storage-js";
-
-// Construit à la demande et non à l'import : charger ce module dans un contexte sans
-// variables d'environnement — un test unitaire, une étape de build — ne doit pas échouer.
-function client(): StorageClient {
-    const url = process.env["STORAGE_URL"];
-    const key = process.env["STORAGE_SERVICE_KEY"];
-    if (!url || !key) {
-        throw new Error("STORAGE_URL ou STORAGE_SERVICE_KEY est absente.");
-    }
-    return new StorageClient(url, { Authorization: `Bearer ${key}` });
-}
+import { storageClient as client } from "./storage-client.utils.js";
 
 function bucket(): string {
     const name = process.env["STORAGE_BUCKET"];

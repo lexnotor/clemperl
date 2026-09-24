@@ -1,0 +1,1 @@
+Ceci est un fichier texte, pas une image. Il sert a prouver que le worker refuse ce qu il ne peut pas decoder.

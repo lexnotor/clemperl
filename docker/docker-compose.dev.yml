@@ -101,8 +101,9 @@ services:
       timeout: 3s
       retries: 20
 
-  # Crée le bucket au démarrage, pour que `pnpm docker:up` suffise sur une machine
-  # neuve. Doit rester idempotent : une création en double répond HTTP 400, le 409
+  # Crée les DEUX buckets au démarrage, pour que `pnpm docker:up` suffise sur une
+  # machine neuve. Deux, parce que les photos de produit et les pièces d'identité ne
+  # partagent jamais un espace : c'est la barrière qui rend la route de relais sûre. Doit rester idempotent : une création en double répond HTTP 400, le 409
   # n'étant que dans le corps — d'où le test sur `BucketAlreadyExists` et non sur le
   # statut. Et pas de littéral de gabarit dans ce script : Compose interpole `${...}`
   # avant que node ne le voie.
@@ -114,6 +115,7 @@ services:
     environment:
       STORAGE_SERVICE_KEY: ${STORAGE_SERVICE_KEY}
       STORAGE_BUCKET: ${STORAGE_BUCKET}
+      STORAGE_MEDIA_BUCKET: ${STORAGE_MEDIA_BUCKET}
     depends_on:
       storage:
         condition: service_healthy
@@ -122,7 +124,7 @@ services:
       - node
       - -e
       - >-
-        const cle=process.env.STORAGE_SERVICE_KEY,seau=process.env.STORAGE_BUCKET;fetch('http://storage:5000/bucket',{method:'POST',headers:{Authorization:'Bearer '+cle,'Content-Type':'application/json'},body:JSON.stringify({name:seau,public:false})}).then(function(r){return r.json().then(function(c){return{r:r,c:c};});}).then(function(x){if(x.r.ok||x.c.code==='BucketAlreadyExists'){console.log('bucket '+seau+' pret');return;}console.error(x.c);process.exit(1);}).catch(function(e){console.error(e);process.exit(1);});
+        const cle=process.env.STORAGE_SERVICE_KEY;const seaux=[process.env.STORAGE_BUCKET,process.env.STORAGE_MEDIA_BUCKET];Promise.all(seaux.map(function(s){return fetch('http://storage:5000/bucket',{method:'POST',headers:{Authorization:'Bearer '+cle,'Content-Type':'application/json'},body:JSON.stringify({name:s,public:false})}).then(function(r){return r.json().then(function(c){return{r:r,c:c,s:s};});}).then(function(x){if(x.r.ok||x.c.code==='BucketAlreadyExists'){console.log('bucket '+x.s+' pret');return;}console.error(x.c);throw new Error(x.s);});})).catch(function(e){console.error(e);process.exit(1);});
 
   # Déploie les migrations, puis s'arrête. Les quatre applications l'attendent : sur un
   # volume neuf — une machine qui démarre, un runner de CI — la base est vide, et sans
@@ -171,6 +173,7 @@ services:
       - ../apps/storefront/src:/app/apps/storefront/src
       - ../packages/auth/src:/app/packages/auth/src
       - ../packages/core/src:/app/packages/core/src
+      - ../packages/db/src:/app/packages/db/src
       - ../packages/domain/src:/app/packages/domain/src
       - ../packages/ui/src:/app/packages/ui/src
       - ../packages/i18n/src:/app/packages/i18n/src
@@ -200,6 +203,7 @@ services:
       - ../apps/vendor/src:/app/apps/vendor/src
       - ../packages/auth/src:/app/packages/auth/src
       - ../packages/core/src:/app/packages/core/src
+      - ../packages/db/src:/app/packages/db/src
       - ../packages/domain/src:/app/packages/domain/src
       - ../packages/ui/src:/app/packages/ui/src
       - ../packages/i18n/messages:/app/packages/i18n/messages
@@ -227,6 +231,7 @@ services:
       - ../apps/admin/src:/app/apps/admin/src
       - ../packages/auth/src:/app/packages/auth/src
       - ../packages/core/src:/app/packages/core/src
+      - ../packages/db/src:/app/packages/db/src
       - ../packages/domain/src:/app/packages/domain/src
       - ../packages/ui/src:/app/packages/ui/src
       - ../packages/i18n/messages:/app/packages/i18n/messages

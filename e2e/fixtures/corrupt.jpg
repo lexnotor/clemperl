@@ -1,0 +1,2 @@
+Ce fichier porte une extension .jpg et un type image/jpeg, mais son contenu est du texte.
+Il franchit donc le controle du navigateur et n arrive qu au worker, qui le refuse en le decodant.

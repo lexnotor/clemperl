@@ -181,6 +181,14 @@ enum E_PRODUCT_STATUS {
   @@map("product_status")
 }
 
+enum E_PRODUCT_IMAGE_STATUS {
+  PENDING
+  READY
+  FAILED
+
+  @@map("product_image_status")
+}
+
 // Le dossier est l'instantané de ce qui a été déclaré au dépôt. Il n'est jamais
 // resynchronisé depuis la boutique : les champs communs aux deux tables sont deux
 // vérités à deux dates.
@@ -334,6 +342,7 @@ model Product {
   vendor   Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   options  ProductOption[]
   variants ProductVariant[]
+  images   ProductImage[]
 
   // Le slug part dans les URL publiques en T2d. Unique par BOUTIQUE et non globalement :
   // deux vendeurs ont le droit de vendre chacun leur « sac-cabas ».
@@ -410,4 +419,39 @@ model ProductVariantValue {
   // colonne dénormalisée contre une contrainte que la base tient seule.
   @@unique([variantId, optionId])
   @@map("product_variant_values")
+}
+
+model ProductImage {
+  id        String                 @id @default(cuid(2))
+  productId String                 @map("product_id")
+  status    E_PRODUCT_IMAGE_STATUS @default(PENDING)
+
+  // Le chemin de l'ORIGINAL. Les déclinaisons s'en dérivent : leur ensemble est fixe, et
+  // `READY` signifie que les trois existent — le worker les écrit toutes ou échoue.
+  objectPath String @map("object_path")
+  position   Int
+
+  // Le nom d'origine ne sert qu'à l'affichage. Le chemin, lui, est GÉNÉRÉ : reprendre
+  // celui du fichier déposé laisserait choisir où l'objet atterrit — `../` compris.
+  originalName String  @map("original_name")
+  altText      String? @map("alt_text")
+
+  // Renseignées par le WORKER, après décodage. Nulles tant que l'image attend : personne
+  // ne connaît les dimensions d'un fichier que rien n'a encore ouvert.
+  width  Int?
+  height Int?
+
+  // Une CLÉ de traduction, jamais une phrase : la base ne range pas du français.
+  failureReason String? @map("failure_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // L'ordre d'affichage est une donnée, pas une suggestion. Sans cette contrainte, deux
+  // images partagent une position et l'ordre dépend de ce que rend la base.
+  @@unique([productId, position])
+  @@index([productId, status])
+  @@map("product_images")
 }

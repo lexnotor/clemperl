@@ -11,3 +11,7 @@
 export * from "./utils/variant-matrix.utils.js";
 export * from "./utils/slug.utils.js";
 export * from "./utils/product-slug.utils.js";
+export * from "./constants/image-derivatives.constant.js";
+export * from "./constants/image-failure.constant.js";
+export * from "./utils/media-path.utils.js";
+export * from "./utils/media-type.utils.js";

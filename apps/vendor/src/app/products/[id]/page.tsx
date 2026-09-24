@@ -1,11 +1,12 @@
-import { prisma, readProductForVendor } from "@clemperl/db";
+import { listImagesForProduct, prisma, readProductForVendor } from "@clemperl/db";
 import { CURRENCY_EXPONENT } from "@clemperl/core";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { notFound, redirect } from "next/navigation";
 import type { JSX } from "react";
 import { requireVendorMembership } from "../../../lib/session";
-import { toggleProductStatus } from "./actions";
+import { ProductImages } from "./images/product-images";
 import { ProductForm } from "./product-form";
+import { PublishButton } from "./publish-button";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,8 @@ export default async function ProductPage({
         notFound();
     }
 
+    const images = await listImagesForProduct(prisma, { productId: id, vendorId: vendor.id });
+
     const options = product.options.map((option) => ({
         name: option.name,
         values: option.values.map((value) => value.label),
@@ -59,19 +62,25 @@ export default async function ProductPage({
                 variants={variants}
             />
 
+            <ProductImages
+                productId={product.id}
+                mediaOrigin={process.env.NEXT_PUBLIC_STOREFRONT_URL ?? ""}
+                images={images.map((image) => ({
+                    id: image.id,
+                    status: image.status,
+                    objectPath: image.objectPath,
+                    altText: image.altText,
+                    failureReason: image.failureReason,
+                }))}
+            />
+
             {/* Publier n'est pas « enregistrer » : c'est un geste distinct, donc un
                 formulaire distinct — les imbriquer produirait un HTML invalide. */}
-            <form action={toggleProductStatus} className="mt-12">
-                <input type="hidden" name="productId" value={product.id} />
-                <input
-                    type="hidden"
-                    name="publish"
-                    value={product.status === "PUBLISHED" ? "0" : "1"}
-                />
-                <button type="submit" className="text-sm underline">
-                    {product.status === "PUBLISHED" ? t.unpublish : t.publish}
-                </button>
-            </form>
+            <PublishButton
+                productId={product.id}
+                published={product.status === "PUBLISHED"}
+                label={product.status === "PUBLISHED" ? t.unpublish : t.publish}
+            />
         </main>
     );
 }

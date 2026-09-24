@@ -12,19 +12,24 @@ packages:
 # prédécesseur, est silencieusement ignoré.
 #
 # Autorisés parce que nécessaires : Prisma télécharge ses moteurs, esbuild et swc leurs
-# binaires natifs, les autres compilent des extensions de surveillance de fichiers.
-# Refusés jusqu'à constatation du contraire : les dépendances de Testcontainers, dont
-# les scripts compilent des optimisations natives dont la bibliothèque sait se passer.
+# binaires natifs, sharp pose le sien — sans quoi son import échoue à l'exécution sur un
+# message qui parle d'un module introuvable, pas d'un script bloqué — et les autres
+# compilent des extensions de surveillance de fichiers.
+# Refusés jusqu'à constatation du contraire : les dépendances de Testcontainers, et
+# `msgpackr-extract` que BullMQ traîne — toutes compilent des optimisations natives dont
+# leur bibliothèque sait se passer, en JS pur.
 allowBuilds:
   "@parcel/watcher": true
   "@prisma/engines": true
   "@swc/core": true
   esbuild: true
   prisma: true
+  sharp: true
   unrs-resolver: true
   cpu-features: false
   protobufjs: false
   ssh2: false
+  msgpackr-extract: false
 
 # pnpm installe par défaut les dépendances de pair, même optionnelles. `@prisma/client`
 # déclare ainsi `prisma` (la CLI, 40 Mo) et `typescript` (24 Mo) : sans ce réglage, ils
