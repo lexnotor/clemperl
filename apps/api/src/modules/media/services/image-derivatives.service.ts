@@ -89,8 +89,17 @@ export class ImageDerivativesService {
         const width = brut.width as number;
         const height = brut.height as number;
 
-        const derivatives = await Promise.all(
-            DERIVATIVE_WIDTHS.map(async (target) => ({
+        // SÉQUENTIEL, et non `Promise.all`. Chaque chaîne sharp décode l'original en
+        // entier : trois en parallèle, c'est trois décodages simultanés, et la concurrence
+        // du processeur étant de 2, six. À la limite de 50 Mpx, un décodage RGB pèse
+        // environ 150 Mo — donc près d'un gigaoctet, plus les tampons de libvips.
+        //
+        // C'est exactement l'OOM que la limite ci-dessus existe pour éviter, et qui
+        // emporterait l'API avec le worker. L'encodage WebP coûte un peu de temps de plus ;
+        // c'est un job de fond, il peut l'attendre.
+        const derivatives: IDerivative[] = [];
+        for (const target of DERIVATIVE_WIDTHS) {
+            derivatives.push({
                 width: target,
                 // `withoutEnlargement` : une image de 900 px ne devient pas un 1600 px
                 // flou et deux fois plus lourd que l'original.
@@ -103,8 +112,8 @@ export class ImageDerivativesService {
                     .resize({ width: target, withoutEnlargement: true })
                     .webp({ quality: 82 })
                     .toBuffer(),
-            })),
-        );
+            });
+        }
 
         return { width, height, derivatives };
     }

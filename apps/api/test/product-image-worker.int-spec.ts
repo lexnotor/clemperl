@@ -170,6 +170,28 @@ describe("le worker, contre un vrai stockage", () => {
         expect(after?.status).toBe("PENDING");
     });
 
+    // Le client de stockage lève pour TOUT. Confondre une panne passagère avec un objet
+    // absent condamne l'image : on la marquerait `FAILED` sans jamais retenter, alors que
+    // l'original est intact — et « objet absent » n'est pas relançable. Le worker doit
+    // donc LEVER, pour que BullMQ retente.
+    it("lève au lieu de marquer quand le stockage est injoignable", async () => {
+        const { imageId } = await depose("photo.jpg", "jpg");
+        const initial = process.env["STORAGE_URL"];
+        // Un port où rien n'écoute : la panne est réseau, sans statut HTTP — exactement
+        // ce qu'un stockage momentanément tombé produit.
+        process.env["STORAGE_URL"] = "http://127.0.0.1:9";
+
+        try {
+            await expect(processor.process({ data: { imageId } } as never)).rejects.toThrow();
+        } finally {
+            process.env["STORAGE_URL"] = initial;
+        }
+
+        const after = await prisma.productImage.findUnique({ where: { id: imageId } });
+        expect(after?.status).toBe("PENDING");
+        expect(after?.failureReason).toBeNull();
+    });
+
     // Le traitement peut tomber sans que l'image y soit pour rien : stockage injoignable,
     // base coupée. BullMQ retente alors, puis abandonne — et sans ce relais, la ligne
     // resterait `PENDING` POUR TOUJOURS, avec l'écran du vendeur qui l'interroge toutes
@@ -199,6 +221,20 @@ describe("le worker, contre un vrai stockage", () => {
 
         const after = await prisma.productImage.findUnique({ where: { id: imageId } });
         expect(after?.status).toBe("PENDING");
+    });
+
+    // NestJS enregistre ce relais par `worker.on("failed", …)`, et BullMQ n'attend pas la
+    // promesse qu'il rend. Une écriture qui échoue ici devient donc un rejet non capturé,
+    // que Node termine par un arrêt du processus — emportant l'API, qui partage le
+    // conteneur. Et l'écriture échoue précisément quand la base est tombée, c'est-à-dire
+    // dans le cas même qui a fait échouer le job.
+    it("ne rejette pas quand l'écriture de l'échec est impossible", async () => {
+        await expect(
+            processor.onFailed(
+                { data: { imageId: "c000000000000000000000000" }, attemptsMade: 3, opts: { attempts: 3 } } as never,
+                new Error("base coupée"),
+            ),
+        ).resolves.toBeUndefined();
     });
 
     // La ligne a été supprimée pendant que le job attendait. Même raisonnement.

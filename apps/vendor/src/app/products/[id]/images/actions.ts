@@ -1,10 +1,11 @@
 "use server";
 
-import { deleteMediaPrefix, uploadMedia } from "@clemperl/core";
+import { deleteMediaPrefix, redisConnectionOptions, uploadMedia } from "@clemperl/core";
 import {
     ERROR_POSITION_TAKEN,
     createPendingImage,
     deleteImage,
+    markImageFailed,
     prisma,
     productIsOwnedBy,
     readImageForVendor,
@@ -12,6 +13,7 @@ import {
     setImageAltText,
 } from "@clemperl/db";
 import {
+    IMAGE_FAILURE,
     buildOriginalPath,
     isAcceptedImageType,
     isRetryableImageFailure,
@@ -32,10 +34,10 @@ function productImageQueue(): Queue {
         if (!url) {
             throw new Error("REDIS_URL est absente : la file des médias est injoignable.");
         }
-        const parsed = new URL(url);
-        queue = new Queue("product-images", {
-            connection: { host: parsed.hostname, port: Number(parsed.port || 6379) },
-        });
+        // L'URL est lue ENTIÈREMENT — identifiants, index de base, TLS. N'en garder que
+        // l'hôte et le port marche en développement, où Redis est nu, et échoue au
+        // premier déploiement contre un Redis géré.
+        queue = new Queue("product-images", { connection: redisConnectionOptions(url) });
     }
     return queue;
 }
@@ -121,7 +123,25 @@ export async function uploadProductImage(
         };
     }
 
-    await productImageQueue().add("process", { imageId: image.id }, JOB_OPTIONS);
+    // La ligne est COMMITÉE avant cet appel. Si Redis est injoignable, `add` lève et
+    // aucun job n'existe : le relais `failed` du worker ne tournera jamais, et la ligne
+    // resterait `PENDING` pour toujours, interrogée toutes les deux secondes, sans raison
+    // affichée et sans « Réessayer » — le vendeur n'aurait plus qu'à la supprimer.
+    //
+    // La marquer ici la rend relançable : l'original est en place, c'est la file qui a
+    // manqué.
+    try {
+        await productImageQueue().add("process", { imageId: image.id }, JOB_OPTIONS);
+    } catch (error) {
+        console.error("productImageQueue.add", error);
+        await markImageFailed(prisma, {
+            imageId: image.id,
+            reason: IMAGE_FAILURE.processingFailed,
+        });
+        revalidatePath(`/products/${productId}`);
+        return { error: messages.errors.imageUploadFailed };
+    }
+
     revalidatePath(`/products/${productId}`);
     return { imageId: image.id };
 }
@@ -148,7 +168,16 @@ export async function retryImage(imageId: string): Promise<void> {
         where: { id: imageId },
         data: { status: "PENDING", failureReason: null },
     });
-    await productImageQueue().add("process", { imageId }, JOB_OPTIONS);
+
+    // Même raison qu'au dépôt : la ligne vient de repasser en attente, et un `add` qui
+    // lève la laisserait dans cet état sans job pour l'en sortir.
+    try {
+        await productImageQueue().add("process", { imageId }, JOB_OPTIONS);
+    } catch (error) {
+        console.error("productImageQueue.add", error);
+        await markImageFailed(prisma, { imageId, reason: IMAGE_FAILURE.processingFailed });
+    }
+
     revalidatePath(`/products/${image.productId}`);
 }
 

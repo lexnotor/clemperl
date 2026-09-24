@@ -267,10 +267,15 @@ il mérite son propre chantier plutôt qu'un coin de tranche.
 nodemailer dans le paquet. `core` a le même défaut latent : le premier composant client
 qui y cherchera `TCurrency` ou `CURRENCY_EXPONENT` le rouvrira.
 
-**Une ligne `PENDING` abandonnée ne se nettoie pas toute seule.** Le dépôt passant
-désormais par le serveur, le cas est rare — il faut que l'écriture de la ligne échoue
-après un envoi réussi. Le vendeur la voit et la supprime ; le balayage automatique reste
-T7, avec les traitements planifiés.
+**Une ligne `PENDING` abandonnée ne se nettoie pas toute seule — mais plus rien ne
+devrait en produire.** Trois portes ont été fermées : un job qui épuise ses tentatives
+bascule en `FAILED` par le relais `failed` du worker ; un `add` qui lève parce que Redis
+est injoignable marque la ligne avant de rendre la main ; une écriture de ligne qui échoue
+après un envoi réussi supprime l'objet, donc ne laisse pas de ligne du tout.
+
+Reste le cas où le processus meurt entre le commit de la ligne et l'empilage. Le vendeur
+la voit et la supprime ; le balayage automatique reste T7, avec les traitements
+planifiés.
 
 **Pas d'AVIF.** L'original est conservé, donc il se rajoutera sans rien redemander aux
 vendeurs. Trois largeurs en WebP suffisent à T2d.

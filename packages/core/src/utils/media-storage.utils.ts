@@ -12,6 +12,21 @@ function mediaBucket(): string {
     return name;
 }
 
+// Le client lève pour TOUT : objet absent, mais aussi 5xx, expiration et coupure réseau.
+// Confondre les deux condamne une image pour une panne de quelques secondes, alors que son
+// original est intact — et l'appelant, croyant l'objet perdu, ne retente jamais.
+//
+// La forme relevée contre `supabase/storage-api` le 2026-09-24 est déroutante : `status`
+// vaut 400 et c'est `statusCode` qui porte la chaîne « 404 ». On lit donc `statusCode`, et
+// `code` en second, plutôt que le `status` qui ment.
+export function isMediaNotFound(error: unknown): boolean {
+    if (typeof error !== "object" || error === null) {
+        return false;
+    }
+    const { statusCode, code } = error as { statusCode?: unknown; code?: unknown };
+    return String(statusCode) === "404" || code === "NoSuchKey";
+}
+
 export async function readMedia(path: string): Promise<Blob> {
     const { data, error } = await storageClient().from(mediaBucket()).download(path);
     if (error || !data) {

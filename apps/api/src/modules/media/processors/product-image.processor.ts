@@ -1,4 +1,4 @@
-import { deleteMediaPrefix, readMedia, uploadMedia } from "@clemperl/core";
+import { deleteMediaPrefix, isMediaNotFound, readMedia, uploadMedia } from "@clemperl/core";
 import { markImageFailed, markImageReady, prisma } from "@clemperl/db";
 import { IMAGE_FAILURE, derivativePath, mediaPrefix } from "@clemperl/domain";
 import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
@@ -47,8 +47,18 @@ export class ProductImageProcessor extends WorkerHost {
         try {
             original = Buffer.from(await (await readMedia(image.objectPath)).arrayBuffer());
         } catch (error) {
-            // L'objet manque : le dépôt n'a pas abouti. Retenter ne le fera pas
-            // apparaître, donc on marque et on s'arrête.
+            // Le client lève pour TOUT : objet absent, mais aussi 5xx, expiration et
+            // coupure réseau. Seule l'absence CONFIRMÉE est définitive — retenter ne
+            // fera pas apparaître un objet qui n'a jamais été déposé.
+            //
+            // Tout le reste est passager, et doit remonter pour que BullMQ retente. Les
+            // confondre condamnait une image pour une panne de quelques secondes : elle
+            // devenait « objet absent », que l'écran ne propose pas de relancer, alors
+            // que son original était intact.
+            if (!isMediaNotFound(error)) {
+                throw error;
+            }
+
             this.logger.warn(`Objet absent pour ${image.id}`, error);
             await markImageFailed(prisma, {
                 imageId: image.id,
@@ -108,14 +118,27 @@ export class ProductImageProcessor extends WorkerHost {
             return;
         }
 
-        this.logger.error(`Image ${job.data.imageId} abandonnée après ${job.attemptsMade} tentatives`, error);
+        this.logger.error(
+            `Image ${job.data.imageId} abandonnée après ${job.attemptsMade} tentatives`,
+            error,
+        );
 
-        // L'original n'est PAS supprimé : contrairement à une image refusée, celle-ci
-        // n'a rien de fautif, et c'est ce qui rend « Réessayer » utile ici — et là
-        // seulement.
-        await markImageFailed(prisma, {
-            imageId: job.data.imageId,
-            reason: IMAGE_FAILURE.processingFailed,
-        });
+        // Le `try` n'est PAS décoratif. NestJS enregistre ce relais par
+        // `worker.on("failed", …)`, et BullMQ n'attend pas la promesse rendue : un rejet
+        // ici est un rejet non capturé, que Node termine par un arrêt du processus — qui
+        // emporterait l'API, logée dans le même conteneur. Et l'écriture échoue
+        // précisément quand la base est tombée, c'est-à-dire dans le cas même qui vient
+        // de faire échouer le job.
+        try {
+            // L'original n'est PAS supprimé : contrairement à une image refusée, celle-ci
+            // n'a rien de fautif, et c'est ce qui rend « Réessayer » utile ici — et là
+            // seulement.
+            await markImageFailed(prisma, {
+                imageId: job.data.imageId,
+                reason: IMAGE_FAILURE.processingFailed,
+            });
+        } catch (writeError) {
+            this.logger.error(`Échec non enregistré pour ${job.data.imageId}`, writeError);
+        }
     }
 }
