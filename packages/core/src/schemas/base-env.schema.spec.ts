@@ -12,6 +12,7 @@ const VALIDE = {
     STORAGE_URL: "https://stockage.exemple.test",
     STORAGE_SERVICE_KEY: "cle",
     STORAGE_BUCKET: "vendor-documents",
+    STORAGE_MEDIA_BUCKET: "product-media",
 };
 
 describe("environnement de base", () => {
@@ -67,5 +68,23 @@ describe("environnement de base", () => {
                 STORAGE_ALLOW_PLAINTEXT: "true",
             }),
         ).toThrow(/STORAGE_ALLOW_PLAINTEXT/);
+    });
+});
+
+describe("STORAGE_MEDIA_BUCKET", () => {
+    // Les deux buckets sont la seule barrière structurelle entre le catalogue public et
+    // les pièces d'identité. Démarrer sans savoir lequel est lequel n'a aucun sens.
+    it("est exigée", () => {
+        const sansMedia: Record<string, string | undefined> = { ...VALIDE };
+        delete sansMedia["STORAGE_MEDIA_BUCKET"];
+        expect(() => parseBaseEnv(sansMedia)).toThrow(/STORAGE_MEDIA_BUCKET/);
+    });
+
+    // Un même bucket pour les deux ferait de la route de relais un chemin vers les
+    // pièces d'identité. La confusion est refusée au DÉMARRAGE, pas à l'exécution.
+    it("refuse d'être la même que celle des justificatifs", () => {
+        expect(() =>
+            parseBaseEnv({ ...VALIDE, STORAGE_MEDIA_BUCKET: VALIDE.STORAGE_BUCKET }),
+        ).toThrow(/distinct/i);
     });
 });

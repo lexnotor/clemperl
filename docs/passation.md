@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-09-21.
+Dernière mise à jour : 2026-09-24.
 
 ## Où en est le projet
 
@@ -19,7 +19,7 @@ plan, exécution, un commit.
 | T1b | Vendeurs : demande d'ouverture et validation | **Livrée** — `ef68c6c`..`c33188c` |
 | T2a | Espace vendeur et boutique | **Livrée** |
 | T2b | Produit et variantes | **Livrée** |
-| T2c | Pipeline médias (BullMQ, sharp, worker) | non commencée |
+| T2c | Pipeline médias (BullMQ, sharp, worker) | **Livrée** |
 | T2d | Catalogue public : liste, filtres, fiche | non commencée |
 | T3 | Panier et commande | non commencée |
 | T4 | Paiement, point d'extension | non commencée |
@@ -199,8 +199,20 @@ conteneurs, pas leur santé ni la fin de `storage-init`. La CI compense par une 
 d'attente explicite (`ci.yml`) ; en local, rien. Lancer `pnpm test:e2e` dans la foulée
 produit des échecs qu'on attribue au code.
 
-**Un produit n'a aucune image, et aucun stock.** Les médias sont T2c, le stock T3. Rien
-à l'écran ne prétend le contraire.
+**Le dépôt d'image passe par le serveur, et ce n'est pas le premier choix.** Le cadrage
+avait retenu un dépôt DIRECT du navigateur au stockage, par URL signée, pour que les
+octets ne traversent aucun serveur applicatif. À l'implémentation : `supabase/storage-api`
+n'expose **aucun en-tête CORS** — sa source porte `// kong should take care of cors` et la
+ligne d'enregistrement est commentée, le préflight `OPTIONS` répondant 404. Supabase le
+fait tourner derrière Kong, qui s'en charge ; l'image seule, non.
+
+Le dépôt direct redeviendra possible le jour où un proxy se place devant le stockage —
+`docker/proxy/` existe et ne sert plus depuis T1a. En attendant, chaque photo traverse un
+serveur Next, ce qui est exactement ce que le dépôt direct devait éviter.
+
+**Aucune image n'est servie au public, et le stock n'existe toujours pas.** T2c livre les
+photos jusqu'à l'espace vendeur et la route de relais ; la boutique publique qui les
+affichera est T2d, le stock T3. Rien à l'écran ne prétend le contraire.
 
 **Rien de publié n'est visible hors de l'espace vendeur.** Le catalogue public est T2d.
 Publier ne fait aujourd'hui que changer un état et figer le slug.
@@ -254,6 +266,32 @@ il mérite son propre chantier plutôt qu'un coin de tranche.
 (`/browser`) depuis T2b, parce qu'un composant client qui importe son barillet fait entrer
 nodemailer dans le paquet. `core` a le même défaut latent : le premier composant client
 qui y cherchera `TCurrency` ou `CURRENCY_EXPONENT` le rouvrira.
+
+**Une ligne `PENDING` abandonnée ne se nettoie pas toute seule — mais plus rien ne
+devrait en produire.** Trois portes ont été fermées : un job qui épuise ses tentatives
+bascule en `FAILED` par le relais `failed` du worker ; un `add` qui lève parce que Redis
+est injoignable marque la ligne avant de rendre la main ; une écriture de ligne qui échoue
+après un envoi réussi supprime l'objet, donc ne laisse pas de ligne du tout.
+
+Reste le cas où le processus meurt entre le commit de la ligne et l'empilage. Le vendeur
+la voit et la supprime ; le balayage automatique reste T7, avec les traitements
+planifiés.
+
+**Pas d'AVIF.** L'original est conservé, donc il se rajoutera sans rien redemander aux
+vendeurs. Trois largeurs en WebP suffisent à T2d.
+
+**L'original est conservé mais JAMAIS servi.** Le relais n'accepte que les déclinaisons.
+L'original revient du stockage avec le type que le navigateur du déposant avait déclaré,
+et sharp décline un SVG sans se plaindre : le servir depuis la boutique exécuterait son
+script sur l'origine qui porte le cookie de session. Le dépôt filtre d'ailleurs par liste
+blanche, pas par préfixe `image/`.
+
+**La route de relais ne vérifie NI le produit, NI sa publication, NI la boutique.** Les
+photos d'un brouillon sont lisibles par qui connaît leur chemin. C'est une décision,
+écrite en section 9 de la spec T2c : le `uuid` de 36 caractères joue le rôle d'un lien non
+répertorié, et vérifier la publication coûterait une lecture en base par vignette — sur
+une grille de quarante, quarante lectures — ce qui anéantirait la mise en cache qui
+justifie le relais.
 
 **Aucun sélecteur de boutique.** Le schéma autorise plusieurs `vendor_members` pour un
 même compte, mais rien ne les crée. Le sélecteur arrivera avec les invitations, pas

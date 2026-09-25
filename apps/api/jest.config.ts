@@ -24,6 +24,12 @@ const config: Config = {
         // fichiers ne correspondent pas au `testMatch` d'ici : Jest ne les reconnaît
         // donc pas comme des tests et les compterait comme du code jamais couvert.
         "!src/**/*-spec.ts",
+        // Le processeur parle à un service réseau, à une base et à un binaire natif. Ce
+        // qu'il garantit — l'ordre des écritures, la suppression d'un objet refusé, le
+        // silence sur un produit supprimé — ne se prouve pas avec des substituts, et il
+        // l'est par `apps/api/test/product-image-worker.int-spec.ts`, contre le vrai
+        // stockage. La DÉCISION qu'il applique, elle, est pure et reste mesurée ici.
+        "!src/modules/media/processors/*.ts",
     ],
 };
 

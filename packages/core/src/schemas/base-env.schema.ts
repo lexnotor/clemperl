@@ -24,6 +24,12 @@ export const baseEnvSchema = z.object({
     STORAGE_SERVICE_KEY: z.string().min(1),
     STORAGE_BUCKET: z.string().min(1),
 
+    // Le bucket des MÉDIAS, distinct de celui des justificatifs. La séparation est une
+    // décision de sécurité, pas du rangement : la route de relais lit un chemin venu de
+    // l'URL, et deux buckets rendent IMPOSSIBLE qu'elle serve une pièce d'identité.
+    STORAGE_MEDIA_BUCKET: z.string().min(1),
+
+
     // Lève l'exigence de chiffrement. Elle existe pour la stack e2e locale, qui monte un
     // build de PRODUCTION contre un stockage vivant sur le réseau Docker — donc le cas
     // que `NODE_ENV === "development"` couvrait, mais sous un autre `NODE_ENV`.
@@ -35,16 +41,26 @@ export const baseEnvSchema = z.object({
 
 export type TBaseEnv = z.infer<typeof envSchemaWithTls>;
 
-const envSchemaWithTls = baseEnvSchema.refine(
-    (env) =>
-        env.NODE_ENV === "development" ||
-        env.STORAGE_ALLOW_PLAINTEXT === "1" ||
-        env.STORAGE_URL.startsWith("https://"),
-    {
-        path: ["STORAGE_URL"],
-        message: "doit être en https hors développement, sauf si STORAGE_ALLOW_PLAINTEXT vaut 1",
-    },
-);
+const envSchemaWithTls = baseEnvSchema
+    .refine(
+        (env) =>
+            env.NODE_ENV === "development" ||
+            env.STORAGE_ALLOW_PLAINTEXT === "1" ||
+            env.STORAGE_URL.startsWith("https://"),
+        {
+            path: ["STORAGE_URL"],
+            message:
+                "doit être en https hors développement, sauf si STORAGE_ALLOW_PLAINTEXT vaut 1",
+        },
+    )
+    // Un même bucket pour les médias et les justificatifs ferait de la route de relais
+    // un chemin vers les pièces d'identité : elle sert ce que son motif accepte, dans le
+    // bucket qu'on lui désigne. La confusion est donc refusée au DÉMARRAGE, où elle coûte
+    // un message clair, plutôt qu'à l'exécution, où elle ne coûterait rien du tout.
+    .refine((env) => env.STORAGE_MEDIA_BUCKET !== env.STORAGE_BUCKET, {
+        path: ["STORAGE_MEDIA_BUCKET"],
+        message: "doit être distinct de STORAGE_BUCKET",
+    });
 
 export function parseBaseEnv(source: Record<string, string | undefined>): TBaseEnv {
     const result = envSchemaWithTls.safeParse(source);

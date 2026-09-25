@@ -46,7 +46,12 @@
     "priceInvalid": "Ce prix n'est pas lisible dans la devise de votre boutique.",
     "slugTaken": "Vous avez déjà un produit portant ce titre. Choisissez-en un autre.",
     "currencyChanged": "La devise de votre boutique a changé pendant la saisie. Vérifiez le prix et recommencez.",
-    "priceMissing": "Un prix manque pour l'une des déclinaisons."
+    "priceMissing": "Un prix manque pour l'une des déclinaisons.",
+    "imageUploadFailed": "Le dépôt a échoué. Réessayez.",
+    "imagePositionTaken": "Une autre photo vient d'être ajoutée. Réessayez.",
+    "publishNeedsImages": "Ajoutez au moins une photo, et attendez qu'elles soient toutes traitées.",
+    "imageNotAnImage": "Ce fichier n'est pas une image.",
+    "imageLastPublished": "Dépubliez d'abord ce produit : une fiche en ligne garde au moins une photo."
   },
   "currency": {
     "EUR": "Euro (€)",
@@ -81,6 +86,24 @@
     "saveProduct": "Enregistrer",
     "publish": "Publier",
     "unpublish": "Repasser en brouillon",
-    "savedProduct": "Votre produit est enregistré."
+    "savedProduct": "Votre produit est enregistré.",
+    "imagesSection": "Photos",
+    "imagesHint": "Cinq Mo au maximum par photo, et 320 pixels de large au minimum. La première sert d'image principale.",
+    "addImages": "Ajouter des photos",
+    "imagePending": "Traitement en cours…",
+    "imageAlt": "Description de l'image",
+    "imageAltHint": "Pour les lecteurs d'écran et les moteurs de recherche.",
+    "imageRemove": "Supprimer",
+    "imageRetry": "Réessayer",
+    "imageMoveUp": "Monter",
+    "imageMoveDown": "Descendre",
+    "imageMain": "Principale"
+  },
+  "imageFailure": {
+    "object_missing": "Le dépôt n'a pas abouti. Supprimez cette photo et recommencez.",
+    "unreadable": "Ce fichier n'est pas une image lisible. Supprimez-la et déposez-en une autre.",
+    "too_small": "Cette image fait moins de 320 pixels de large. Supprimez-la et déposez-en une plus grande.",
+    "too_large": "Cette image est trop grande pour être traitée. Supprimez-la et déposez-en une plus petite.",
+    "processing_failed": "Le traitement n'a pas abouti. Réessayez."
   }
 }

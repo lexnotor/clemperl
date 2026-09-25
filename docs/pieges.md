@@ -934,3 +934,133 @@ tâche dépend de ce dont elle a besoin, jamais de ce qu'une voisine lui procure
 Attention en l'écrivant : une entrée `<paquet>#<tâche>` **remplace** l'entrée générique.
 Ses `outputs` doivent être repris, sinon la mise en cache de cette tâche disparaît en
 silence.
+
+---
+
+**Les SOURCES sont montées dans les conteneurs, les FICHIERS DE CONFIGURATION ne le sont
+pas — et la différence coûte une reconstruction à chaque fois qu'on l'oublie.**
+
+Le compose monte `packages/*/src` et `apps/*/src`. Tout le reste — `package.json`,
+`turbo.json`, `pnpm-workspace.yaml`, `packages/db/generated` — vit dans l'image, figé au
+build. Modifier une source se voit en deux secondes ; modifier une configuration ne se
+voit **jamais**, jusqu'à `pnpm docker:up`.
+
+Trois formes du même défaut, toutes rencontrées pendant la seule tranche T2c :
+
+| Ce qu'on a changé | Ce qu'on a lu |
+|---|---|
+| `packages/domain/package.json` — un sous-chemin `exports` | `Module not found: @clemperl/domain/browser` |
+| `apps/api/package.json` — une dépendance | `BullMQ could not load the optional 'ioredis' package` |
+| `turbo.json` — une variable dans `globalEnv` | `Environnement invalide : STORAGE_PUBLIC_URL … undefined`, alors que `docker exec env` la MONTRE |
+
+La dernière est la plus déroutante : la variable est bien dans l'environnement du
+conteneur, et `docker exec sh -c 'echo $VAR'` l'affiche. C'est **Turbo** qui la filtre en
+mode strict, d'après un `turbo.json` périmé que l'image transporte.
+
+Observé les 2026-09-21 et 2026-09-24.
+
+Ce qui protège maintenant : rien dans le code — c'est une propriété du montage. Le
+réflexe : **si le fichier changé n'est pas sous un `src/`, il faut reconstruire.** Et
+quand une variable existe dans le conteneur mais pas dans le processus, regarder
+`globalEnv` avant de chercher ailleurs.
+
+---
+
+**`packages/db/src` n'était monté que dans l'API — les trois fronts Next lisaient un
+`dist` figé au build de l'image.**
+
+Le compose monte les sources paquet par paquet, à la main, service par service. `auth`,
+`core`, `domain`, `ui` étaient listés partout ; `db` seulement sous `api`. Les trois
+fronts Next parlent pourtant à PostgreSQL par server actions, donc ils dépendent de
+`@clemperl/db` autant que l'API.
+
+Le symptôme ne nomme pas la cause : `The export productIsOwnedBy was not found in module
+packages/db/dist/src/index.js` — « Did you mean to import saveProduct? ». Le fichier
+source contient bien l'export, et le rebâtir depuis l'hôte ne change rien puisque le
+conteneur ne voit pas ce source-là. Reconstruire le paquet DANS le conteneur ne change
+rien non plus : il recompile sa propre copie, celle de l'image.
+
+Le tri qui tranche en dix secondes :
+
+```
+docker exec <conteneur> grep -c <symbole> /app/packages/db/src/<fichier>.ts
+```
+
+Zéro sur le SOURCE, alors que l'hôte le contient : le dossier n'est pas monté. Un
+`docker inspect --format '{{range .Mounts}}…'` le confirme.
+
+Observé le 2026-09-24.
+
+Ce qui protège maintenant : `packages/db/src` est monté dans `storefront`, `vendor` et
+`admin`. La liste reste manuelle, donc le piège renaîtra au prochain paquet ajouté —
+**un nouveau paquet partagé se monte dans tous les services qui l'importent, pas
+seulement celui où on l'a testé.**
+
+---
+
+**sharp décode les SVG sans se plaindre, donc `type.startsWith("image/")` laisse entrer un
+document qui exécute du script.**
+
+`image/svg+xml` satisfait le préfixe. sharp le parse, en rend des métadonnées crédibles
+(`svg 800 600`) et en produit des déclinaisons WebP parfaitement valables. L'image atteint
+donc `READY` par le chemin normal, et l'original — que le worker ne supprime que lorsqu'il
+REFUSE — survit.
+
+Ce qui reste est un objet stocké avec le type que le navigateur du déposant avait déclaré.
+Servi tel quel depuis l'origine publique, il s'exécute là où vit le cookie de session.
+
+Observé le 2026-09-24, sur `sharp` 0.35.4.
+
+Ce qui protège maintenant, à trois hauteurs : `isAcceptedImageType` est une **liste
+blanche** (`image/jpeg`, `png`, `webp`, `avif`) et non un préfixe ; `isServableMediaPath`
+n'autorise plus que les déclinaisons, jamais l'original ; la route de relais ajoute
+`nosniff` et `default-src 'none'; sandbox`. La règle générale : **un contrôle par préfixe
+accepte tout ce qu'on n'a pas pensé à interdire.**
+
+---
+
+**`sharp(...).resize()` ignore l'orientation EXIF, et `metadata()` rend les dimensions
+AVANT rotation.**
+
+Un téléphone tenu en portrait enregistre toujours en paysage et note la rotation à part.
+C'est donc le cas majoritaire, pas un cas limite. Mesuré :
+
+```
+metadata brute : 1200 x 800 | orientation 6
+sans .rotate() :  320 x 213   ← la photo est servie couchée
+avec .rotate() :  320 x 480
+```
+
+Deux conséquences, pas une. La visible : les vignettes sont couchées. La sournoise : tout
+ce qu'on décide à partir de `metadata.width` juge le mauvais côté — une photo large de
+200 px stockée en 5000 × 200 passe un contrôle « au moins 320 px de large ».
+
+Observé le 2026-09-24.
+
+Ce qui protège maintenant : `.rotate()` sans argument dans la chaîne de redimensionnement
+— c'est ce qui applique l'orientation — et `orientedSize()`, pure et testée sur les huit
+valeurs, qui permute les dimensions pour 5 à 8 avant que quoi que ce soit en juge.
+
+---
+
+**BullMQ n'informe pas votre domaine qu'un job a cessé de réessayer : la ligne reste dans
+l'état où elle était, pour toujours.**
+
+`attempts: 3` fait retenter, puis range le job dans la liste des échecs — et c'est tout.
+Rien ne repasse sur la ligne. Une image dont le traitement tombe pour une raison qui ne la
+concerne pas (stockage injoignable, base coupée) reste donc `PENDING` indéfiniment, et
+l'écran qui l'interroge toutes les deux secondes ne montrera jamais ni photo ni raison.
+
+C'est le seul état dont l'application ne sort pas : tous les autres échecs passent par un
+`markImageFailed` explicite.
+
+Dans la même famille, et découvert en même temps : **BullMQ conserve chaque job terminé
+dans Redis, indéfiniment**, tant qu'on ne pose pas `removeOnComplete` / `removeOnFail`.
+Redis vit en mémoire.
+
+Observé le 2026-09-24.
+
+Ce qui protège maintenant : un `@OnWorkerEvent("failed")` qui bascule la ligne en `FAILED`
+quand `attemptsMade >= opts.attempts`, et `removeOnComplete: true` / `removeOnFail: 1000`
+sur les options du job. La règle : **tout état transitoire écrit en base a besoin de
+quelqu'un qui le termine quand le mécanisme qui devait le faire abandonne.**

@@ -64,7 +64,13 @@ test("un vendeur déclare sa devise, crée un produit, le décline et le publie"
     await expect(page.getByRole("textbox", { name: "L", exact: true })).toHaveValue("55,00");
     await expect(page.getByRole("textbox", { name: "S", exact: true })).toHaveValue("49,00");
 
-    // Critère 6 : la publication est un geste explicite.
+    // Depuis T2c, publier exige au moins une photo prête. Ce n'est pas une régression de
+    // T2b : c'est la garantie sur laquelle T2d s'appuiera pour ne jamais rencontrer de
+    // fiche sans image.
+    await page.getByLabel("Ajouter des photos").setInputFiles("e2e/fixtures/product.jpg");
+    await expect(page.getByTestId("vignette")).toBeVisible({ timeout: 60_000 });
+
+    // Critère 6 de T2b : la publication reste un geste explicite.
     await page.getByRole("button", { name: "Publier" }).click();
     await expect(page.getByText("Publié")).toBeVisible();
 

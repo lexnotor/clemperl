@@ -15,6 +15,9 @@ const ROUTES = [
     `${URL_STOREFRONT}/reset-password`,
     `${URL_STOREFRONT}/verify-email`,
     `${URL_STOREFRONT}/become-a-vendor`,
+    // La route de relais se compile au premier accès comme les autres, et un 404 la
+    // compile aussi bien qu'un 200.
+    `${URL_STOREFRONT}/api/media/inexistant`,
     `${URL_VENDOR}/`,
     `${URL_VENDOR}/shop`,
     `${URL_VENDOR}/products`,

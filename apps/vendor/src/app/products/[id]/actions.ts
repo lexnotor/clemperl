@@ -1,6 +1,7 @@
 "use server";
 
 import {
+    ERROR_NO_READY_IMAGE,
     ERROR_PRODUCT_SLUG_TAKEN,
     prisma,
     saveProduct,
@@ -16,7 +17,11 @@ import {
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { revalidatePath } from "next/cache";
 import { requireVendorMembership } from "../../../lib/session";
-import type { IProductFormState } from "../types/product-form-state.interface";
+import {
+    INITIAL_PUBLISH_STATE,
+    type IProductFormState,
+    type IPublishState,
+} from "../types/product-form-state.interface";
 
 // Les axes arrivent en deux champs parallèles répétés, `optionName` et `optionValues` :
 // un formulaire HTML n'envoie pas de structure, il envoie des paires. C'est ici qu'elles
@@ -122,14 +127,33 @@ export async function saveProductAction(
     return { message: [], saved: true };
 }
 
-export async function toggleProductStatus(form: FormData): Promise<void> {
+// Rend un ÉTAT, et non `void`. Le dépôt refuse de publier sans photo prête — c'est la
+// garantie sur laquelle T2d s'appuiera pour ne jamais rencontrer de fiche sans image —
+// mais une action qui ne rend rien ne peut pas le dire : le vendeur cliquait « Publier »,
+// la page se re-rendait à l'identique, et RIEN n'apparaissait. Un bouton qui ne fait rien
+// sans expliquer pourquoi est indiscernable d'une panne.
+export async function toggleProductStatus(
+    _state: IPublishState,
+    form: FormData,
+): Promise<IPublishState> {
     const { vendor } = await requireVendorMembership();
     const productId = String(form.get("productId") ?? "");
 
-    await setProductStatus(prisma, {
-        productId,
-        vendorId: vendor.id,
-        publish: form.get("publish") === "1",
-    });
+    try {
+        await setProductStatus(prisma, {
+            productId,
+            vendorId: vendor.id,
+            publish: form.get("publish") === "1",
+        });
+    } catch (error) {
+        console.error("toggleProductStatus", error);
+        const sansPhoto = error instanceof Error && error.message === ERROR_NO_READY_IMAGE;
+        revalidatePath(`/products/${productId}`);
+        return {
+            error: sansPhoto ? messages.errors.publishNeedsImages : messages.errors.failed,
+        };
+    }
+
     revalidatePath(`/products/${productId}`);
+    return INITIAL_PUBLISH_STATE;
 }

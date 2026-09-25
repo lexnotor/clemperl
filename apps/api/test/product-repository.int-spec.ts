@@ -1,5 +1,7 @@
 import {
     ERROR_CURRENCY_CHANGED,
+    createPendingImage,
+    markImageReady,
     ERROR_PRODUCT_SLUG_TAKEN,
     ERROR_VARIANTS_REQUIRED,
     countProductsForVendor,
@@ -299,6 +301,16 @@ describe("le slug d'un produit", () => {
         const vendorId = await createShop();
         const productId = await createTeeShirt(vendorId);
         const avant = (await readProductForVendor(prisma, { productId, vendorId }))?.slug;
+
+        // Depuis T2c, publier exige au moins une image prête. Ce n'est pas une
+        // régression : c'est la garantie sur laquelle T2d s'appuie.
+        const image = await createPendingImage(prisma, {
+            productId,
+            vendorId,
+            objectPath: `${productId}/00000000-0000-0000-0000-000000000000/original.jpg`,
+            originalName: "photo.jpg",
+        });
+        await markImageReady(prisma, { imageId: image.id, width: 1200, height: 800 });
 
         await setProductStatus(prisma, { productId, vendorId, publish: true });
         await setProductStatus(prisma, { productId, vendorId, publish: false });

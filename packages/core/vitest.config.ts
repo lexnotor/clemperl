@@ -14,11 +14,17 @@ export default defineConfig({
             // service depuis le conteneur `api`. Ce qu'il garantit — les politiques du
             // bucket, le refus d'écrasement, les erreurs du client — ne se prouve pas
             // avec un substitut. Le calcul de chemin, lui, est pur et reste mesuré ici.
+            //
+            // Leurs REFUS de démarrer sans configuration restent testés unitairement, et
+            // c'est délibéré : la suite d'intégration a toujours sa configuration, donc
+            // elle n'exercerait jamais ce chemin-là.
             exclude: [
                 "**/index.ts",
                 "**/*.config.ts",
                 "**/test-setup.ts",
                 "src/utils/document-storage.utils.ts",
+                "src/utils/media-storage.utils.ts",
+                "src/utils/storage-client.utils.ts",
             ],
             // Plancher mesuré, pas souhaité.
             thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
