@@ -356,3 +356,40 @@ describe("deleteImage, sur un produit publié", () => {
         expect(await prisma.productImage.count({ where: { productId } })).toBe(0);
     });
 });
+
+// T2d s'appuie sur « un produit publié a toujours une photo PRÊTE » pour n'afficher que des
+// fiches complètes. La garde de T2c comptait les images restantes SANS regarder leur
+// statut : sur un produit publié portant une image prête et une image en cours, supprimer
+// la prête était donc autorisé, et laissait une fiche publique avec une colonne d'images
+// vide, ce que la spec déclare impossible.
+describe("deleteImage, la dernière image PRÊTE d'un produit publié", () => {
+    it("refuse, même s'il reste une image en cours de traitement", async () => {
+        const { productId, vendorId } = await createShopWithProduct();
+
+        const prete = await createPendingImage(prisma, {
+            productId,
+            vendorId,
+            objectPath: `${productId}/aaaaaaa1-2222-3333-4444-555555555555/original.jpg`,
+            originalName: "prete.jpg",
+        });
+        await markImageReady(prisma, { imageId: prete.id, width: 1200, height: 800 });
+        await setProductStatus(prisma, { productId, vendorId, publish: true });
+
+        // Déposée APRÈS la publication : elle est en attente, donc la fiche ne la montre pas.
+        const enCours = await createPendingImage(prisma, {
+            productId,
+            vendorId,
+            objectPath: `${productId}/aaaaaaa2-2222-3333-4444-555555555555/original.jpg`,
+            originalName: "en-cours.jpg",
+        });
+
+        await expect(deleteImage(prisma, { imageId: prete.id, vendorId })).rejects.toThrow(
+            ERROR_LAST_IMAGE_PUBLISHED,
+        );
+
+        // L'image en cours, elle, se supprime sans rien compromettre.
+        await expect(
+            deleteImage(prisma, { imageId: enCours.id, vendorId }),
+        ).resolves.not.toBeNull();
+    });
+});

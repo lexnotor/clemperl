@@ -102,8 +102,8 @@ test("retirer une valeur ne touche pas aux autres déclinaisons", async ({
     await page
         .getByRole("textbox", { name: "Description" })
         .fill("Cuir tressé à la main, fermoir en laiton massif, taille ajustable.");
-    // Le franc CFA n'a AUCUNE décimale : un montant qui en porterait serait refusé.
     await page.getByRole("combobox", { name: "Catégorie" }).selectOption("JEWELLERY");
+    // Le franc CFA n'a AUCUNE décimale : un montant qui en porterait serait refusé.
     await page.getByRole("textbox", { name: "Prix", exact: true }).fill("12000");
     await page.getByRole("button", { name: "Créer le produit" }).click();
     await page.waitForURL(/\/products\/[^/]+$/);

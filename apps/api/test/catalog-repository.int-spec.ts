@@ -315,6 +315,80 @@ describe("searchPublishedProducts", () => {
         expect(new Set(tout.rows.map((row) => row.id)).size).toBe(3);
     });
 
+    // Sans colonne unique pour clore l'ordre, `LIMIT ... OFFSET` n'est pas déterministe
+    // entre deux exécutions dès que des lignes partagent la valeur triée. Une ligne se
+    // répète alors d'une page à l'autre, et une autre est sautée : le visiteur ne voit
+    // jamais ce produit, et rien ne le signale. Deux `published_at` identiques ne sont pas
+    // une hypothèse d'école : un import en lot, ou deux publications dans la même
+    // milliseconde, suffisent. Le tri par prix fait pire, les ex aequo y sont massifs.
+    it("ne répète ni ne saute une ligne quand le critère de tri est à égalité", async () => {
+        const shop = await createShop("EUR");
+        const ids: string[] = [];
+        for (let i = 0; i < 6; i += 1) {
+            const { id } = await publishProduct({
+                vendorId: shop.id,
+                title: `Egalite stricte ${i}`,
+                category: "APPAREL",
+                priceAmount: 1000,
+                currency: "EUR",
+            });
+            ids.push(id);
+        }
+        // Le même instant pour tous, et le même prix : seul le départage peut les ordonner.
+        await prisma.product.updateMany({
+            where: { id: { in: ids } },
+            data: { publishedAt: new Date("2026-01-01T00:00:00.000Z") },
+        });
+
+        const commun = query({ q: "Egalite stricte", sort: "price_asc" }, "EUR");
+        const premiere = await searchPublishedProducts(prisma, { ...commun, limit: 3, offset: 0 });
+        const seconde = await searchPublishedProducts(prisma, { ...commun, limit: 3, offset: 3 });
+
+        const vus = [...premiere.rows, ...seconde.rows].map((row) => row.id);
+        expect(vus).toHaveLength(6);
+        expect(new Set(vus).size).toBe(6);
+    });
+
+    // `unaccent` normalise les formes PLEINE CHASSE vers l'ASCII : `unaccent('\uFF05')` vaut
+    // `%`. Échapper les jokers en JavaScript puis laisser le SQL unaccenter le motif les
+    // recréait donc APRÈS l'échappement, et une recherche d'un seul caractère rendait tout
+    // le catalogue en balayant la table deux fois.
+    //
+    // Ce qui se vérifie n'est pas « zéro résultat » : une fois échappée, la forme pleine
+    // chasse cherche le caractère LITTÉRAL, exactement comme sa forme ASCII. Les deux
+    // doivent donc rendre la même chose, et bien moins que la liste entière.
+    it("traite les jokers en pleine chasse comme leur forme ASCII, littérale", async () => {
+        const shop = await createShop("EUR");
+        await publishProduct({
+            vendorId: shop.id,
+            title: "Drap 50% lin et 50% coton",
+            category: "APPAREL",
+            priceAmount: 2000,
+            currency: "EUR",
+        });
+        await publishProduct({
+            vendorId: shop.id,
+            title: "Echarpe sans aucun joker",
+            category: "APPAREL",
+            priceAmount: 2100,
+            currency: "EUR",
+        });
+
+        const tout = await searchPublishedProducts(prisma, query({}, "EUR"));
+        const ascii = await searchPublishedProducts(prisma, query({ q: "%" }, "EUR"));
+        const pleine = await searchPublishedProducts(prisma, query({ q: "\uFF05" }, "EUR"));
+
+        // La forme pleine chasse se comporte comme l'ASCII, et aucune des deux ne rend tout.
+        expect(pleine.total).toBe(ascii.total);
+        expect(pleine.total).toBeLessThan(tout.total);
+        expect(pleine.rows.map((row) => row.title)).toContain("Drap 50% lin et 50% coton");
+        expect(pleine.rows.map((row) => row.title)).not.toContain("Echarpe sans aucun joker");
+
+        // Même démonstration pour le souligné, qu'aucun titre ne porte.
+        const souligne = await searchPublishedProducts(prisma, query({ q: "\uFF3F" }, "EUR"));
+        expect(souligne.total).toBe(0);
+    });
+
     it("rend une liste vide, et non une erreur, au-delà de la dernière page", async () => {
         const resultat = await searchPublishedProducts(
             prisma,
@@ -361,6 +435,35 @@ describe("searchPublishedProducts", () => {
 });
 
 describe("listCatalogCurrencies", () => {
+    // Le décompte doit porter sur la MÊME population que la liste. Compter des produits que
+    // la liste ne sait pas montrer fait choisir, à la première visite, une devise qui
+    // affiche « aucun article ne correspond » sans qu'aucun filtre soit actif, et le repli
+    // ne se déclenche pas puisque la devise est techniquement disponible.
+    it("ne compte que les produits que la liste sait montrer", async () => {
+        const shop = await createShop("XAF");
+        counter += 1;
+        // Publié de force, sans image prête : exactement ce que la liste écarte.
+        const sansImage = await prisma.product.create({
+            data: {
+                vendorId: shop.id,
+                slug: `${PREFIX}-sans-image-${counter}`,
+                title: "Publie sans image",
+                description: DESCRIPTION,
+                category: "APPAREL",
+                status: "PUBLISHED",
+                publishedAt: new Date(),
+                variants: { create: { priceAmount: 1000, combinationKey: "", position: 0 } },
+            },
+        });
+
+        const devises = await listCatalogCurrencies(prisma);
+        const xaf = devises.find((entree) => entree.currency === "XAF");
+        const { total } = await searchPublishedProducts(prisma, query({}, "XAF"));
+
+        expect(sansImage.status).toBe("PUBLISHED");
+        expect(xaf?.productCount ?? 0).toBe(total);
+    });
+
     it("rend les devises portant au moins un produit publié, la plus fournie en tête", async () => {
         const devises = await listCatalogCurrencies(prisma);
 

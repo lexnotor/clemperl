@@ -36,6 +36,17 @@ images, qui gardent le cache d'un an de la route de relais. Le jour où la liste
 cher, la sortie est de passer la devise dans l'URL, ce qui rend la page cacheable par
 adresse.
 
+**Le catalogue coûte environ 300 ms par page à cinquante mille produits, et c'est
+structurel.** Mesuré par la revue de T2d, sur un jeu synthétique : le `GROUP BY p.id`
+empêche de pousser le `LIMIT`, donc PostgreSQL agrège toute la table avant d'en garder
+vingt-quatre ; la jointure latérale d'image tourne une fois par ligne candidate ; et
+`unaccent` est `STABLE`, pas `IMMUTABLE`, donc aucun index d'expression n'est possible sans
+l'envelopper. L'index `products_status_category_idx` n'apparaît dans aucun plan mesuré.
+
+Rien de tout cela ne gêne un catalogue qui n'a pas encore de produits, et la sortie n'est
+pas le `tsvector` que la spec évoque : il ne règle que le troisième point. Les deux premiers
+tiennent à la forme de la requête, et se traitent le jour où le volume existe, pas avant.
+
 **La requête du catalogue est la seule du dépôt écrite en SQL.** Prisma ne sait pas trier
 une liste de produits par le minimum du prix de leurs variantes, et on a refusé de
 dénormaliser une colonne pour contourner cette limite. Trois règles la rendent sûre :

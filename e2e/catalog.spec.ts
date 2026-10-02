@@ -39,6 +39,15 @@ test("un visiteur parcourt le catalogue, filtre, et ouvre une fiche", async ({
     await page.getByRole("button", { name: "Créer le produit" }).click();
     await page.waitForURL(/\/products\/[^/]+$/);
 
+    // UN AXE, et c'est le point. Sans lui, le sélecteur de déclinaison n'a rien à choisir,
+    // donc le parcours ne vérifie jamais que le prix suit la sélection ni que le lien de
+    // contact annonce la bonne déclinaison, qui sont deux critères de la tranche.
+    await page.getByRole("button", { name: "Ajouter un axe" }).click();
+    await page.getByRole("textbox", { name: "Nom de l'axe" }).fill("Taille");
+    await page.getByRole("textbox", { name: "Valeurs" }).fill("S, L");
+    await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
+    await expect(page.getByText("Votre produit est enregistré.")).toBeVisible();
+
     await page.getByLabel("Ajouter des photos").setInputFiles("e2e/fixtures/product.jpg");
     await expect(page.getByTestId("vignette")).toBeVisible({ timeout: 60_000 });
     await page.getByRole("button", { name: "Publier" }).click();
@@ -58,15 +67,22 @@ test("un visiteur parcourt le catalogue, filtre, et ouvre une fiche", async ({
     await visiteur.getByRole("button", { name: "Rechercher" }).click();
     await visiteur.getByText(titre).click();
 
-    // Critère 7 : la fiche affiche le prix, et le contact est prérempli. Le produit n'a
-    // aucun axe, donc le prix s'affiche sans qu'il y ait quoi que ce soit à choisir.
+    // Critère 7 : le prix SUIT la déclinaison choisie, et le lien de contact annonce cette
+    // déclinaison avec son prix. Le lien était calculé une fois pour toute la fiche, donc
+    // il annonçait le nom de l'axe et le prix du moins cher quelle que soit la sélection :
+    // un visiteur qui choisissait la plus chère envoyait un prix faux au vendeur.
     await visiteur.waitForURL(/\/shops\/[^/]+\/[^/]+$/);
     await expect(visiteur.getByRole("heading", { name: titre })).toBeVisible();
+    await expect(visiteur.getByTestId("prix")).toContainText("Choisissez une déclinaison");
+
+    await visiteur.getByRole("combobox", { name: "Taille" }).selectOption({ label: "L" });
     await expect(visiteur.getByTestId("prix")).toContainText("180,00");
-    await expect(visiteur.getByRole("link", { name: "Contacter la boutique" })).toHaveAttribute(
-        "href",
-        /^mailto:.*subject=/,
-    );
+
+    const contact = visiteur.getByRole("link", { name: "Contacter la boutique" });
+    const href = decodeURIComponent((await contact.getAttribute("href")) ?? "");
+    expect(href).toContain("mailto:");
+    expect(href).toContain("Taille : L");
+    expect(href).toContain("180,00");
 
     // Le nom de la boutique mène à sa vitrine, qui montre le même article.
     await visiteur.getByRole("link", { name: /Atelier|Boutique/ }).first().click();

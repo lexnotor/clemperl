@@ -171,8 +171,16 @@ export async function deleteImage(
             select: { status: true },
         });
         if (product?.status === "PUBLISHED") {
+            // Les images PRÊTES seulement. Compter toutes les lignes laissait supprimer
+            // la dernière image servable d'une fiche publiée dès qu'une autre venait
+            // d'être déposée : la seconde est encore en traitement, le catalogue ne la
+            // montre pas, et la fiche publique se retrouvait sans aucune photo.
             const restantes = await tx.productImage.count({
-                where: { productId: image.productId, id: { not: image.id } },
+                where: {
+                    productId: image.productId,
+                    id: { not: image.id },
+                    status: "READY",
+                },
             });
             if (restantes === 0) {
                 throw new Error(ERROR_LAST_IMAGE_PUBLISHED);

@@ -5,9 +5,13 @@ import { useState, type JSX } from "react";
 
 interface VariantSelectorProps {
     options: { name: string; values: { id: string; label: string }[] }[];
-    /** Clé de combinaison vers prix DÉJÀ FORMATÉ par le serveur. */
-    prices: Record<string, string>;
-    contact: { href: string; label: string };
+    /**
+     * Clé de combinaison vers ce que le serveur a préparé pour ELLE : son prix déjà
+     * formaté, et son lien de contact déjà rédigé. Un seul lien pour toute la fiche
+     * annoncerait le prix de la déclinaison la moins chère quelle que soit la sélection.
+     */
+    offers: Record<string, { price: string; href: string }>;
+    contactLabel: string;
     emptyLabel: string;
 }
 
@@ -22,8 +26,8 @@ export function VariantSelector(props: VariantSelectorProps): JSX.Element {
 
     const complet = props.options.every((option) => (selection[option.name] ?? "") !== "");
     const cle = variantCombinationKey(Object.values(selection).filter((id) => id !== ""));
-    const prix = props.prices[cle];
-    const pret = complet && prix !== undefined;
+    const offre = props.offers[cle];
+    const pret = complet && offre !== undefined;
 
     return (
         <div className="mt-8 flex flex-col gap-6">
@@ -51,15 +55,15 @@ export function VariantSelector(props: VariantSelectorProps): JSX.Element {
             ))}
 
             <p data-testid="prix" className="text-2xl">
-                {pret ? prix : props.emptyLabel}
+                {pret ? offre.price : props.emptyLabel}
             </p>
 
             {pret && (
                 <a
-                    href={props.contact.href}
+                    href={offre.href}
                     className="self-start border border-bordure px-6 py-3 text-sm"
                 >
-                    {props.contact.label}
+                    {props.contactLabel}
                 </a>
             )}
         </div>
