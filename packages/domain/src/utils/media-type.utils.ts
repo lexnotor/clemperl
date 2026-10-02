@@ -1,6 +1,6 @@
 // Une LISTE BLANCHE, et non « ça commence par image/ ». La différence n'est pas
 // cosmétique : `image/svg+xml` satisfait le préfixe, sharp le décode sans se plaindre,
-// et un SVG n'est pas une image — c'est un document XML qui exécute du script. Un
+// et un SVG n'est pas une image, c'est un document XML qui exécute du script. Un
 // contrôle par préfixe accepte donc tout ce qu'on n'a pas pensé à interdire, et la liste
 // des formats qu'un navigateur sait exécuter s'allonge sans nous prévenir.
 //

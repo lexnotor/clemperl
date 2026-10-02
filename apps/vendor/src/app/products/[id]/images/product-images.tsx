@@ -2,7 +2,7 @@
 
 // `@clemperl/domain/browser` et non le barillet : celui-ci réexporte les erreurs du
 // domaine, qui tirent `@clemperl/core`, qui tire nodemailer, qui tire `node:net`. Le
-// sous-chemin ne contient que des fonctions pures — `buildOriginalPath` et son
+// sous-chemin ne contient que des fonctions pures : `buildOriginalPath` et son
 // `node:crypto` vivent ailleurs, côté serveur.
 import { derivativePath, isRetryableImageFailure } from "@clemperl/domain/browser";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
@@ -61,7 +61,7 @@ export function ProductImages(props: ProductImagesProps): JSX.Element {
         setError(null);
 
         // `try/finally` et non un simple enchaînement : une action serveur LÈVE quand la
-        // requête n'aboutit pas — corps trop gros, réseau coupé, serveur redémarré — et
+        // requête n'aboutit pas : corps trop gros, réseau coupé, serveur redémarré, et
         // sans cela `setBusy(false)` n'était jamais atteint. Le sélecteur restait
         // désactivé pour de bon, sans message, et il fallait recharger la page. Le cas le
         // plus courant est le fichier qui dépasse la limite de corps, c'est-à-dire

@@ -2,8 +2,8 @@
 //
 // Le barillet principal réexporte les erreurs du domaine, qui tirent `@clemperl/core`,
 // qui expose l'envoi de courriels, qui tire nodemailer, qui tire `node:net`. Turbopack
-// refuse alors d'assembler le paquet navigateur, et l'erreur — « the chunking context
-// does not support external modules (request: node:net) » — ne nomme aucun de ces
+// refuse alors d'assembler le paquet navigateur, et l'erreur : « the chunking context
+// does not support external modules (request: node:net) », ne nomme aucun de ces
 // maillons.
 //
 // Le même raisonnement que `@clemperl/db/enums` : un sous-chemin étroit vaut mieux

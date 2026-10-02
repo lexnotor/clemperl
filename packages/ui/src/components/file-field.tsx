@@ -13,7 +13,7 @@ export interface FileFieldProps
 
 // Le contrôle natif s'affiche dans la langue du NAVIGATEUR, pas dans celle de la page :
 // « Choose File » apparaît sur une page française sans qu'aucune traduction n'y puisse
-// rien. Il est donc masqué visuellement — jamais retiré du flux ni du clavier — et
+// rien. Il est donc masqué visuellement : jamais retiré du flux ni du clavier, et
 // remplacé par un déclencheur que nous libellons.
 //
 // Le déclencheur est un SECOND `label`, marqué `aria-hidden` : il ouvre le sélecteur au

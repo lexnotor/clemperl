@@ -1,7 +1,7 @@
 "use client";
 
 // `@clemperl/domain/browser` et non le barillet : celui-ci réexporte les erreurs du
-// domaine, qui tirent `@clemperl/core`, qui tire nodemailer, qui tire `node:net` —
+// domaine, qui tirent `@clemperl/core`, qui tire nodemailer, qui tire `node:net`,
 // et Turbopack refuse d'assembler un paquet navigateur qui le contient.
 import { buildVariantMatrix, selectionKey } from "@clemperl/domain/browser";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
@@ -28,7 +28,7 @@ interface ProductFormProps {
 // Un champ de saisie ne doit porter que le NOMBRE : `formatPrice` rendrait « 12,50 € »,
 // et le renvoi du formulaire échouerait sur son propre affichage. La conversion est
 // écrite ici plutôt qu'importée, parce qu'elle vit dans `price.utils`, qui tire
-// `@clemperl/core` — donc nodemailer, donc `node:net`.
+// `@clemperl/core`, donc nodemailer, donc `node:net`.
 function priceForInput(amount: number, exponent: number): string {
     const text = (amount / 10 ** exponent).toFixed(exponent);
     return exponent === 0 ? text : text.replace(".", ",");
@@ -141,7 +141,7 @@ export function ProductForm(product: ProductFormProps): JSX.Element {
                             label={label.length > 0 ? label : t.price}
                             // La POSITION, et non la clé de combinaison : celle-ci porte
                             // des caractères de contrôle comme séparateurs, et un nom de
-                            // champ multipart n'en accepte aucun — la requête entière
+                            // champ multipart n'en accepte aucun : la requête entière
                             // devient illisible, avec « Malformed part header » pour tout
                             // diagnostic. Le serveur recalcule la même grille avec la même
                             // fonction pure, donc les positions correspondent.

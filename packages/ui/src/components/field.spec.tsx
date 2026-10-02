@@ -47,7 +47,7 @@ describe("TextAreaField", () => {
 });
 
 // La raison d'être de la dissociation libellé / contrôle : un nom accessible EXACT.
-// Enveloppé, le contrôle héritait du `textContent` du `<label>` entier — indication
+// Enveloppé, le contrôle héritait du `textContent` du `<label>` entier : indication
 // comprise, et pour un `<textarea>` sa valeur aussi, puisque React rend `defaultValue`
 // comme contenu de l'élément. Tout sélecteur par libellé attrapait alors le mauvais
 // élément, ou deux.

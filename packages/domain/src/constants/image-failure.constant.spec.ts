@@ -4,7 +4,7 @@ import { IMAGE_FAILURE, isRetryableImageFailure } from "./image-failure.constant
 describe("isRetryableImageFailure", () => {
     // Le worker SUPPRIME l'original quand il le refuse : le fichier ne servira jamais, et
     // le garder coûterait de l'espace pour rien. Proposer « Réessayer » ensuite promet
-    // une issue qui n'existe plus — le job retrouverait un objet absent et échouerait
+    // une issue qui n'existe plus : le job retrouverait un objet absent et échouerait
     // pour une autre raison.
     it("refuse de relancer ce dont l'original a été supprimé", () => {
         for (const reason of [
@@ -22,7 +22,7 @@ describe("isRetryableImageFailure", () => {
     });
 
     // LE seul cas où relancer a un sens : l'image était bonne, c'est le traitement qui
-    // est tombé — stockage injoignable, base coupée. L'original est toujours là.
+    // est tombé : stockage injoignable, base coupée. L'original est toujours là.
     it("accepte de relancer un traitement tombé", () => {
         expect(isRetryableImageFailure(IMAGE_FAILURE.processingFailed)).toBe(true);
     });

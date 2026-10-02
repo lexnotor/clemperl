@@ -12,11 +12,11 @@ packages:
 # prédécesseur, est silencieusement ignoré.
 #
 # Autorisés parce que nécessaires : Prisma télécharge ses moteurs, esbuild et swc leurs
-# binaires natifs, sharp pose le sien — sans quoi son import échoue à l'exécution sur un
-# message qui parle d'un module introuvable, pas d'un script bloqué — et les autres
+# binaires natifs, sharp pose le sien : sans quoi son import échoue à l'exécution sur un
+# message qui parle d'un module introuvable, pas d'un script bloqué, et les autres
 # compilent des extensions de surveillance de fichiers.
 # Refusés jusqu'à constatation du contraire : les dépendances de Testcontainers, et
-# `msgpackr-extract` que BullMQ traîne — toutes compilent des optimisations natives dont
+# `msgpackr-extract` que BullMQ traîne : toutes compilent des optimisations natives dont
 # leur bibliothèque sait se passer, en JS pur.
 allowBuilds:
   "@parcel/watcher": true

@@ -73,7 +73,7 @@ test("un vendeur validé corrige sa boutique, et le slug ne bouge pas", async ({
     await expect(page.getByLabel("Raison sociale")).toHaveCount(0);
 
     // Critère 4 : le nom change. Que le slug ne bouge PAS se prouve dans
-    // `apps/api/test/vendor-shop.int-spec.ts` — c'est une propriété de la base, et le
+    // `apps/api/test/vendor-shop.int-spec.ts`, c'est une propriété de la base, et le
     // slug n'est affiché par aucun écran de T2a.
     const renamed = `${shopName} & Cie`;
     await page.getByLabel("Nom de la boutique").fill(renamed);
@@ -89,7 +89,7 @@ test("un vendeur validé corrige sa boutique, et le slug ne bouge pas", async ({
     // Le cas est choisi pour ce que le NAVIGATEUR ne sait pas garder : `required` et
     // `minLength` bloquent une description trop courte avant même la soumission, donc
     // une telle saisie ne prouverait rien du serveur. Aucune contrainte native n'exige
-    // en revanche qu'une case au moins soit cochée — c'est Zod, et lui seul, qui refuse
+    // en revanche qu'une case au moins soit cochée, c'est Zod, et lui seul, qui refuse
     // une liste de catégories vide.
     //
     // `getByRole` et non `getByLabel` : le libellé d'un contrôle enveloppé se calcule sur

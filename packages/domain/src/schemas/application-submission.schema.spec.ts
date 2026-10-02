@@ -28,7 +28,7 @@ describe("schéma de dépôt d'un dossier", () => {
     // Sans cette règle, le nom passe la validation et ne produit aucun slug : la boutique
     // se retrouve sans identifiant public, et la deuxième du genre casse sur l'unicité.
     it("refuse un nom de boutique dont aucun slug ne peut sortir", () => {
-        for (const shopName of ["日本橋工房", "!!!", "— —", "Ателье"]) {
+        for (const shopName of ["日本橋工房", "!!!", "()", "Ателье"]) {
             expect(applicationSubmissionSchema.safeParse({ ...VALID, shopName }).success).toBe(
                 false,
             );

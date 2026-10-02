@@ -18,7 +18,7 @@ export async function requireAdministrator() {
     const session = await auth.api.getSession({ headers: await headers() });
 
     // La connexion vit sur la boutique, et le cookie est partagé : se connecter là vaut
-    // ici. Aucune destination de retour n'est transmise — elle traverserait une origine,
+    // ici. Aucune destination de retour n'est transmise : elle traverserait une origine,
     // et la boutique refuse par principe les redirections externes.
     if (!session) {
         redirect(`${STOREFRONT}/sign-in`);

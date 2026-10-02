@@ -172,12 +172,12 @@ describe("le worker, contre un vrai stockage", () => {
 
     // Le client de stockage lève pour TOUT. Confondre une panne passagère avec un objet
     // absent condamne l'image : on la marquerait `FAILED` sans jamais retenter, alors que
-    // l'original est intact — et « objet absent » n'est pas relançable. Le worker doit
+    // l'original est intact, et « objet absent » n'est pas relançable. Le worker doit
     // donc LEVER, pour que BullMQ retente.
     it("lève au lieu de marquer quand le stockage est injoignable", async () => {
         const { imageId } = await depose("photo.jpg", "jpg");
         const initial = process.env["STORAGE_URL"];
-        // Un port où rien n'écoute : la panne est réseau, sans statut HTTP — exactement
+        // Un port où rien n'écoute : la panne est réseau, sans statut HTTP, exactement
         // ce qu'un stockage momentanément tombé produit.
         process.env["STORAGE_URL"] = "http://127.0.0.1:9";
 
@@ -193,7 +193,7 @@ describe("le worker, contre un vrai stockage", () => {
     });
 
     // Le traitement peut tomber sans que l'image y soit pour rien : stockage injoignable,
-    // base coupée. BullMQ retente alors, puis abandonne — et sans ce relais, la ligne
+    // base coupée. BullMQ retente alors, puis abandonne, et sans ce relais, la ligne
     // resterait `PENDING` POUR TOUJOURS, avec l'écran du vendeur qui l'interroge toutes
     // les deux secondes jusqu'à ce qu'il ferme l'onglet.
     it("marque FAILED quand le job a épuisé ses tentatives", async () => {
@@ -225,7 +225,7 @@ describe("le worker, contre un vrai stockage", () => {
 
     // NestJS enregistre ce relais par `worker.on("failed", …)`, et BullMQ n'attend pas la
     // promesse qu'il rend. Une écriture qui échoue ici devient donc un rejet non capturé,
-    // que Node termine par un arrêt du processus — emportant l'API, qui partage le
+    // que Node termine par un arrêt du processus : emportant l'API, qui partage le
     // conteneur. Et l'écriture échoue précisément quand la base est tombée, c'est-à-dire
     // dans le cas même qui a fait échouer le job.
     it("ne rejette pas quand l'écriture de l'échec est impossible", async () => {

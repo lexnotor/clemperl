@@ -6,7 +6,7 @@ d'exception par module sont propres à `apps/api` ; côté Next, ce sont les fro
 d'erreur et les retours de server actions qui appliquent le même contrat.
 
 Toute erreur renvoyée au client est localisée et renvoyée sous forme de **tableau**
-(`message: string[]`) — un seul format de sortie, qu'il y ait une ou dix erreurs.
+(`message: string[]`), un seul format de sortie, qu'il y ait une ou dix erreurs.
 
 ## Le contrat
 
@@ -33,7 +33,7 @@ aussi les exceptions standard du framework auxquelles on passe simplement une cl
 ## Les quatre règles
 
 1. **Clés imbriquées par domaine** dans le fichier de traductions :
-   `errors.order.not_found`. Ne jamais utiliser une phrase entière comme clé JSON —
+   `errors.order.not_found`. Ne jamais utiliser une phrase entière comme clé JSON :
    une clé est un identifiant stable, une phrase change au premier ajustement de ton et
    casse toutes les langues d'un coup.
 2. **Les classes d'exception vivent dans le module métier concerné**

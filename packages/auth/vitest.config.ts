@@ -6,7 +6,7 @@ export default defineConfig({
             provider: "v8",
             // `include` est indispensable : sans lui, v8 ne mesure que les fichiers
             // chargés par un test, et un fichier source jamais importé échappe au
-            // plancher — précisément le cas d'un nouveau fichier livré sans test.
+            // plancher : précisément le cas d'un nouveau fichier livré sans test.
             include: ["src/**/*.ts"],
             exclude: ["**/index.ts", "**/*.config.ts"],
             // Plancher inscrit à la tâche 10, avec la valeur mesurée.

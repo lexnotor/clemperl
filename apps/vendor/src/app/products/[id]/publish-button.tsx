@@ -11,7 +11,7 @@ interface PublishButtonProps {
 }
 
 // Un composant client pour UN bouton, uniquement parce qu'il doit rendre un message.
-// Publier peut être refusé — le dépôt exige au moins une photo prête — et un formulaire
+// Publier peut être refusé : le dépôt exige au moins une photo prête, et un formulaire
 // servi par une action qui rend `void` n'a nulle part où le dire : la page se re-rendait
 // à l'identique et le vendeur voyait un bouton sans effet.
 export function PublishButton(props: PublishButtonProps): JSX.Element {

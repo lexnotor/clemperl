@@ -12,7 +12,7 @@ export async function saveShopProfile(
     form: FormData,
 ): Promise<IShopFormState> {
     // La garde est rappelée ICI : une action serveur est une route publique, et la page
-    // qui l'a rendue ne la protège pas. C'est aussi d'ici que vient le `vendorId` — le
+    // qui l'a rendue ne la protège pas. C'est aussi d'ici que vient le `vendorId` : le
     // formulaire ne le porte pas, pour qu'aucun champ caché ne puisse le désigner.
     const { vendor } = await requireVendorMembership();
 

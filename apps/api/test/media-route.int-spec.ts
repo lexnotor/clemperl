@@ -30,7 +30,7 @@ describe("la route de relais", () => {
 
     // LA barrière qui compte. Le stockage rend l'original tel qu'il a été déposé, avec le
     // type que le navigateur du vendeur avait déclaré. Un SVG porte du script, sharp le
-    // décline sans se plaindre — donc l'image passait READY et l'original SURVIVAIT —, et
+    // décline sans se plaindre, donc l'image passait READY et l'original SURVIVAIT, et
     // le servir depuis l'origine de la boutique exécutait ce script là où vit le cookie
     // de session partagé depuis T1a.
     it("répond 404 à un original, quel que soit son format", async () => {

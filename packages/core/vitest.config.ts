@@ -7,12 +7,12 @@ export default defineConfig({
             provider: "v8",
             // `include` est indispensable : sans lui, le fournisseur v8 ne mesure que
             // les fichiers effectivement chargés par un test. Un fichier source jamais
-            // importé n'apparaît pas dans le rapport, donc le plancher ne le voit pas —
+            // importé n'apparaît pas dans le rapport, donc le plancher ne le voit pas,
             // et c'est exactement le cas d'un nouveau fichier livré sans test.
             include: ["src/**/*.{ts,tsx}"],
             // L'accès au stockage est couvert par la suite d'INTÉGRATION, qui parle au vrai
-            // service depuis le conteneur `api`. Ce qu'il garantit — les politiques du
-            // bucket, le refus d'écrasement, les erreurs du client — ne se prouve pas
+            // service depuis le conteneur `api`. Ce qu'il garantit : les politiques du
+            // bucket, le refus d'écrasement, les erreurs du client : ne se prouve pas
             // avec un substitut. Le calcul de chemin, lui, est pur et reste mesuré ici.
             //
             // Leurs REFUS de démarrer sans configuration restent testés unitairement, et

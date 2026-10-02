@@ -11,7 +11,7 @@ describe("productDetailsSchema", () => {
     });
 
     // Sans deux caractères latins, le slug est vide et le deuxième produit du genre
-    // casse sur l'unicité — avec un message de base que personne ne relie à sa saisie.
+    // casse sur l'unicité : avec un message de base que personne ne relie à sa saisie.
     it("refuse un titre dont aucun slug ne peut sortir", () => {
         expect(
             productDetailsSchema.safeParse({ title: "!!!", description: DESCRIPTION }).success,

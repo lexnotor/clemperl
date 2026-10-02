@@ -4,7 +4,7 @@ import { SelectField } from "./select-field";
 
 const CURRENCIES = [
     { value: "EUR", label: "Euro (€)" },
-    { value: "XOF", label: "Franc CFA — UEMOA (F CFA)" },
+    { value: "XOF", label: "Franc CFA, UEMOA (F CFA)" },
 ];
 
 describe("SelectField", () => {
@@ -23,8 +23,8 @@ describe("SelectField", () => {
     // L'entrée vide est désactivée : elle dit qu'aucun choix n'est fait, sans devenir
     // elle-même un choix enregistrable.
     it("ajoute une entrée vide désactivée quand on lui donne un texte d'attente", () => {
-        render(<SelectField label="Devise des prix" options={CURRENCIES} placeholder="—" />);
-        expect(screen.getByRole("option", { name: "—" })).toBeDisabled();
+        render(<SelectField label="Devise des prix" options={CURRENCIES} placeholder="Choisir" />);
+        expect(screen.getByRole("option", { name: "Choisir" })).toBeDisabled();
     });
 
     it("affiche son indication", () => {

@@ -59,7 +59,7 @@ export default async function ApplicationPage({
                     <Line label={t.legalForm} value={application.legalForm} />
                     <Line label={t.legalName} value={application.legalName} />
                     <Line label={t.registrationNumber} value={application.registrationNumber} />
-                    <Line label={t.taxNumber} value={application.taxNumber ?? "—"} />
+                    <Line label={t.taxNumber} value={application.taxNumber ?? t.notProvided} />
                     <Line label={t.country} value={application.country} />
                 </div>
             </section>
@@ -94,7 +94,7 @@ export default async function ApplicationPage({
                             <li key={decision.id} className="border-b border-bordure py-3">
                                 <p className="text-base">
                                     {decision.decision === "ACCEPTED" ? t.approved : t.rejected}
-                                    {decision.reason !== null && ` — ${reasons[decision.reason]}`}
+                                    {decision.reason !== null && ` : ${reasons[decision.reason]}`}
                                 </p>
                                 {decision.comment !== null && decision.comment !== "" && (
                                     <p className="mt-1 text-sm text-muet">{decision.comment}</p>

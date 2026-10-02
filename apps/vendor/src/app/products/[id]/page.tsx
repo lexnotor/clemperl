@@ -75,7 +75,7 @@ export default async function ProductPage({
             />
 
             {/* Publier n'est pas « enregistrer » : c'est un geste distinct, donc un
-                formulaire distinct — les imbriquer produirait un HTML invalide. */}
+                formulaire distinct : les imbriquer produirait un HTML invalide. */}
             <PublishButton
                 productId={product.id}
                 published={product.status === "PUBLISHED"}

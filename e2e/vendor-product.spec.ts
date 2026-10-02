@@ -19,7 +19,7 @@ test("un vendeur déclare sa devise, crée un produit, le décline et le publie"
 }) => {
     await createApprovedVendorShop(page, request, browser);
 
-    // Critère 1 : sans devise, on ne fixe aucun prix — la liste renvoie vers la boutique.
+    // Critère 1 : sans devise, on ne fixe aucun prix, la liste renvoie vers la boutique.
     await page.goto(`${URL_VENDOR}/products`);
     await page.waitForURL(`${URL_VENDOR}/shop`);
 
@@ -40,7 +40,7 @@ test("un vendeur déclare sa devise, crée un produit, le décline et le publie"
 
     await page.waitForURL(/\/products\/[^/]+$/);
 
-    // Critère 2 : sans axe, un seul champ de prix — et le mot « déclinaison » n'est le
+    // Critère 2 : sans axe, un seul champ de prix, et le mot « déclinaison » n'est le
     // libellé d'aucune ligne de grille.
     await expect(page.getByText("Brouillon")).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Prix", exact: true })).toHaveValue("49,00");

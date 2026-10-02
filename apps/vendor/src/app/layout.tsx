@@ -20,7 +20,7 @@ const interfaceUtilisateur = Archivo({
 });
 
 // L'en-tête est STATIQUE : il ne lit ni la session ni la boutique. Un layout ne peut pas
-// garder l'accès, donc il n'a rien à faire de données protégées — le nom de la boutique
+// garder l'accès, donc il n'a rien à faire de données protégées : le nom de la boutique
 // est le titre de la page, pas du cadre.
 export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {
     return (

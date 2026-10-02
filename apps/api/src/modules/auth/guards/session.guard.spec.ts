@@ -13,7 +13,7 @@ describe("SessionGuard", () => {
     it("se laisse construire par Nest quand l'instance est fournie sous son jeton", async () => {
         // `@UseGuards(SessionGuard)` fait construire le garde par Nest, qui résout le
         // constructeur. Une instance passée par `useValue` sur la classe elle-même ne
-        // servirait jamais, et l'injection échouerait au premier appel protégé — donc
+        // servirait jamais, et l'injection échouerait au premier appel protégé, donc
         // à l'exécution, pas ici. Ce test tient cette forme d'injection en place.
         const module = await Test.createTestingModule({
             providers: [

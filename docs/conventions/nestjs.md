@@ -40,6 +40,6 @@ symptôme est loin de la cause et coûte des heures.
 
 Un module sans barrel de racine dont les fichiers utilisent des imports relatifs profonds
 (`../constants/foo`) est dans son état voulu : ne pas « réparer » en en ajoutant un.
-Une migration partielle — certains fichiers déjà sur les barrels de sous-dossier, d'autres
-encore en imports profonds — est un état de transition accepté, pas un défaut à corriger
+Une migration partielle (certains fichiers déjà sur les barrels de sous-dossier, d'autres
+encore en imports profonds) est un état de transition accepté, pas un défaut à corriger
 au passage.

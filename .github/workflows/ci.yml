@@ -87,7 +87,7 @@ jobs:
           exit 1
 
       # The integration and API e2e layers run HERE, not in the `test` matrix job: both
-      # need the running stack — one starts a throwaway PostgreSQL through the mounted
+      # need the running stack: one starts a throwaway PostgreSQL through the mounted
       # Docker socket, the other boots the Nest application against the live database.
       #
       # Until now neither ran anywhere. A controller renamed from `/moi` to `/me` in the

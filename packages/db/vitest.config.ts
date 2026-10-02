@@ -11,8 +11,8 @@ export default defineConfig({
             include: ["src/**/*.ts"],
             // Les repositories sont couverts par la suite d'INTÉGRATION, qui tourne sous
             // Jest dans le conteneur `api` contre un vrai PostgreSQL. Ce que ces
-            // fonctions garantissent — un index partiel, une course entre deux écritures,
-            // l'atomicité d'une transaction — ne se prouve pas avec un client simulé.
+            // fonctions garantissent : un index partiel, une course entre deux écritures,
+            // l'atomicité d'une transaction : ne se prouve pas avec un client simulé.
             // Les laisser dans ce rapport imposerait de baisser le plancher, ce que le
             // cliquet interdit.
             exclude: ["**/index.ts", "src/repositories/**"],

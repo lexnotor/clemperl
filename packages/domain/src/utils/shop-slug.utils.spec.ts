@@ -11,7 +11,7 @@ describe("dérivation du slug de boutique", () => {
     });
 
     it("écrase la ponctuation et les tirets répétés", () => {
-        expect(slugifyShopName("L'Atelier  —  Cuir & Co.")).toBe("l-atelier-cuir-co");
+        expect(slugifyShopName("L'Atelier  :  Cuir & Co.")).toBe("l-atelier-cuir-co");
     });
 
     it("ne laisse jamais de tiret en bordure", () => {

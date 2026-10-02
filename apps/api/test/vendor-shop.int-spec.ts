@@ -1,6 +1,6 @@
 import { prisma, readVendorForMember, updateShopProfile } from "@clemperl/db";
 
-// Ce que ces fonctions garantissent — qu'un champ légal et le slug ne bougent PAS — est
+// Ce que ces fonctions garantissent (qu'un champ légal et le slug ne bougent PAS) est
 // une propriété de la base, pas du code appelant. Un client simulé renverrait ce qu'on
 // lui a dit de renvoyer.
 let counter = 0;

@@ -6,7 +6,7 @@ import { PRODUCT_IMAGE_CONCURRENCY, PRODUCT_IMAGE_QUEUE } from "../media.constan
 import { ImageDerivativesService, orientedSize, rejectionFor } from "./image-derivatives.service";
 
 // Orientation 6 : « tournée d'un quart de tour dans le sens horaire ». C'est ce qu'écrit
-// un téléphone tenu en portrait — le capteur enregistre toujours en paysage et note la
+// un téléphone tenu en portrait : le capteur enregistre toujours en paysage et note la
 // rotation à part. La majorité des photos de vendeurs arrivent ainsi.
 async function photoPortrait(largeur: number, hauteur: number): Promise<Buffer> {
     const paysage = await sharp({
@@ -52,7 +52,7 @@ describe("ImageDerivativesService", () => {
     });
 
     // sharp rend les dimensions AVANT rotation, et `.resize()` ne redresse pas tout seul.
-    // Sans `.rotate()`, une photo prise en portrait est servie couchée — et les `width` /
+    // Sans `.rotate()`, une photo prise en portrait est servie couchée, et les `width` /
     // `height` rangés en base décrivent l'inverse de ce que la boutique affiche.
     it("redresse une photo selon son orientation EXIF", async () => {
         const portrait = await photoPortrait(1200, 800);

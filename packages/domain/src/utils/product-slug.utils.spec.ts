@@ -7,7 +7,7 @@ describe("dérivation du slug de produit", () => {
     });
 
     it("réduit la ponctuation à des tirets", () => {
-        expect(slugifyProductTitle("Cabas — cuir & lin")).toBe("cabas-cuir-lin");
+        expect(slugifyProductTitle("Cabas : cuir & lin")).toBe("cabas-cuir-lin");
     });
 
     it("ne laisse aucun tiret aux extrémités", () => {

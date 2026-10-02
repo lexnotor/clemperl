@@ -40,7 +40,7 @@ export const ERROR_CURRENCY_CHANGED = "CURRENCY_CHANGED";
 export const ERROR_VARIANTS_REQUIRED = "VARIANTS_REQUIRED";
 
 // Prisma signale une violation d'unicité par ce code. Le distinguer d'une panne permet
-// de dire au vendeur de changer son titre plutôt que de « réessayer » — un conseil qui
+// de dire au vendeur de changer son titre plutôt que de « réessayer » : un conseil qui
 // ne marchera jamais, puisque le second essai portera le même slug.
 function isUniqueViolation(error: unknown): boolean {
     return (
@@ -65,13 +65,13 @@ async function lockVendor(
 }
 
 // Ce dépôt ne calcule AUCUNE règle : la grille de variantes lui arrive déjà construite.
-// `packages/domain`, qui la construit, dépend déjà de `@clemperl/db/enums` — l'importer
+// `packages/domain`, qui la construit, dépend déjà de `@clemperl/db/enums` : l'importer
 // ici fermerait un cycle entre les deux paquets, et `turbo` ne saurait plus lequel
 // construire en premier.
 
 // TOUTE lecture et TOUTE écriture filtrent sur `(id, vendorId)`, jamais sur `id` seul.
 // Le `productId` vient de l'URL, donc du client : sans ce filtre, un vendeur corrige le
-// catalogue d'un autre en changeant un chiffre. La garantie est dans la SIGNATURE — une
+// catalogue d'un autre en changeant un chiffre. La garantie est dans la SIGNATURE : une
 // vérification à l'entrée s'oublie au prochain appelant.
 export async function listProductsForVendor(prisma: PrismaClient, vendorId: string) {
     return prisma.product.findMany({
@@ -115,7 +115,7 @@ export async function createProduct(
         // Sérialiser ne suffit PAS. L'appelant a converti « 49,00 » en `4900` avec la
         // devise qu'il a lue avant d'entrer ici. Si un changement de devise a obtenu le
         // verrou en premier, cette création l'obtient ensuite et insère un montant
-        // converti sous une devise qui n'est plus la bonne — 4900 centimes d'euro
+        // converti sous une devise qui n'est plus la bonne : 4900 centimes d'euro
         // deviendraient 4900 francs CFA. On relit donc la devise APRÈS le verrou, et on
         // refuse plutôt que d'écrire un montant dont on ne sait plus ce qu'il vaut.
         const vendor = await tx.vendor.findUnique({
@@ -155,7 +155,7 @@ export async function saveProduct(prisma: PrismaClient, input: ISaveProduct): Pr
     // Avant la transaction, donc avant toute suppression : une grille vide supprimerait
     // toutes les variantes sans en recréer, et laisserait un produit sans prix. La liste
     // calculerait ensuite une fourchette sur un tableau vide. Aucun appelant ne peut
-    // produire ce cas aujourd'hui — mais dans ce dépôt, la garde est dans la signature,
+    // produire ce cas aujourd'hui, mais dans ce dépôt, la garde est dans la signature,
     // pas dans la bonne volonté de l'appelant.
     if (input.variants.length === 0) {
         throw new Error(ERROR_VARIANTS_REQUIRED);
@@ -248,8 +248,8 @@ export async function setProductStatus(
 ): Promise<void> {
     await prisma.$transaction(async (tx) => {
         // L'appartenance se vérifie AVANT les images. Sans cet ordre, un produit d'une
-        // autre boutique ne rend aucune image et l'on répondrait « aucune image prête »
-        // — un message qui ment sur la raison du refus. Un produit étranger n'est pas
+        // autre boutique ne rend aucune image et l'on répondrait « aucune image prête »,
+        // un message qui ment sur la raison du refus. Un produit étranger n'est pas
         // refusé bruyamment : il n'est simplement pas touché, comme avant T2c.
         const owned = await tx.product.findFirst({
             where: { id: input.productId, vendorId: input.vendorId, deletedAt: null },

@@ -12,7 +12,7 @@ function redisConnection(): IRedisConnection {
     if (!url) {
         throw new Error("REDIS_URL est absente : la file des médias ne peut pas s'ouvrir.");
     }
-    // L'URL est lue ENTIÈREMENT — identifiants, index de base, TLS. N'en garder que
+    // L'URL est lue ENTIÈREMENT : identifiants, index de base, TLS. N'en garder que
     // l'hôte et le port marche en développement, où Redis est nu, et échoue au premier
     // déploiement contre un Redis géré.
     return redisConnectionOptions(url);
