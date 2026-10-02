@@ -1,4 +1,6 @@
+import { PRODUCT_CATEGORIES, variantCombinationKey } from "@clemperl/domain";
 import {
+    E_PRODUCT_CATEGORY,
     ERROR_CURRENCY_CHANGED,
     createPendingImage,
     markImageReady,
@@ -49,6 +51,7 @@ async function createTeeShirt(vendorId: string): Promise<string> {
         slug: `${PREFIX}-tee-${counter}`,
         title: "Tee-shirt",
         description: DESCRIPTION,
+            category: "APPAREL",
         priceAmount: 4900,
         expectedCurrency: "EUR",
     });
@@ -102,6 +105,7 @@ describe("l'isolation entre boutiques", () => {
                 title: "Détourné",
                 slug: "detourne",
                 description: DESCRIPTION,
+            category: "APPAREL",
                 options: [],
                 variants: [{ selections: {}, priceAmount: 1, position: 0 }],
             }),
@@ -123,6 +127,7 @@ describe("saveProduct", () => {
             title: "Tee-shirt",
             slug: `${PREFIX}-tee-grille`,
             description: DESCRIPTION,
+            category: "APPAREL",
             options: [{ name: "Taille", values: ["S", "M", "L"] }],
             variants: [
                 { selections: { Taille: "S" }, priceAmount: 4900, position: 0 },
@@ -148,6 +153,7 @@ describe("saveProduct", () => {
             title: "Tee-shirt",
             slug: `${PREFIX}-tee-slug`,
             description: DESCRIPTION,
+            category: "APPAREL",
         };
 
         await saveProduct(prisma, {
@@ -179,6 +185,7 @@ describe("saveProduct", () => {
             title: "Tee-shirt",
             slug: `${PREFIX}-tee-slug`,
             description: DESCRIPTION,
+            category: "APPAREL",
         };
 
         await saveProduct(prisma, {
@@ -214,6 +221,7 @@ describe("saveProduct", () => {
                 title: "Tee-shirt",
                 slug: `${PREFIX}-tee-rollback`,
                 description: DESCRIPTION,
+            category: "APPAREL",
                 options: [{ name: "Taille", values: ["S"] }],
                 // Deux variantes de même combinaison : la base refuse la seconde, après
                 // que la première a été écrite.
@@ -288,6 +296,7 @@ describe("le slug d'un produit", () => {
             title: "Tee-shirt en lin",
             slug: `${PREFIX}-tee-shirt-en-lin`,
             description: DESCRIPTION,
+            category: "APPAREL",
             options: [],
             variants: [{ selections: {}, priceAmount: 4900, position: 0 }],
         });
@@ -321,6 +330,7 @@ describe("le slug d'un produit", () => {
             title: "Un tout autre titre",
             slug: `${PREFIX}-un-tout-autre-titre`,
             description: DESCRIPTION,
+            category: "APPAREL",
             options: [],
             variants: [{ selections: {}, priceAmount: 4900, position: 0 }],
         });
@@ -337,6 +347,7 @@ describe("le slug d'un produit", () => {
             vendorId,
             slug,
             description: DESCRIPTION,
+            category: "APPAREL",
             priceAmount: 4900,
             expectedCurrency: "EUR",
         };
@@ -363,6 +374,7 @@ describe("la devise au moment de l'écriture", () => {
                 slug: `${PREFIX}-devise-changee`,
                 title: "Sac cabas",
                 description: DESCRIPTION,
+            category: "APPAREL",
                 priceAmount: 4900,
                 expectedCurrency: "XOF",
             }),
@@ -384,6 +396,7 @@ describe("l'invariant « au moins une variante »", () => {
                 title: "Tee-shirt",
                 slug: `${PREFIX}-tee-vide`,
                 description: DESCRIPTION,
+            category: "APPAREL",
                 options: [],
                 variants: [],
             }),
@@ -392,5 +405,75 @@ describe("l'invariant « au moins une variante »", () => {
         // La moitié qui compte : les variantes existantes sont intactes.
         const product = await readProductForVendor(prisma, { productId, vendorId });
         expect(product?.variants).toHaveLength(1);
+    });
+});
+
+describe("la catégorie du produit", () => {
+    it("est écrite à la création et relue telle quelle", async () => {
+        const vendorId = await createShop();
+        counter += 1;
+        const { id } = await createProduct(prisma, {
+            vendorId,
+            slug: `${PREFIX}-bague-${counter}`,
+            title: "Bague tressée",
+            description: DESCRIPTION,
+            category: "JEWELLERY",
+            priceAmount: 4500,
+            expectedCurrency: "EUR",
+        });
+
+        const product = await prisma.product.findUnique({ where: { id } });
+        expect(product?.category).toBe("JEWELLERY");
+    });
+
+    // Les valeurs sont écrites DEUX fois : dans le schéma zod du domaine, qu'un composant
+    // client charge, et dans l'enum Prisma. Une divergence ne casserait rien au typage et
+    // produirait un refus en base que l'écran n'explique pas. Ce test vit ici parce que
+    // `apps/api` dépend des deux paquets et peut donc les comparer, ce qu'aucun des deux
+    // ne peut faire sans fermer un cycle.
+    it("porte exactement les valeurs que le domaine accepte", () => {
+        expect(Object.values(E_PRODUCT_CATEGORY).sort()).toEqual([...PRODUCT_CATEGORIES].sort());
+    });
+});
+
+// La clé de combinaison est construite à DEUX endroits : en ligne dans le dépôt, qui écrit
+// les variantes, et par `variantCombinationKey` dans le domaine, que la fiche publique
+// utilise pour retrouver le prix d'une sélection. Le dépôt ne peut pas importer le domaine,
+// qui dépend déjà de `@clemperl/db` et fermerait un cycle que Turbo ne saurait pas
+// ordonner. Ce test vit donc ici, dans le seul paquet qui voit les deux.
+//
+// Une divergence ne casserait rien au typage : la fiche chercherait un prix sous une clé
+// qui n'existe nulle part, et afficherait « choisissez une déclinaison » pour une sélection
+// pourtant complète.
+describe("la clé de combinaison", () => {
+    it("est la même en base que celle du domaine", async () => {
+        const vendorId = await createShop();
+        const productId = await createTeeShirt(vendorId);
+
+        await saveProduct(prisma, {
+            productId,
+            vendorId,
+            title: "Tee-shirt",
+            category: "APPAREL",
+            slug: `${PREFIX}-cle-${counter}`,
+            description: DESCRIPTION,
+            options: [{ name: "Taille", values: ["S", "M"] }],
+            variants: [
+                { selections: { Taille: "S" }, priceAmount: 4900, position: 0 },
+                { selections: { Taille: "M" }, priceAmount: 5200, position: 1 },
+            ],
+        });
+
+        const variants = await prisma.productVariant.findMany({
+            where: { productId },
+            select: { combinationKey: true, values: { select: { optionValueId: true } } },
+        });
+
+        expect(variants).toHaveLength(2);
+        for (const variant of variants) {
+            expect(variant.combinationKey).toBe(
+                variantCombinationKey(variant.values.map((v) => v.optionValueId)),
+            );
+        }
     });
 });

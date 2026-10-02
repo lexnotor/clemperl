@@ -67,3 +67,15 @@ export function buildVariantMatrix(
         position,
     }));
 }
+
+// LA clé rangée en base, distincte de `selectionKey` qui est une clé d'écran faite de noms
+// d'axes et de libellés. Le tri est ce qui rend l'index unique capable de voir un doublon :
+// non trié, `a|b` et `b|a` passeraient pour deux combinaisons distinctes.
+//
+// Elle est écrite ici pour la fiche publique, qui cherche le prix d'une sélection. Le dépôt
+// la construit de son côté, en ligne : il ne peut pas importer ce paquet, qui dépend déjà
+// de `@clemperl/db` et fermerait un cycle. Un test d'intégration de `apps/api`, qui voit
+// les deux paquets, épingle qu'elles produisent la même chaîne.
+export function variantCombinationKey(valueIds: readonly string[]): string {
+    return [...valueIds].sort().join("|");
+}

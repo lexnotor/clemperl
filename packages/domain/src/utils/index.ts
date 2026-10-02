@@ -1,5 +1,6 @@
 export * from "./application-transitions.utils.js";
 export * from "./application-validation.utils.js";
+export * from "./catalog-filters.utils.js";
 export * from "./media-path.server.utils.js";
 export * from "./media-path.utils.js";
 export * from "./media-type.utils.js";

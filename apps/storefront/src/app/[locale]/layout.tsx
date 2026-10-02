@@ -29,9 +29,12 @@ function EnTete(): JSX.Element {
 
     return (
         <header className="border-b border-bordure">
-            <div className="mx-auto flex max-w-2xl items-baseline justify-between px-6 py-5">
+            <div className="mx-auto flex max-w-6xl items-baseline justify-between gap-6 px-6 py-5">
                 <Link href="/" className="font-titre text-lg tracking-tight">
                     ClemPerl
+                </Link>
+                <Link href="/catalog" className="text-sm text-muet hover:text-texte">
+                    {t("catalog")}
                 </Link>
                 <Link href="/become-a-vendor" className="text-sm text-muet hover:text-texte">
                     {t("account")}

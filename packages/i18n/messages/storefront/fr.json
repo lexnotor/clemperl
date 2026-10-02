@@ -6,7 +6,8 @@
   },
   "navigation": {
     "shop": "Boutique",
-    "account": "Mon compte"
+    "account": "Mon compte",
+    "catalog": "Le catalogue"
   },
   "auth": {
     "signUp": {
@@ -121,6 +122,35 @@
       "already_open": "Vous avez déjà une demande en cours d'examen.",
       "submit_failed": "Votre demande n'a pas pu être enregistrée. Réessayez dans un instant.",
       "not_resubmittable": "Ce dossier ne peut pas être renvoyé en l'état."
+    }
+  },
+  "catalog": {
+    "title": "Le catalogue",
+    "searchLabel": "Rechercher",
+    "searchPlaceholder": "Un article, une boutique",
+    "categoryLabel": "Catégorie",
+    "categoryAll": "Toutes les catégories",
+    "sortLabel": "Trier par",
+    "sortNewest": "Les plus récents",
+    "sortPriceAsc": "Prix croissant",
+    "sortPriceDesc": "Prix décroissant",
+    "currencyLabel": "Devise",
+    "empty": "Aucun article ne correspond. Essayez un autre terme, ou retirez un filtre.",
+    "emptyCurrency": "Aucune boutique ne vend encore dans cette devise.",
+    "fromPrice": "à partir de {price}",
+    "previous": "Page précédente",
+    "next": "Page suivante",
+    "pageStatus": "Page {page} sur {pages}",
+    "resultCount": "{count} articles",
+    "shopProducts": "Les articles de cette boutique",
+    "contactShop": "Contacter la boutique",
+    "contactSubject": "Votre article : {title}",
+    "contactBody": "Bonjour,\n\nJe suis intéressé par « {title} » ({variant}), au prix de {price}.\n\nMerci de me dire comment procéder.",
+    "noVariantChosen": "Choisissez une déclinaison",
+    "productCategory": {
+      "APPAREL": "Vêtements",
+      "JEWELLERY": "Joaillerie",
+      "LEATHER_GOODS": "Maroquinerie"
     }
   }
 }

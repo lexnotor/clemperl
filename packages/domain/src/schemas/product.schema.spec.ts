@@ -6,7 +6,7 @@ const DESCRIPTION = "Cuir pleine fleur, coutures à la main, doublure en lin.";
 describe("productDetailsSchema", () => {
     it("accepte un produit ordinaire", () => {
         expect(
-            productDetailsSchema.safeParse({ title: "Sac cabas", description: DESCRIPTION }).success,
+            productDetailsSchema.safeParse({ title: "Sac cabas", description: DESCRIPTION, category: "LEATHER_GOODS" }).success,
         ).toBe(true);
     });
 
@@ -14,13 +14,13 @@ describe("productDetailsSchema", () => {
     // casse sur l'unicité : avec un message de base que personne ne relie à sa saisie.
     it("refuse un titre dont aucun slug ne peut sortir", () => {
         expect(
-            productDetailsSchema.safeParse({ title: "!!!", description: DESCRIPTION }).success,
+            productDetailsSchema.safeParse({ title: "!!!", description: DESCRIPTION, category: "LEATHER_GOODS" }).success,
         ).toBe(false);
     });
 
     it("refuse une description trop courte pour dire quoi que ce soit", () => {
         expect(
-            productDetailsSchema.safeParse({ title: "Sac cabas", description: "Joli" }).success,
+            productDetailsSchema.safeParse({ title: "Sac cabas", description: "Joli", category: "LEATHER_GOODS" }).success,
         ).toBe(false);
     });
 });
@@ -86,5 +86,37 @@ describe("le plafond de déclinaisons", () => {
                 { name: "Couleur", values: ["Noir", "Écru"] },
             ]).success,
         ).toBe(true);
+    });
+});
+
+describe("la catégorie du produit", () => {
+    it("accepte les trois catégories connues", () => {
+        for (const category of ["APPAREL", "JEWELLERY", "LEATHER_GOODS"]) {
+            const resultat = productDetailsSchema.safeParse({
+                title: "Sac cabas",
+                description: "Cuir pleine fleur, coutures à la main, doublure en lin.",
+                category,
+            });
+            expect(resultat.success).toBe(true);
+        }
+    });
+
+    // Un défaut silencieux rangerait toutes les bagues en vêtements. Le formulaire exige
+    // un choix, et c'est ici que ce refus se vérifie.
+    it("refuse une catégorie absente", () => {
+        const resultat = productDetailsSchema.safeParse({
+            title: "Sac cabas",
+            description: "Cuir pleine fleur, coutures à la main, doublure en lin.",
+        });
+        expect(resultat.success).toBe(false);
+    });
+
+    it("refuse une catégorie inventée", () => {
+        const resultat = productDetailsSchema.safeParse({
+            title: "Sac cabas",
+            description: "Cuir pleine fleur, coutures à la main, doublure en lin.",
+            category: "FOOD",
+        });
+        expect(resultat.success).toBe(false);
     });
 });
