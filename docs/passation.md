@@ -89,11 +89,12 @@ porte le modèle qui en découle.
 (`456dfb9` les ports paramétrables et Playwright qui lit `.env`, `d46e461` la convention de
 rédaction et le nettoyage des tirets quadratins), puis le commit de T2d.
 
-**T2d est implémentée et vérifiée**, mais sa revue par contexte neuf n'était pas rendue au
-moment du commit. Les constats qu'elle produira sont à traiter en une passe, chacun avec un
-test qui échoue d'abord, et ils feront un second commit sur la même branche. Le registre des
-décisions prises pendant l'exécution a été supprimé avec la fin du chantier ; elles sont
-dans le message du commit de T2d.
+**T2d est implémentée, revue et corrigée.** La revue par contexte neuf a rendu quatorze
+constats ; les dix qui changent ce qu'un visiteur obtient sont corrigés dans `691ac05`,
+chacun reproduit avant correction. Quatre mineurs restent consignés dans ce commit et dans
+son message : décompte et liste hors transaction, pluriel ICU absent sur le nombre de
+résultats, lien « suivante » au-delà de la millième page, et repli de casse limité à
+l'ASCII en collation C.
 
 **Rien n'est poussé vers `main`.** Aucune PR n'est ouverte pour T2d. La précédente, la #5,
 est mergée.
