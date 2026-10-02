@@ -19,8 +19,8 @@ Le standard : **une affirmation sur un comportement exige la preuve de l'avoir e
 La ligne à retenir pour les cas non listés : la preuve porte sur **l'artefact qui
 tournera**, jamais sur le texte qui l'a produit.
 
-**Pour tout ce qui concerne le distant** — pointe de branche, mergeabilité, état d'une PR,
-résultat d'un workflow, règles de branche — interroger l'API (`gh api`), jamais l'état
+**Pour tout ce qui concerne le distant** (pointe de branche, mergeabilité, état d'une PR,
+résultat d'un workflow, règles de branche), interroger l'API (`gh api`), jamais l'état
 local, et dire d'où vient la réponse. C'est le corollaire de l'interdiction de `fetch`
 (voir [Git](git.md)) : une ref `origin/*` non rafraîchie se lit exactement comme un fait.
 
@@ -40,7 +40,7 @@ arrondir un résultat partiel vers le haut.
 qu'on a cassé, signaler le reste.
 
 Corriger ses propres erreurs simplement et passer à la suite. Une conclusion fausse
-livrée avec assurance coûte plus cher qu'une conclusion jamais produite — donc le dire
+livrée avec assurance coûte plus cher qu'une conclusion jamais produite, donc le dire
 directement et corriger.
 
 ## Quand on implémente

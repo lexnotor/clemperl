@@ -1,7 +1,7 @@
 import { CURRENCY_EXPONENT, DomainError, type TCurrency } from "@clemperl/core";
 
 // `ProductVariant.priceAmount` est une colonne `Int` PostgreSQL. 2 147 483 647 vaut
-// 2,1 milliards de francs CFA, environ 3,2 M€ — au-dessus de tout article des trois
+// 2,1 milliards de francs CFA, environ 3,2 M€ : au-dessus de tout article des trois
 // métiers visés. Le plafond est écrit ICI et pas seulement dans une spec, pour qu'il
 // refuse au lieu de laisser Prisma échouer trois couches plus loin.
 const MAX_PRICE_AMOUNT = 2_147_483_647;

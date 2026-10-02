@@ -1,7 +1,7 @@
 import { StorageClient } from "@supabase/storage-js";
 
 // Construit à la demande et non à l'import : charger ce module dans un contexte sans
-// variables d'environnement — un test unitaire, une étape de build — ne doit pas échouer.
+// variables d'environnement (un test unitaire, une étape de build) ne doit pas échouer.
 //
 // Extrait ici parce que DEUX buckets l'utilisent désormais. Le dupliquer ferait deux
 // façons de lire les mêmes variables, qui divergeraient au premier ajustement.

@@ -57,7 +57,7 @@ describe("shopCurrencySchema", () => {
     });
 
     // `CURRENCY_EXPONENT` ne connaît que cinq codes. Un code absent de la table
-    // produirait un montant faux plutôt qu'une erreur — d'où le refus ici.
+    // produirait un montant faux plutôt qu'une erreur : d'où le refus ici.
     it("refuse un code hors de la plateforme", () => {
         expect(shopCurrencySchema.safeParse({ currency: "GBP" }).success).toBe(false);
     });

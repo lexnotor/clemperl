@@ -23,7 +23,7 @@ describe("client Prisma", () => {
     it("s'importe sans DATABASE_URL", async () => {
         // `next build` charge le module de chaque page pour y lire sa configuration de
         // rendu. Une construction à l'import réclamerait la variable au moment du build,
-        // là où aucune requête n'est faite — et faisait échouer le build en intégration.
+        // là où aucune requête n'est faite, et faisait échouer le build en intégration.
         delete process.env["DATABASE_URL"];
 
         await expect(import("./client.js")).resolves.toBeDefined();
@@ -51,7 +51,7 @@ describe("client Prisma", () => {
 
     it("lie les méthodes au client réel", async () => {
         // Le proxy renvoie les fonctions liées. Sans cela, `prisma.$transaction()`
-        // s'exécuterait avec le proxy pour `this` — et Prisma, qui lit ses champs
+        // s'exécuterait avec le proxy pour `this`, et Prisma, qui lit ses champs
         // internes, ne les trouverait pas.
         process.env["DATABASE_URL"] = "postgresql://essai:essai@localhost:5432/essai";
         const { prisma } = await import("./client.js");

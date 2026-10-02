@@ -35,6 +35,6 @@ export const transform: Config["transform"] = {
 // Jest tourne en CommonJS et doit convertir tout module ESM qu'il charge. La liste est
 // VIDE, donc rien n'est exclu : l'écosystème de NestJS 12 et de Better Auth est
 // massivement ESM, publié tantôt en `.mjs`, tantôt en `.js` avec `"type": "module"`.
-// Tout critère plus fin — par nom de paquet ou par extension — se fait déborder par la
+// Tout critère plus fin (par nom de paquet ou par extension) se fait déborder par la
 // dépendance transitive suivante.
 export const transformIgnorePatterns: string[] = [];

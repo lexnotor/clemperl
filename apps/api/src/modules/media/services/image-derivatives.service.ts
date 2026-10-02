@@ -23,7 +23,7 @@ const MAX_INPUT_PIXELS = 50_000_000;
 
 // Les orientations 5 à 8 comportent un QUART DE TOUR : la photo est rangée couchée et
 // l'appareil note qu'il faut la redresser. Les dimensions lues sur l'en-tête décrivent
-// alors l'image rangée, pas celle qu'on servira — et un téléphone tenu en portrait
+// alors l'image rangée, pas celle qu'on servira, et un téléphone tenu en portrait
 // produit exactement cela, ce qui en fait le cas majoritaire et non le cas limite.
 //
 // Pure, donc les huit valeurs se vérifient sans fabriquer huit fichiers. Une valeur hors
@@ -83,7 +83,7 @@ export class ImageDerivativesService {
             throw new Error(refus);
         }
 
-        // Après `rejectionFor`, les deux sont des nombres non nuls — mais TypeScript ne
+        // Après `rejectionFor`, les deux sont des nombres non nuls, mais TypeScript ne
         // le déduit pas d'un prédicat qui rend une chaîne. L'affirmer ici est plus
         // honnête qu'un repli qui masquerait un cas déjà traité.
         const width = brut.width as number;
@@ -92,7 +92,7 @@ export class ImageDerivativesService {
         // SÉQUENTIEL, et non `Promise.all`. Chaque chaîne sharp décode l'original en
         // entier : trois en parallèle, c'est trois décodages simultanés, et la concurrence
         // du processeur étant de 2, six. À la limite de 50 Mpx, un décodage RGB pèse
-        // environ 150 Mo — donc près d'un gigaoctet, plus les tampons de libvips.
+        // environ 150 Mo, donc près d'un gigaoctet, plus les tampons de libvips.
         //
         // C'est exactement l'OOM que la limite ci-dessus existe pour éviter, et qui
         // emporterait l'API avec le worker. L'encodage WebP coûte un peu de temps de plus ;

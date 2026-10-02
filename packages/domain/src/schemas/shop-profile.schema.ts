@@ -1,7 +1,7 @@
 import { E_CURRENCY, E_VENDOR_CATEGORY } from "@clemperl/db/enums";
 import { z } from "zod";
 
-// Les champs COMMERCIAUX d'une boutique — ceux qu'un vendeur corrige lui-même. Partagés
+// Les champs COMMERCIAUX d'une boutique, ceux qu'un vendeur corrige lui-même. Partagés
 // par le dossier de candidature et par la fiche boutique : une seule définition, donc
 // aucune divergence possible entre ce qui est déclaré au dépôt et ce qui est corrigé
 // ensuite.

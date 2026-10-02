@@ -4,8 +4,8 @@ import { URL_ADMIN, URL_STOREFRONT, URL_VENDOR } from "../playwright.config";
 // Visite chaque route une fois avant la suite.
 //
 // Sans effet contre la pile de production (`pnpm e2e:up`), qui ne compile rien. Utile
-// contre la pile de développement, où Next compile au PREMIER accès — jusqu'à une
-// vingtaine de secondes — et où des tests sains dépassent alors leur délai.
+// contre la pile de développement, où Next compile au PREMIER accès : jusqu'à une
+// vingtaine de secondes, et où des tests sains dépassent alors leur délai.
 const ROUTES = [
     `${URL_STOREFRONT}/`,
     `${URL_STOREFRONT}/en`,

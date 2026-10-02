@@ -45,7 +45,7 @@ export default function SignInPage(): JSX.Element {
         // contrainte à un chemin interne : une URL absolue permettrait à un lien forgé de
         // rediriger vers un site tiers après une connexion réussie.
         // La destination est contrainte à la MÊME ORIGINE, et cela se vérifie en la
-        // résolvant — jamais en inspectant ses premiers caractères. Le navigateur traite
+        // résolvant : jamais en inspectant ses premiers caractères. Le navigateur traite
         // la barre inverse comme un séparateur d'autorité : `/\\ailleurs.test` ressemble à
         // un chemin interne et mène ailleurs, au moment précis où l'utilisateur vient
         // d'accorder sa confiance.

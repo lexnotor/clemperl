@@ -1,6 +1,6 @@
 # ClemPerl
 
-Marketplace multi-vendeurs de fournitures diverses — habillement, joaillerie,
+Marketplace multi-vendeurs de fournitures diverses : habillement, joaillerie,
 maroquinerie. Monorepo Turborepo : Next.js, NestJS, Prisma, PostgreSQL, Redis,
 Supabase Storage (médias uniquement).
 
@@ -13,7 +13,7 @@ traduction. Les messages de commit, les descriptions de PR, les noms de branches
 `README.md` sont en anglais.
 
 Autrement dit : ce qu'une machine lit est en anglais, ce qu'un humain lit est en
-français — sauf dans Git, où la langue de travail commune l'emporte.
+français, sauf dans Git, où la langue de travail commune l'emporte.
 
 Ce fichier est **ce qui est vrai dans ce dépôt**. Il va par paire avec
 `docs/conventions/`, qui est **comment le travail doit être fait**. Là où ils se
@@ -37,6 +37,7 @@ commentaire de revue.
 | Lever une erreur, ou formater ce que le client reçoit                | [Erreurs localisées](docs/conventions/erreurs.md)                              |
 | Lire la locale, l'utilisateur ou l'identifiant de requête loin du point d'entrée | [Contexte de requête](docs/conventions/contexte-requete.md)          |
 | Expliquer un mécanisme, ici ou dans un document                      | [Explanations](docs/conventions/explanations.md)                               |
+| Écrire de la prose : doc, commentaire, message de commit, corps de PR | [Rédaction](docs/conventions/redaction.md)                                     |
 | Décider combien vérifier avant de livrer                             | [Ce qui casse si on se trompe](docs/ce-qui-casse.md)                           |
 | Du code qui paraît bizarre et qu'on s'apprête à « corriger », ou un symptôme qu'on ne s'explique pas | [Pièges déjà payés](docs/pieges.md)             |
 | Monter le monorepo, un Dockerfile, le compose, Prisma, l'i18n, la CI  | [Design T0](docs/superpowers/specs/2026-09-17-t0-fondations-monorepo-design.md) |
@@ -51,6 +52,6 @@ composition est un changement d'infrastructure **et** un changement de release.
 
 Pour les documents longs : lire la section dont on a besoin, pas le fichier.
 
-**Chaque document déclare sa portée en tête** — tout le dépôt, `apps/api`, les fronts
+**Chaque document déclare sa portée en tête**, que ce soit tout le dépôt, `apps/api`, les fronts
 Next, ou un package. Une règle écrite pour le backend ne s'applique pas au frontend du
 seul fait qu'elle est dans `docs/conventions/`.

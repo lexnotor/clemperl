@@ -42,7 +42,7 @@ test("un vendeur dépose une photo, attend son traitement, puis publie", async (
     await page.getByLabel("Ajouter des photos").setInputFiles("e2e/fixtures/product.jpg");
 
     // Le traitement est asynchrone et la page se rafraîchit d'elle-même. On attend que
-    // la vignette EXISTE plutôt qu'un délai arbitraire — un délai fixe serait vert sur
+    // la vignette EXISTE plutôt qu'un délai arbitraire : un délai fixe serait vert sur
     // une machine rapide et rouge en intégration continue.
     //
     // `data-testid` et non `getByRole("img")` : ce rôle attrape aussi toute icône SVG de
@@ -54,7 +54,7 @@ test("un vendeur dépose une photo, attend son traitement, puis publie", async (
 
     // Une fiche EN LIGNE garde au moins une photo : la publication ne contrôle les images
     // qu'une fois, et sans ce refus le vendeur laisserait une fiche publiée sans aucune
-    // image — la garantie même sur laquelle T2d s'appuie. On refuse plutôt que de
+    // image : la garantie même sur laquelle T2d s'appuie. On refuse plutôt que de
     // dépublier dans son dos, et on lui dit quoi faire.
     await page.getByRole("button", { name: "Supprimer" }).click();
     await expect(page.locator("main p[role='alert']")).toContainText("Dépubliez d'abord");
@@ -84,8 +84,8 @@ test("une image illisible est signalée, pas escamotée, et bloque la publicatio
     await page.waitForURL(/\/products\/[^/]+$/);
 
     // Un fichier qui PRÉTEND être une image : extension `.jpg`, donc type `image/jpeg`
-    // annoncé par le navigateur. Il franchit le contrôle de l'action — qui ne peut que
-    // croire ce que le navigateur déclare — et n'est démasqué que par le worker, en le
+    // annoncé par le navigateur. Il franchit le contrôle de l'action, qui ne peut que
+    // croire ce que le navigateur déclare, et n'est démasqué que par le worker, en le
     // décodant. C'est le seul chemin qui produit un `FAILED`.
     //
     // Un `.txt` serait refusé plus tôt, par l'action, et ne prouverait pas ce cas-ci.
@@ -95,7 +95,7 @@ test("une image illisible est signalée, pas escamotée, et bloque la publicatio
         timeout: 60_000,
     });
 
-    // Critère 5 : elle reste visible, avec sa raison — mais SANS « Réessayer ». Le worker
+    // Critère 5 : elle reste visible, avec sa raison, mais SANS « Réessayer ». Le worker
     // a supprimé l'original en la refusant : relancer retrouverait un objet absent et
     // échouerait pour une autre raison. Le libellé dit à la place quoi faire, et
     // « Supprimer » est à portée de clic.

@@ -8,7 +8,7 @@ export interface IRedisConnection {
 }
 
 // L'URL est lue ENTIÈREMENT. N'en garder que l'hôte et le port marche en développement,
-// où Redis est nu — et échoue en production, où un Redis géré demande un mot de passe et
+// où Redis est nu, et échoue en production, où un Redis géré demande un mot de passe et
 // du TLS. La panne arrive alors au démarrage du premier déploiement, loin du changement
 // qui l'a causée, et rien dans l'URL de développement ne l'annonçait.
 //

@@ -17,7 +17,7 @@ que nous construisons nous-mêmes, et un fichier de composition par environnemen
 dans un template versionné : `pnpm docker:up` suffit, et l'intégration continue démarre
 la stack sans aucune étape manuelle.
 
-Nginx Proxy Manager est prévu pour la **production**, où ses atouts comptent — interface
+Nginx Proxy Manager est prévu pour la **production**, où ses atouts comptent : interface
 de gestion, Let's Encrypt automatique, ajout d'un domaine sans redéployer. Il ne convient
 pas au développement : sa configuration vit dans une base SQLite hors du dépôt, qu'il
 faudrait recréer à la main sur chaque machine et que la CI ne pourrait pas reproduire.
@@ -33,7 +33,7 @@ demanderait de déplacer un service en production.
 
 ## Commandes
 
-Elles se lancent depuis la **racine du dépôt**, jamais depuis ce dossier — le contexte de
+Elles se lancent depuis la **racine du dépôt**, jamais depuis ce dossier : le contexte de
 build est la racine, et le fichier d'environnement s'y trouve aussi.
 
     pnpm docker:up      # construit et démarre la stack
@@ -62,15 +62,15 @@ n'a pas à porter la complexité qui n'a de raison d'être qu'en production.
 Les cookies de session ne sont pas isolés par port : une session ouverte sur 3000 vaut
 sur 3001 et 3002 sans autre réglage. C'est ce qui rend le proxy inutile ici.
 
-Pour joindre la stack depuis un autre appareil du réseau — un téléphone, pour vérifier
-la réactivité de l'interface — remplacer `localhost` par la valeur de `DEV_HOST`, qui
+Pour joindre la stack depuis un autre appareil du réseau (un téléphone, pour vérifier
+la réactivité de l'interface), remplacer `localhost` par la valeur de `DEV_HOST`, qui
 porte l'adresse locale de la machine.
 
 ## Stockage des pièces
 
 Le service `storage` fait tourner **`supabase/storage-api`**, la même implémentation que
-Supabase en production. Le développement exerce donc le vrai chemin de code — même SDK,
-mêmes routes, mêmes URL signées — et seul le serveur en face change. Un adapter
+Supabase en production. Le développement exerce donc le vrai chemin de code (même SDK,
+mêmes routes, mêmes URL signées), et seul le serveur en face change. Un adapter
 « fichiers sur volume » écrit à la main n'aurait pas donné cette garantie.
 
 **La CLI Supabase n'est pas une dépendance de ce dépôt.** Elle lève une dizaine de
@@ -90,7 +90,7 @@ Les objets sont des fichiers ordinaires dans le volume `clemperl_dev_storage_dat
 
 Il n'existe pas de « clé de service » à part : c'est un JWT `HS256` portant
 `role: service_role`, signé par `STORAGE_JWT_SECRET`. Celui de `.env.example` est une
-**constante du dépôt** — `iat` et `exp` fixes — pour valoir à l'identique sur toute
+**constante du dépôt** (`iat` et `exp` fixes) pour valoir à l'identique sur toute
 machine. Il n'a aucune valeur de secret : il ne donne accès qu'à une stack locale.
 
 Pour en fabriquer un autre, par exemple après avoir changé le secret :
@@ -131,7 +131,7 @@ l'arborescence des dépendances a changé.
 
 Le fournisseur n'est actif que si `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET` sont
 renseignés, et le bouton n'apparaît que si `NEXT_PUBLIC_GOOGLE_ACTIF` vaut `1`. Sans
-eux, le parcours par mot de passe reste entier — l'absence d'identifiants ne bloque
+eux, le parcours par mot de passe reste entier : l'absence d'identifiants ne bloque
 personne.
 
 Dans la console Google Cloud, les URL de redirection autorisées doivent inclure, pour
@@ -141,6 +141,6 @@ chaque front :
     http://localhost:3001/api/auth/callback/google
     http://localhost:3002/api/auth/callback/google
 
-Google refuse le HTTP en clair pour ses redirections, sauf sur `localhost` — que le
+Google refuse le HTTP en clair pour ses redirections, sauf sur `localhost`, que le
 développement joint justement en direct. Un appareil externe, lui, arrive par `DEV_HOST`
 et ne peut donc pas emprunter le parcours Google : le mot de passe reste le sien.

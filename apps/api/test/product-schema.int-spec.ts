@@ -90,7 +90,7 @@ describe("contraintes du catalogue", () => {
     });
 
     // Deux vendeurs ont le droit de vendre chacun leur « sac-cabas ». L'unicité du slug
-    // est par boutique, jamais globale — sinon le premier arrivé confisquerait le nom.
+    // est par boutique, jamais globale : sinon le premier arrivé confisquerait le nom.
     it("autorise le même slug dans deux boutiques", async () => {
         const first = await createShopWithProduct();
         const second = await createShopWithProduct();

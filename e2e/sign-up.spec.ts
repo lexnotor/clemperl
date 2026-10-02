@@ -16,7 +16,7 @@ async function signUp(page: Page, address: string): Promise<void> {
     await expect(page.getByRole("heading")).toHaveText("Vérifiez votre adresse");
 }
 
-// Le message d'erreur du formulaire porte `role="alert"` — mais l'annonceur de route de
+// Le message d'erreur du formulaire porte `role="alert"`, mais l'annonceur de route de
 // Next aussi, sur toute page App Router. Sans restriction à `main`, le sélecteur en
 // trouve deux et Playwright refuse de choisir.
 function formError(page: Page): Locator {
@@ -25,13 +25,13 @@ function formError(page: Page): Locator {
 
 // La boutique n'affiche pas le compte connecté : seuls le vendeur et l'administration
 // le font. La preuve qu'une session est bien ouverte passe donc par ce que le serveur
-// en dit, interrogé avec les cookies du navigateur — pas par un pixel à l'écran.
+// en dit, interrogé avec les cookies du navigateur : pas par un pixel à l'écran.
 async function waitForOpenSession(page: Page, address: string): Promise<void> {
     await page.waitForURL(`${URL_STOREFRONT}/`);
     // Attendre l'URL ne suffit pas, ni même l'état `load` : la connexion navigue par
     // `window.location.href`, et une SECONDE navigation vers la même adresse suit.
     // Repartir pendant celle-là l'avorte, et Chromium accuse la page d'arrivée.
-    // Attendre un élément RENDU prouve que le document est posé — et dit au passage
+    // Attendre un élément RENDU prouve que le document est posé, et dit au passage
     // quelque chose de vrai sur la page, ce que l'URL seule ne fait pas.
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("ClemPerl");
     const response = await page.request.get(`${URL_STOREFRONT}/api/auth/get-session`);
@@ -73,7 +73,7 @@ test("après vérification, la connexion aboutit", async ({ page, request }) => 
     await signIn(page, address, PASSWORD);
 
     // Critère 3 : la boutique reconnaît la session côté serveur. Vérifier l'absence
-    // d'erreur ne suffirait pas — un formulaire muet passerait aussi.
+    // d'erreur ne suffirait pas : un formulaire muet passerait aussi.
     await waitForOpenSession(page, address);
 });
 

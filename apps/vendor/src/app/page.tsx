@@ -9,7 +9,7 @@ import type { JSX } from "react";
 // déconnecter continue d'y voir son adresse.
 export const dynamic = "force-dynamic";
 
-// Elle n'est PAS gardée, et c'est délibéré — exactement comme l'accueil de
+// Elle n'est PAS gardée, et c'est délibéré : exactement comme l'accueil de
 // l'administration : elle sert à constater qu'une session ouverte sur la boutique vaut
 // ici, ce que `e2e/session-sharing.spec.ts` vérifie sur les trois fronts. L'espace
 // vendeur lui-même vit sous `/shop`, derrière la garde.

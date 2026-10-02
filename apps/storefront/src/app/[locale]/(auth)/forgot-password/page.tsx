@@ -14,7 +14,7 @@ export default function ForgotPasswordPage(): JSX.Element {
         const form = new FormData(event.currentTarget);
 
         // La route exposée est `request-password-reset` ; `forgetPassword` renvoie
-        // 404 sur cette version — vérifié en interrogeant le gestionnaire.
+        // 404 sur cette version : vérifié en interrogeant le gestionnaire.
         await authClient.requestPasswordReset({
             email: String(form.get("email")),
             redirectTo: "/reset-password",

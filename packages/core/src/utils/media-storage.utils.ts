@@ -14,7 +14,7 @@ function mediaBucket(): string {
 
 // Le client lève pour TOUT : objet absent, mais aussi 5xx, expiration et coupure réseau.
 // Confondre les deux condamne une image pour une panne de quelques secondes, alors que son
-// original est intact — et l'appelant, croyant l'objet perdu, ne retente jamais.
+// original est intact, et l'appelant, croyant l'objet perdu, ne retente jamais.
 //
 // La forme relevée contre `supabase/storage-api` le 2026-09-24 est déroutante : `status`
 // vaut 400 et c'est `statusCode` qui porte la chaîne « 404 ». On lit donc `statusCode`, et
@@ -51,7 +51,7 @@ export async function uploadMedia(
     }
 }
 
-// Supprime un dossier entier — l'original ET ses déclinaisons. Elle n'échoue jamais
+// Supprime un dossier entier : l'original ET ses déclinaisons. Elle n'échoue jamais
 // bruyamment : un objet orphelin coûte de l'espace, et faire échouer la suppression
 // d'une ligne parce qu'un ménage a raté serait une régression.
 export async function deleteMediaPrefix(prefix: string): Promise<void> {

@@ -16,8 +16,8 @@ export const IMAGE_FAILURE = {
 export type TImageFailure = (typeof IMAGE_FAILURE)[keyof typeof IMAGE_FAILURE];
 
 // Relancer n'a de sens que si l'original est ENCORE LÀ. Le worker le supprime dès qu'il
-// refuse une image — un fichier dont on sait qu'il ne servira jamais n'a pas à occuper
-// d'espace — donc pour trois raisons sur cinq, « Réessayer » promet une issue qui
+// refuse une image : un fichier dont on sait qu'il ne servira jamais n'a pas à occuper
+// d'espace, donc pour trois raisons sur cinq, « Réessayer » promet une issue qui
 // n'existe plus : le job retrouverait un objet absent et échouerait autrement.
 //
 // Reste le traitement tombé : stockage injoignable, base coupée, tentatives épuisées.

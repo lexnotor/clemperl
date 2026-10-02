@@ -11,7 +11,7 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 // Ce seed ne crée AUCUN utilisateur. Le premier administrateur naît par la page
 // d'amorçage de `apps/admin`, qui n'existe que tant qu'aucun compte ne porte le rôle
 // `ADMIN`. Semer un compte reviendrait soit à écrire un mot de passe dans le dépôt,
-// soit à produire une ligne sans identifiants — donc un compte avec lequel personne ne
+// soit à produire une ligne sans identifiants, donc un compte avec lequel personne ne
 // peut se connecter.
 //
 // Le script reste en place : il accueillera les données de référence du catalogue.

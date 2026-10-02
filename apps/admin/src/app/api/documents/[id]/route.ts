@@ -3,8 +3,8 @@ import { prisma } from "@clemperl/db";
 import { notFound } from "next/navigation";
 import { requireAdministrator } from "../../../../lib/session";
 
-// Un route handler plutôt qu'une URL signée : une URL signée est un PORTEUR — qui l'a,
-// l'ouvre — et elle traîne dans l'historique, le presse-papier et les en-têtes
+// Un route handler plutôt qu'une URL signée : une URL signée est un PORTEUR, qui l'a,
+// l'ouvre, et elle traîne dans l'historique, le presse-papier et les en-têtes
 // `Referer`. Ici l'autorisation est réévaluée à chaque requête, et une révocation prend
 // effet immédiatement. Le fichier transite par Next, ce qui est sans objet pour trois
 // justificatifs lus par une poignée d'administrateurs.
@@ -27,7 +27,7 @@ export async function GET(
         headers: {
             "Content-Type": document.mimeType,
             // `inline` : l'administrateur consulte, il ne collectionne pas. Le nom
-            // d'origine est assaini — il vient de l'utilisateur et finit dans un en-tête.
+            // d'origine est assaini : il vient de l'utilisateur et finit dans un en-tête.
             "Content-Disposition": `inline; filename="${document.originalName.replace(/[^\w.-]/g, "_")}"`,
             // Le type vient de ce que le client a DÉCLARÉ au dépôt. Interdire au
             // navigateur de le redeviner ferme l'écart entre ce qui est annoncé et ce

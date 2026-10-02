@@ -74,12 +74,13 @@
     "documents": "Pièces justificatives",
     "journal": "Décisions",
     "approved": "Accepté",
-    "rejected": "Refusé"
+    "rejected": "Refusé",
+    "notProvided": "Non renseigné"
   },
   "decision": {
     "title": "Décider",
     "reason": "Motif (obligatoire pour un refus)",
-    "noReason": "—",
+    "noReason": "Aucun motif",
     "comment": "Commentaire, lu par le candidat",
     "approve": "Accepter",
     "reject": "Refuser"

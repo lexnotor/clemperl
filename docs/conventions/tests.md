@@ -2,7 +2,7 @@
 
 ## Pyramide de tests
 
-**Portée : `apps/api`.** Les quatre couches supposent supertest, une base réelle et un client externe — rien de tout cela n'existe sur les fronts Next.
+**Portée : `apps/api`.** Les quatre couches supposent supertest, une base réelle et un client externe : rien de tout cela n'existe sur les fronts Next.
 
 Une API backend a quatre couches. Le « E2E » ici est **HTTP**, pas navigateur.
 
@@ -32,8 +32,8 @@ Une API backend a quatre couches. Le « E2E » ici est **HTTP**, pas navigateur.
 Les quatre configurations sont à la racine de l'application. **Aucune clé `jest` dans
 `package.json`**, aucun fichier de config ailleurs : un seul endroit où chercher.
 
-Les suffixes s'excluent mutuellement par construction — `*.spec.ts` ne peut pas attraper
-`*.int-spec.ts` — donc rien n'est exécuté deux fois et chaque couche a son compte de
+Les suffixes s'excluent mutuellement par construction : `*.spec.ts` ne peut pas attraper
+`*.int-spec.ts`, donc rien n'est exécuté deux fois et chaque couche a son compte de
 tests exact.
 
 ### Pourquoi quatre configurations et pas une
@@ -62,15 +62,15 @@ Les tests unitaires, d'intégration et de contrat sont **colocalisés** :
 teste aucun fichier en particulier.
 
 **Un sous-dossier `__tests__` a été délibérément écarté.** La colocation garde le test
-solidaire de son fichier — impossible de l'orpheliner lors d'un déplacement ou d'un
-refactor — et rend visible d'un coup d'œil si un fichier est couvert. Un dossier de tests
+solidaire de son fichier : impossible de l'orpheliner lors d'un déplacement ou d'un
+refactor, et rend visible d'un coup d'œil si un fichier est couvert. Un dossier de tests
 séparé répond « peut-être, va voir » à cette question.
 
 L'encombrement visuel se règle dans l'éditeur, pas dans l'arborescence : le **file
 nesting** replie automatiquement le `.spec.ts` sous son `.ts`.
 
 ```jsonc
-// .vscode/settings.json — versionné
+// .vscode/settings.json, versionné
 "explorer.fileNesting.enabled": true,
 "explorer.fileNesting.patterns": {
     "*.ts": "${capture}.spec.ts, ${capture}.int-spec.ts, ${capture}.contract-spec.ts"
@@ -90,7 +90,7 @@ moins un test** dans le même commit ou la même PR.
 
 | Couche                            | Quand l'ajouter                                                    |
 | --------------------------------- | ------------------------------------------------------------------ |
-| **Unit** (`*.spec.ts`)            | **Toujours** — pour toute logique pure (service, mapper, util, parser) |
+| **Unit** (`*.spec.ts`)            | **Toujours**, pour toute logique pure (service, mapper, util, parser) |
 | **Integration** (`*.int-spec.ts`) | Dès qu'une requête DB, une transaction ou une contrainte de l'ORM est impliquée |
 | **Contract** (`*.contract-spec.ts`) | Dès qu'on parle à un service externe                             |
 | **E2E** (`*.e2e-spec.ts`)         | Dès qu'un nouveau endpoint ou un parcours HTTP critique est ajouté |
@@ -111,14 +111,14 @@ dans son propre dossier : deux outils, deux emplacements, aucun recouvrement.
 **Portée : tout le dépôt**, avec une configuration par exécuteur.
 
 Sur une base existante peu couverte, un seuil global ambitieux est ignoré dès le premier
-jour : soit il bloque tout le monde, soit on le désactive. On fait l'inverse — on
+jour : soit il bloque tout le monde, soit on le désactive. On fait l'inverse : on
 **interdit la régression** et on **monte le plancher** au fil des PR.
 
 ### Le principe
 
 - Le seuil global initial vaut la couverture **actuelle**, quelle qu'elle soit.
 - Chaque PR doit **maintenir ou augmenter** ce plancher.
-- Quand la couverture a monté durablement, on relève le chiffre dans la configuration —
+- Quand la couverture a monté durablement, on relève le chiffre dans la configuration :
   c'est un cliquet : il ne redescend jamais.
 - Sur les zones à risque, on ne négocie pas : seuil élevé **par fichier**, dès que le
   fichier est couvert.
@@ -146,7 +146,7 @@ une exigence. Mélanger les deux dans une seule moyenne détruit l'information.
 
 ### Deux choses à savoir avant de l'adopter
 
-**Exclure ce qui n'est pas du code à tester** de `collectCoverageFrom` — modules de
+**Exclure ce qui n'est pas du code à tester** de `collectCoverageFrom` : modules de
 câblage, barrels, entités, point d'entrée, CLI. Les inclure fait chuter le pourcentage
 sans qu'aucun test puisse le relever, et un chiffre qu'on ne peut pas faire bouger cesse
 d'être un objectif.
@@ -154,7 +154,7 @@ d'être un objectif.
 **Une entrée par fichier qui ne correspond à rien fait échouer le run** :
 `Jest: Coverage data for <chemin> was not found`. Donc renommer ou supprimer un fichier
 listé casse la CI tant que l'entrée n'est pas mise à jour. C'est un garde-fou plus qu'une
-gêne — ça empêche une exigence de disparaître en silence avec un renommage — mais il faut
+gêne, ça empêche une exigence de disparaître en silence avec un renommage, mais il faut
 le savoir avant de le découvrir sur une PR pressée.
 
 *Preuve de ce dernier point : lu dans la source de Jest installée (`@jest/reporters`, le
@@ -167,7 +167,7 @@ logique, pas sur l'exécution d'une suite complète.*
 
 ### Pourquoi une base réelle et pas un moteur en mémoire
 
-L'application repose sur des contraintes propres au moteur — types énumérés PostgreSQL,
+L'application repose sur des contraintes propres au moteur : types énumérés PostgreSQL,
 contraintes d'unicité partielles, index, comportement transactionnel. Un substitut en
 mémoire ne les reproduit pas. Tester un repository contre autre chose que le vrai moteur
 teste le substitut. Donc : un conteneur jetable, démarré par le run.
@@ -185,7 +185,7 @@ globalTeardown: "<rootDir>/test/global-teardown-integration.ts",
 
 Un helper partagé, paramétré par couche, expose ce dont les tests ont besoin :
 
-- `startTestDb()` / `stopTestDb()` / `truncateAll()` — le cycle de vie usuel ;
+- `startTestDb()` / `stopTestDb()` / `truncateAll()`, le cycle de vie usuel ;
 - une base isolée avec schéma créé, pour le cas normal ;
 - une base isolée vide, pour les rares tests qui jouent les migrations à froid.
 
@@ -193,7 +193,7 @@ Un helper partagé, paramétré par couche, expose ce dont les tests ont besoin 
 > Au passage d'un conteneur par fichier à un conteneur par run : 56 conteneurs → 1,
 > durée du run ~400 s → ~130-150 s, à nombre de tests identique. Et surtout, une
 > instabilité a disparu : les 56 démarrages à froid provoquaient des échecs
-> intermittents — une suite apparaissait avec ses tests listés deux fois (le harnais
+> intermittents : une suite apparaissait avec ses tests listés deux fois (le harnais
 > réessayait), était rapportée en échec, puis passait relancée seule.
 >
 > Ces valeurs donnent un ordre de grandeur, elles ne décrivent pas ce dépôt.
@@ -204,7 +204,7 @@ Un helper partagé, paramétré par couche, expose ce dont les tests ont besoin 
 
 1. **Il ne doit exister que deux endroits qui démarrent un conteneur** : les deux
    `globalSetup`. Un `new PostgreSqlContainer` dans un fichier de test est une régression,
-   pas une commodité locale — utiliser les helpers.
+   pas une commodité locale : utiliser les helpers.
 2. **Ne jamais lancer deux suites lourdes en même temps** sur la même machine (ni deux
    sessions d'agent en parallèle). Elles s'affament mutuellement, et ça ne ressemble pas
    à un timeout propre : ce sont des échecs fantômes dans des suites sans rapport avec le
@@ -229,31 +229,31 @@ Deux conditions, et une seule ligne de configuration :
    détecte qu'il s'exécute dans un conteneur et route par la passerelle Docker.
 
 Mesuré le 2026-09-18 depuis le conteneur `api` : `getConnectionUri()` renvoie
-`postgres://test:test@172.17.0.1:32780/test`, et `getHost()` vaut `172.17.0.1` — la
+`postgres://test:test@172.17.0.1:32780/test`, et `getHost()` vaut `172.17.0.1`, la
 passerelle, jamais `localhost`. **Ne pas coder d'hôte en dur** : le lire du conteneur,
 qui sait où il tourne.
 
 Deux détails qui font perdre du temps si on les ignore : l'URI commence par
-`postgres://` et non `postgresql://` — les deux sont équivalents pour Prisma, mais une
+`postgres://` et non `postgresql://` : les deux sont équivalents pour Prisma, mais une
 assertion stricte échoue. Et le conteneur `api` n'a pas besoin du mode privilégié : le
 réclamer serait un contournement qui masque la cause et ouvre l'hôte.
 
 ### Cycle de vie d'un fichier
 
 - `beforeAll` : base isolée + source de données (une fois par fichier).
-- `afterEach` : `TRUNCATE ... RESTART IDENTITY CASCADE` sur toutes les tables — rapide, et
+- `afterEach` : `TRUNCATE ... RESTART IDENTITY CASCADE` sur toutes les tables, rapide, et
   déterministe contrairement à un nettoyage sélectif qu'on oublie de mettre à jour.
 - `afterAll` : fermeture de la source de données.
 
 ## Ce que ça donne dans ClemPerl
 
-`apps/api` utilise **Jest** : tout ce qui précède s'applique à la lettre, aux scripts près
-— `pnpm run test:integration` plutôt que `npm run test:integration`.
+`apps/api` utilise **Jest** : tout ce qui précède s'applique à la lettre, aux scripts près :
+`pnpm run test:integration` plutôt que `npm run test:integration`.
 
 Les trois fronts Next et les packages utilisent **Vitest**, où aucune des quatre couches
 ci-dessus n'a de sens : pas de conteneur de base, pas de client externe, pas de supertest.
 Le cliquet de couverture s'y applique en revanche à l'identique, avec une configuration de
-forme différente — les seuils sous `test.coverage.thresholds` dans `vitest.config.ts`,
+forme différente : les seuils sous `test.coverage.thresholds` dans `vitest.config.ts`,
 l'exclusion sous `test.coverage.exclude` plutôt que `collectCoverageFrom`.
 
 Le garde-fou de l'entrée de seuil orpheline est un comportement propre à Jest.
@@ -268,5 +268,5 @@ la configuration fautive.
 **Sous Vitest, `coverage.include` est obligatoire.** Sans lui, le fournisseur v8 ne
 mesure que les fichiers effectivement chargés par un test : un fichier source jamais
 importé n'entre pas dans le rapport, et le plancher ne le voit pas. C'est précisément
-le cas d'un nouveau fichier livré sans test — le seul que le cliquet doit attraper.
+le cas d'un nouveau fichier livré sans test, le seul que le cliquet doit attraper.
 Mesuré sur `@clemperl/core` : 100 % sans `include`, 46 % avec.

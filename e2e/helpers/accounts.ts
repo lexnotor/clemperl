@@ -7,7 +7,7 @@ export const PASSWORD = "motdepasse123";
 // tests partagent une seule boîte Mailpit, et « le dernier » désigne un autre message
 // dès que deux tests s'exécutent en parallèle.
 // Attend le lien ATTENDU plutôt que « le dernier reçu ». Un même compte reçoit
-// plusieurs courriels — vérification, puis réinitialisation — et une lecture unique
+// plusieurs courriels : vérification, puis réinitialisation, et une lecture unique
 // attrape le précédent tant que le nouveau n'est pas indexé.
 export async function linkFor(
     request: APIRequestContext,
@@ -49,7 +49,7 @@ export async function linkFor(
 // Attend qu'un courriel PORTANT ce fragment arrive, au lieu de lire le dernier message
 // à l'instant de l'appel. Le courriel part hors transaction : il suit l'écriture de
 // quelques dizaines de millisecondes, et une lecture unique attrape parfois le message
-// précédent — celui de vérification d'adresse.
+// précédent, celui de vérification d'adresse.
 export async function expectSubjectFor(
     request: APIRequestContext,
     address: string,
@@ -124,7 +124,7 @@ export async function signInAsAdministrator(page: Page): Promise<void> {
 
 // Mène un compte neuf jusqu'à une boutique validée, et rend son nom.
 //
-// Le parcours lui-même — dépôt, examen, décision — est le SUJET de
+// Le parcours lui-même (dépôt, examen, décision) est le SUJET de
 // `vendor-shop.spec.ts`, qui l'écrit en entier avec ses assertions. Ici il n'est qu'un
 // préalable : les suites qui commencent après la validation l'appellent plutôt que de
 // recopier une dizaine d'écrans dont elles ne vérifient rien.

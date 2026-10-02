@@ -26,7 +26,7 @@ function isUniqueViolation(error: unknown): boolean {
 // TOUTE fonction porte `vendorId` et filtre par la boutique du produit. `imageId` et
 // `productId` viennent de l'URL ou du formulaire, donc du client : sans ce filtre, un
 // vendeur manipule les images d'un autre en changeant un identifiant. La garantie est
-// dans la SIGNATURE — une vérification à l'entrée s'oublie au prochain appelant.
+// dans la SIGNATURE : une vérification à l'entrée s'oublie au prochain appelant.
 export async function listImagesForProduct(
     prisma: PrismaClient,
     input: { productId: string; vendorId: string },
@@ -145,7 +145,7 @@ export async function markImageFailed(
 //
 // La publication contrôle les photos UNE FOIS, au moment où elle est demandée. Sans la
 // garde ci-dessous, un vendeur qui supprime ensuite sa dernière photo laisse une fiche
-// publiée sans image — la garantie même sur laquelle T2d doit pouvoir s'appuyer sans rien
+// publiée sans image : la garantie même sur laquelle T2d doit pouvoir s'appuyer sans rien
 // vérifier. On REFUSE plutôt que de dépublier en silence : une fiche ne disparaît pas de
 // la boutique sans que son vendeur l'ait demandé.
 export async function deleteImage(

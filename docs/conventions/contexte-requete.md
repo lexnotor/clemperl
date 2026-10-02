@@ -54,7 +54,7 @@ ou un seeder n'a traversé aucun middleware. D'où deux accesseurs plutôt qu'un
   n'est pas appliqué, ou utilisez `runWithContext()` pour les jobs »). C'est le défaut :
   un contexte manquant là où il devrait être est un bug, pas une valeur à deviner.
 - `getLocaleOrDefault()` retombe sur la valeur par défaut sans lever. Réservé aux
-  cas où l'absence de contexte est légitime — initialiser une préférence persistée
+  cas où l'absence de contexte est légitime : initialiser une préférence persistée
   depuis un job ne doit pas échouer parce qu'il n'y a pas de requête.
 
 Choisir consciemment lequel on appelle. Le piège est d'ajouter partout la variante

@@ -1,14 +1,14 @@
 # Surcharge du compose de développement : les quatre applications passent en PRODUCTION.
 #
 # Elle existe pour la suite bout en bout. En mode développement, Next compile chaque
-# route au PREMIER accès — jusqu'à une vingtaine de secondes — ce qui rend la suite
+# route au PREMIER accès (jusqu'à une vingtaine de secondes), ce qui rend la suite
 # lente, et surtout produit des navigations qui s'avortent les unes les autres. Un
 # serveur autonome n'a rien à compiler : il répond, ou il ne répond pas.
 #
 # C'est aussi ce que la CI devrait exercer : une suite qui ne passe que contre un serveur
 # de développement ne dit rien de ce qui sera déployé.
 #
-# S'emploie EN PLUS du fichier de développement, jamais seul — il n'y a ici ni base, ni
+# S'emploie EN PLUS du fichier de développement, jamais seul : il n'y a ici ni base, ni
 # stockage, ni relais de courriels :
 #
 #     docker compose --env-file .env \
@@ -21,7 +21,7 @@
 # posée ICI et nulle part ailleurs : ces conteneurs portent un build de production mais
 # parlent à un `storage` qui vit sur le réseau Docker local, cas que la règle couvrait
 # sous `NODE_ENV=development` et plus sous celui-ci. Aucun déploiement réel ne doit la
-# porter — la clé de service y voyagerait en clair, et tous les justificatifs avec.
+# porter : la clé de service y voyagerait en clair, et tous les justificatifs avec.
 services:
   storefront:
     build:

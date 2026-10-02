@@ -34,8 +34,8 @@ export class ProductImageProcessor extends WorkerHost {
             select: { id: true, objectPath: true, product: { select: { deletedAt: true } } },
         });
 
-        // La ligne peut avoir disparu — le vendeur l'a supprimée pendant que le job
-        // attendait — ou son produit être supprimé. Dans les deux cas on s'arrête sans
+        // La ligne peut avoir disparu : le vendeur l'a supprimée pendant que le job
+        // attendait, ou son produit être supprimé. Dans les deux cas on s'arrête sans
         // écrire et sans lever : il n'y a rien à réparer, et lever déclencherait trois
         // tentatives inutiles.
         if (!image || image.product.deletedAt !== null) {
@@ -48,7 +48,7 @@ export class ProductImageProcessor extends WorkerHost {
             original = Buffer.from(await (await readMedia(image.objectPath)).arrayBuffer());
         } catch (error) {
             // Le client lève pour TOUT : objet absent, mais aussi 5xx, expiration et
-            // coupure réseau. Seule l'absence CONFIRMÉE est définitive — retenter ne
+            // coupure réseau. Seule l'absence CONFIRMÉE est définitive : retenter ne
             // fera pas apparaître un objet qui n'a jamais été déposé.
             //
             // Tout le reste est passager, et doit remonter pour que BullMQ retente. Les
@@ -104,7 +104,7 @@ export class ProductImageProcessor extends WorkerHost {
 
     // `process` lève quand le traitement tombe pour une raison qui n'est PAS l'image :
     // stockage injoignable, base coupée. BullMQ retente alors, ce qui est exactement ce
-    // qu'on veut — mais quand la dernière tentative tombe aussi, il range le job dans sa
+    // qu'on veut, mais quand la dernière tentative tombe aussi, il range le job dans sa
     // liste d'échecs et plus personne ne touche à la ligne.
     //
     // Sans ce relais, elle resterait `PENDING` POUR TOUJOURS : l'écran du vendeur
@@ -125,13 +125,13 @@ export class ProductImageProcessor extends WorkerHost {
 
         // Le `try` n'est PAS décoratif. NestJS enregistre ce relais par
         // `worker.on("failed", …)`, et BullMQ n'attend pas la promesse rendue : un rejet
-        // ici est un rejet non capturé, que Node termine par un arrêt du processus — qui
+        // ici est un rejet non capturé, que Node termine par un arrêt du processus, qui
         // emporterait l'API, logée dans le même conteneur. Et l'écriture échoue
         // précisément quand la base est tombée, c'est-à-dire dans le cas même qui vient
         // de faire échouer le job.
         try {
             // L'original n'est PAS supprimé : contrairement à une image refusée, celle-ci
-            // n'a rien de fautif, et c'est ce qui rend « Réessayer » utile ici — et là
+            // n'a rien de fautif, et c'est ce qui rend « Réessayer » utile ici, et là
             // seulement.
             await markImageFailed(prisma, {
                 imageId: job.data.imageId,

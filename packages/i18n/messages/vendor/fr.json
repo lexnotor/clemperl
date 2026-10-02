@@ -56,8 +56,8 @@
   "currency": {
     "EUR": "Euro (€)",
     "USD": "Dollar américain ($)",
-    "XOF": "Franc CFA — UEMOA (F CFA)",
-    "XAF": "Franc CFA — CEMAC (F CFA)",
+    "XOF": "Franc CFA, UEMOA (F CFA)",
+    "XAF": "Franc CFA, CEMAC (F CFA)",
     "CDF": "Franc congolais (FC)"
   },
   "products": {

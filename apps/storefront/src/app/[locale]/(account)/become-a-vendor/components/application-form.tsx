@@ -127,7 +127,7 @@ export function ApplicationForm({ initialValues }: ApplicationFormProps): JSX.El
                     <FileField
                         key={kind}
                         name={kind}
-                        label={required ? tKind(kind) : `${tKind(kind)} — ${t("optional")}`}
+                        label={required ? tKind(kind) : `${tKind(kind)}, ${t("optional")}`}
                         chooseLabel={t("chooseFile")}
                         emptyLabel={t("noFileChosen")}
                         required={required && initialValues === undefined}

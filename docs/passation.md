@@ -14,9 +14,9 @@ plan, exécution, un commit.
 
 | Tranche | Objet | État |
 | --- | --- | --- |
-| T0 | Fondations du monorepo | **Livrée** — commit `6918645` |
-| T1a | Identité et sessions | **Livrée** — commit `15e276a` |
-| T1b | Vendeurs : demande d'ouverture et validation | **Livrée** — `ef68c6c`..`c33188c` |
+| T0 | Fondations du monorepo | **Livrée**, commit `6918645` |
+| T1a | Identité et sessions | **Livrée**, commit `15e276a` |
+| T1b | Vendeurs : demande d'ouverture et validation | **Livrée**, `ef68c6c`..`c33188c` |
 | T2a | Espace vendeur et boutique | **Livrée** |
 | T2b | Produit et variantes | **Livrée** |
 | T2c | Pipeline médias (BullMQ, sharp, worker) | **Livrée** |
@@ -30,13 +30,13 @@ plan, exécution, un commit.
 
 **L'API passera en GraphQL, et ce sera sa propre tranche.** La raison n'est pas une
 préférence de style : une application mobile React Native (Expo) est prévue, donc l'API
-aura un consommateur hétérogène — ce qui n'est pas le cas aujourd'hui, où les trois
+aura un consommateur hétérogène, ce qui n'est pas le cas aujourd'hui, où les trois
 fronts Next attaquent PostgreSQL directement par leurs server actions, comme T0 l'a
 décidé.
 
 Cette tranche devra trancher une question de niveau T0 : les fronts Next cessent-ils de
 parler à la base pour passer par l'API ? Deux chemins de lecture sur les mêmes données,
-c'est exactement le risque que T0 nommait — la même règle écrite à deux endroits, qui
+c'est exactement le risque que T0 nommait : la même règle écrite à deux endroits, qui
 divergent en silence. La réponse conditionne le périmètre de la tranche, pas l'inverse.
 
 T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
@@ -52,7 +52,7 @@ Le dépôt ne suffit pas : quatre choses n'y sont pas.
 
 - `DEV_HOST` porte l'adresse locale **de la machine**, au format sslip.io
   (`10-0-10-176.sslip.io` désigne `10.0.10.176`). Elle change avec le réseau. Elle ne
-  sert qu'à joindre la stack depuis un autre appareil — un téléphone, pour vérifier la
+  sert qu'à joindre la stack depuis un autre appareil : un téléphone, pour vérifier la
   réactivité de l'interface. Le développement sur la machine elle-même passe par
   `localhost` et l'ignore.
 - `BETTER_AUTH_SECRET` peut rester la valeur d'exemple en développement. Changer de
@@ -70,19 +70,19 @@ Google le jour où on les crée.
 **Les volumes Docker sont locaux.** La base de la nouvelle machine part vide. Le service
 `migrate` du compose déploie les migrations avant que les applications démarrent, et
 celles-ci l'attendent : `pnpm docker:up` suffit. Les comptes créés sur l'ancienne machine
-ne suivent pas, et c'est sans conséquence — ce sont des comptes d'essai.
+ne suivent pas, et c'est sans conséquence, ce sont des comptes d'essai.
 
 **Un `.env` déjà présent peut être PÉRIMÉ.** Le document couvrait la machine neuve, pas
 la machine qu'on retrouve après quelques tranches. Une tranche qui ajoute une variable
 l'écrit dans `.env.example` seulement : le `.env` local, lui, ne bouge pas. Le symptôme
-est un conteneur qui sort en erreur sur un nom de variable — `PGRST_JWT_SECRET is
+est un conteneur qui sort en erreur sur un nom de variable : `PGRST_JWT_SECRET is
 undefined` pour le stockage. Comparer avant de chercher ailleurs :
 
     comm -23 <(grep -oE "^[A-Z_]+=" .env.example | sort -u) <(grep -oE "^[A-Z_]+=" .env | sort -u)
 
 **Un volume PostgreSQL peut aussi être périmé.** T1b a écrasé l'historique des migrations.
 Un volume antérieur porte les anciens types, et `migrate deploy` échoue sur
-`type "user_role" already exists` (P3018). La réponse est de supprimer le volume — il ne
+`type "user_role" already exists` (P3018). La réponse est de supprimer le volume, il ne
 contient que des comptes d'essai :
 
     pnpm docker:down && docker volume rm clemperl_dev_pg_data clemperl_dev_storage_data
@@ -96,11 +96,11 @@ l'installation.
 
 Deux bancs, et ils ne disent pas la même chose.
 
-    pnpm docker:up && pnpm test:e2e     # développement — ce que la CI exerce
+    pnpm docker:up && pnpm test:e2e     # développement, ce que la CI exerce
     pnpm e2e:up    && pnpm test:e2e     # build de production
 
 Le premier doit être **vert en entier** : c'est celui de `ci.yml`. Le second ne l'est pas
-encore — trois suites de T1a et T1b y butent sur la limitation de débit de Better Auth
+encore : trois suites de T1a et T1b y butent sur la limitation de débit de Better Auth
 (voir « Ce qui reste ouvert »). Les suites de T2a y passent.
 
 Dans les deux cas, **attendre la santé des conteneurs avant de lancer les tests** :
@@ -143,7 +143,7 @@ optionnels et ne sont jamais retirés. Personne n'a encore cherché à les exclu
 `middleware`. La migration n'est pas urgente, mais elle viendra.
 
 **`scripts/dev-certs.sh` et `docker/proxy/` ne servent plus à la stack de
-développement.** Ils datent du proxy nginx retiré pendant T1a — les applications
+développement.** Ils datent du proxy nginx retiré pendant T1a, les applications
 publient désormais chacune leur port. Le proxy est conservé pour la production, mais son
 gabarit est encore paramétré par `DEV_HOST`, qui est une variable de développement. À
 requalifier quand la production se montera.
@@ -154,7 +154,7 @@ appareil réel sur le réseau local.
 **Le premier administrateur naît par `/setup`, sans jeton.** La seule barrière est
 l'absence d'administrateur en base : la page disparaît dès qu'il en existe un. La
 fenêtre entre le déploiement et la première connexion est donc ouverte à qui connaît
-l'URL. Décision explicite, prise en connaissance du risque — la refermer consiste à
+l'URL. Décision explicite, prise en connaissance du risque : la refermer consiste à
 ouvrir l'administration **immédiatement** après le déploiement, avant toute annonce
 publique. Un jeton d'amorçage reste ajoutable sans toucher au reste.
 
@@ -164,7 +164,7 @@ donc personne ne pouvait ouvrir l'administration. Il a été retiré plutôt que
 mot de passe écrit dans le dépôt.
 
 **Le chemin Supabase hébergé n'a jamais été joué.** Le développement fait tourner
-`supabase/storage-api` en conteneur, donc le vrai client et les vraies routes — mais
+`supabase/storage-api` en conteneur, donc le vrai client et les vraies routes, mais
 aucun projet Supabase distant n'existe, et les clés de production restent à créer.
 
 **Aucun balayage des objets orphelins.** Si une transaction échoue après un
@@ -174,24 +174,24 @@ relève de T7, avec les traitements de fond.
 
 **Les informations légales ne se corrigent nulle part.** Le vendeur les voit en lecture
 et lit où écrire ; côté administration, le chemin reste la base. C'est une décision de
-T2a — un administrateur les a validées contre les pièces téléversées, et
+T2a, un administrateur les a validées contre les pièces téléversées, et
 `updateShopProfile` ne les prend pas en paramètres, elles sont absentes de sa signature.
 Ça devient un vrai manque le jour où une société change de forme juridique.
 
 **Deux onglets qui enregistrent en même temps : la dernière écriture gagne.** Aucun
-verrou optimiste. Accepté tant qu'une boutique n'a qu'un membre — rien ne crée le second
+verrou optimiste. Accepté tant qu'une boutique n'a qu'un membre : rien ne crée le second
 aujourd'hui. À rouvrir avec les invitations.
 
 **La limitation de débit de Better Auth n'est pas déclarée, et elle mord en production.**
 `/sign-up/email` accepte trois requêtes puis répond `429`. Le réglage est hérité du
-framework, qui l'active en production et la désactive en développement — donc il ne se
+framework, qui l'active en production et la désactive en développement, donc il ne se
 voit qu'en production. Mesuré le 2026-09-21 : trois `200` puis trois `429` d'affilée.
 Conséquence immédiate : `sign-up.spec.ts` et `vendor-application.spec.ts` échouent contre
 la surcharge de production, qui crée des comptes plus vite qu'aucun humain. La CI n'est
 pas concernée, elle tourne sur la stack de développement. Le corriger consiste à déclarer
 la politique dans `packages/auth/src/config/auth.config.ts` plutôt qu'à l'hériter, et à
 relever le plafond dans `docker-compose.e2e.yml`. À traiter comme une décision de
-sécurité, pas comme un correctif de test — la règle sur « mot de passe oublié » mérite
+sécurité, pas comme un correctif de test : la règle sur « mot de passe oublié » mérite
 notamment d'être choisie, pas subie.
 
 **`pnpm e2e:up` rend la main avant que la stack soit prête.** Il attend le démarrage des
@@ -202,11 +202,11 @@ produit des échecs qu'on attribue au code.
 **Le dépôt d'image passe par le serveur, et ce n'est pas le premier choix.** Le cadrage
 avait retenu un dépôt DIRECT du navigateur au stockage, par URL signée, pour que les
 octets ne traversent aucun serveur applicatif. À l'implémentation : `supabase/storage-api`
-n'expose **aucun en-tête CORS** — sa source porte `// kong should take care of cors` et la
+n'expose **aucun en-tête CORS** : sa source porte `// kong should take care of cors` et la
 ligne d'enregistrement est commentée, le préflight `OPTIONS` répondant 404. Supabase le
 fait tourner derrière Kong, qui s'en charge ; l'image seule, non.
 
-Le dépôt direct redeviendra possible le jour où un proxy se place devant le stockage —
+Le dépôt direct redeviendra possible le jour où un proxy se place devant le stockage,
 `docker/proxy/` existe et ne sert plus depuis T1a. En attendant, chaque photo traverse un
 serveur Next, ce qui est exactement ce que le dépôt direct devait éviter.
 
@@ -225,7 +225,7 @@ est un choix, écrit pour que le jour où il gêne, on sache qu'il a été vu.
 déblocage est la suppression du brouillon, et le message le dit. Accepté.
 
 **L'arithmétique monétaire attend T3, et elle passera par une bibliothèque.** Aujourd'hui
-`packages/core` porte `IMoney`, `CURRENCY_EXPONENT`, `parsePrice` et `formatPrice` — de
+`packages/core` porte `IMoney`, `CURRENCY_EXPONENT`, `parsePrice` et `formatPrice`, de
 quoi ranger un entier et l'afficher, ce que T2b demande et rien de plus. **T2b ne fait
 aucun calcul.**
 
@@ -233,20 +233,20 @@ Le calcul arrive avec le panier : additionner des lignes, appliquer une remise, 
 **répartir un total entre plusieurs boutiques sans perdre un centime**. C'est là que le
 code monétaire écrit à la main se trompe, et là qu'une bibliothèque dédiée gagne son
 droit d'entrée. `dinero.js` 2.0.2 est le candidat : ESM, sans aucune dépendance, et sa
-représentation — unité mineure entière plus `{ code, base, exponent }` — est exactement
+représentation (unité mineure entière plus `{ code, base, exponent }`) est exactement
 celle qu'on range déjà. L'adopter ne demandera donc **aucune migration**.
 
 Deux choses resteront à notre charge quoi qu'il arrive : lire « 1 200,50 » depuis un
-formulaire français et refuser une décimale en franc CFA — aucune bibliothèque monétaire
+formulaire français et refuser une décimale en franc CFA : aucune bibliothèque monétaire
 n'analyse une saisie ; et le formatage, qui n'est qu'un `Intl.NumberFormat`.
 
 Le seul point d'attention : `docs/ce-qui-casse.md` dit qu'une dépendance ajoutée à
 `@clemperl/core` fait que « le cœur métier cesse d'être importable partout ». Dinero étant
-sans dépendance, il passe ce test — mais c'est une décision à prendre explicitement.
+sans dépendance, il passe ce test, mais c'est une décision à prendre explicitement.
 
 **Les clés étrangères de `ProductVariantValue` ne garantissent pas la cohérence
 hiérarchique.** Elles valident chaque identifiant séparément : rien en base n'interdit une
-variante du produit A portant un axe du produit B. Aucun appelant ne peut le produire —
+variante du produit A portant un axe du produit B. Aucun appelant ne peut le produire :
 `saveProduct` construit ces lignes depuis ses propres tables, dans la transaction d'un
 seul produit. La fermer demande des clés composites sur trois tables et une migration.
 C'est la bonne direction, et c'est un chantier.
@@ -258,7 +258,7 @@ les trois applications Next, dont le `tsc --watch` recompile les `dist` à chaud
 symptôme accuse une route sans rapport. Trois reconstructions l'ont coûté pendant la
 seule tranche T2b.
 
-Le monter demanderait `src`, `generated` et `prisma` ensemble — `generated` n'étant pas
+Le monter demanderait `src`, `generated` et `prisma` ensemble, `generated` n'étant pas
 dans `src`. C'est un changement de topologie à vérifier pour les quatre applications, et
 il mérite son propre chantier plutôt qu'un coin de tranche.
 
@@ -267,7 +267,7 @@ il mérite son propre chantier plutôt qu'un coin de tranche.
 nodemailer dans le paquet. `core` a le même défaut latent : le premier composant client
 qui y cherchera `TCurrency` ou `CURRENCY_EXPONENT` le rouvrira.
 
-**Une ligne `PENDING` abandonnée ne se nettoie pas toute seule — mais plus rien ne
+**Une ligne `PENDING` abandonnée ne se nettoie pas toute seule, mais plus rien ne
 devrait en produire.** Trois portes ont été fermées : un job qui épuise ses tentatives
 bascule en `FAILED` par le relais `failed` du worker ; un `add` qui lève parce que Redis
 est injoignable marque la ligne avant de rendre la main ; une écriture de ligne qui échoue
@@ -289,8 +289,8 @@ blanche, pas par préfixe `image/`.
 **La route de relais ne vérifie NI le produit, NI sa publication, NI la boutique.** Les
 photos d'un brouillon sont lisibles par qui connaît leur chemin. C'est une décision,
 écrite en section 9 de la spec T2c : le `uuid` de 36 caractères joue le rôle d'un lien non
-répertorié, et vérifier la publication coûterait une lecture en base par vignette — sur
-une grille de quarante, quarante lectures — ce qui anéantirait la mise en cache qui
+répertorié, et vérifier la publication coûterait une lecture en base par vignette : sur
+une grille de quarante, quarante lectures, ce qui anéantirait la mise en cache qui
 justifie le relais.
 
 **Aucun sélecteur de boutique.** Le schéma autorise plusieurs `vendor_members` pour un
@@ -301,7 +301,7 @@ avant.
 dépend pas du réglage du système : une place de marché montre des produits dont les
 photos sont préparées sur fond clair, et un thème sombre les dénature. Les règles
 `data-theme="dark"` et `data-theme="system"` existent dans `packages/ui` et sont
-correctes, mais aucune interface ne les pose — le sélecteur a été cadré puis écarté le
+correctes, mais aucune interface ne les pose : le sélecteur a été cadré puis écarté le
 2026-09-20. Le rouvrir consiste à monter un contrôle et à persister le choix ; rien
 d'autre n'est à écrire.
 
@@ -324,7 +324,7 @@ développement.
 
 Les planchers de couverture valent la valeur **mesurée** ce jour-là, jamais une valeur
 souhaitée. Ils sont à 100 % partout : `api`, `auth`, `core`, `db`, `domain`, `i18n` et
-`ui`. L'écart de `core` hérité de T0 — le schéma d'environnement sans test — a été
+`ui`. L'écart de `core` hérité de T0 (le schéma d'environnement sans test) a été
 comblé pendant T1b. Le cliquet monte, il ne descend jamais.
 
 T2a a été la première tranche jouée contre un **build de production** (`pnpm e2e:up`).
@@ -335,7 +335,7 @@ de l'API qui ne démarrait pas depuis T1a, une décision d'administration lue av
 tient en une ligne : **une suite qui ne passe que contre un serveur de développement ne
 dit rien de ce qui sera déployé.**
 
-`docs/pieges.md` tient le registre des pièges déjà payés — vingt-neuf entrées, dont
+`docs/pieges.md` tient le registre des pièges déjà payés : vingt-neuf entrées, dont
 quinze nées de T1b. Le lire avant de « corriger » du code qui paraît bizarre : chacune a
 coûté une séance de débogage, et plusieurs décrivent un code qui a l'air faux et ne
 l'est pas.

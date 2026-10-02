@@ -5,7 +5,7 @@ import { prisma } from "@clemperl/db";
 // refuse.
 //
 // Le préfixe est propre au fichier : les suites partagent une base et un run, et deux
-// qui nomment leurs boutiques pareil se percutent — la panne s'affichant alors dans la
+// qui nomment leurs boutiques pareil se percutent : la panne s'affichant alors dans la
 // suite VOISINE.
 const PREFIX = "image-schema";
 let counter = 0;

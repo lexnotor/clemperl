@@ -43,7 +43,7 @@ function readOptions(form: FormData): { name: string; values: string[] }[] {
         //
         // Un axe sans NOM mais avec des valeurs est une saisie INCOMPLÈTE : il passe à
         // la validation, qui le refuse. Le jeter ici ferait une grille serveur plus
-        // courte que celle affichée, et les prix indexés par position se décaleraient —
+        // courte que celle affichée, et les prix indexés par position se décaleraient,
         // sans erreur, et sans que rien ne le montre.
         .filter((option) => option.name.length > 0 || option.values.length > 0);
 }
@@ -88,7 +88,7 @@ export async function saveProductAction(
     const shape = buildVariantMatrix(options.data, [], 0);
 
     // CHAQUE position doit porter son prix. Sans cette exigence, une requête à laquelle
-    // il manque un champ voit sa variante chiffrée à zéro sans que rien ne le signale —
+    // il manque un champ voit sa variante chiffrée à zéro sans que rien ne le signale,
     // et une action serveur est une route publique, appelable sans le formulaire.
     if (shape.some((variant) => prices[variant.position] === undefined)) {
         return { message: [messages.errors.priceMissing], saved: false };
@@ -108,7 +108,7 @@ export async function saveProductAction(
             vendorId: vendor.id,
             title: details.data.title,
             // Le slug suit le titre tant que le produit n'a jamais été publié. Le dépôt
-            // l'ignore après la première publication — c'est lui qui connaît cette date.
+            // l'ignore après la première publication, c'est lui qui connaît cette date.
             slug: slugifyProductTitle(details.data.title),
             description: details.data.description,
             options: options.data,
@@ -127,8 +127,8 @@ export async function saveProductAction(
     return { message: [], saved: true };
 }
 
-// Rend un ÉTAT, et non `void`. Le dépôt refuse de publier sans photo prête — c'est la
-// garantie sur laquelle T2d s'appuiera pour ne jamais rencontrer de fiche sans image —
+// Rend un ÉTAT, et non `void`. Le dépôt refuse de publier sans photo prête, c'est la
+// garantie sur laquelle T2d s'appuiera pour ne jamais rencontrer de fiche sans image,
 // mais une action qui ne rend rien ne peut pas le dire : le vendeur cliquait « Publier »,
 // la page se re-rendait à l'identique, et RIEN n'apparaissait. Un bouton qui ne fait rien
 // sans expliquer pourquoi est indiscernable d'une panne.

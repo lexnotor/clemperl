@@ -57,7 +57,7 @@ interface IPreparedSubmission {
 // Recopier cette séquence dans les deux actions la ferait diverger à la première règle
 // ajoutée, et la divergence serait silencieuse : chaque copie resterait valide seule.
 //
-// Rien n'est téléversé tant que le dossier n'est pas recevable — sinon chaque formulaire
+// Rien n'est téléversé tant que le dossier n'est pas recevable : sinon chaque formulaire
 // mal rempli laisserait un orphelin dans le bucket.
 //
 // `alreadyOnFile` porte les natures déjà déposées : à une resoumission, le candidat ne

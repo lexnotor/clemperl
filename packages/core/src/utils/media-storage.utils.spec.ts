@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { isMediaNotFound, readMedia, uploadMedia } from "./media-storage.utils.js";
 
 // Ces fonctions parlent à un service réseau : ce qui se teste ICI, c'est leur REFUS de
-// démarrer sans configuration — la classe de panne qui, sinon, se manifeste par une
+// démarrer sans configuration : la classe de panne qui, sinon, se manifeste par une
 // requête HTTP vers `undefined`. Le reste est éprouvé par la couche intégration de la
 // tâche 5, contre le vrai conteneur de stockage.
 describe("media-storage sans configuration", () => {
@@ -41,7 +41,7 @@ describe("media-storage sans configuration", () => {
 // Le client de stockage lève pour TOUT : objet absent, mais aussi 5xx, expiration et
 // coupure réseau. Les confondre condamne une image pour une panne de quelques secondes,
 // alors que son original est toujours là. Voici la forme exacte d'un objet absent, relevée
-// contre le conteneur `supabase/storage-api` le 2026-09-24 — noter que `status` vaut 400
+// contre le conteneur `supabase/storage-api` le 2026-09-24 : noter que `status` vaut 400
 // et que c'est `statusCode` qui porte le 404.
 const OBJET_ABSENT = Object.assign(new Error("Object not found"), {
     name: "StorageApiError",

@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 // construit un chemin d'original, au moment où la server action reçoit le fichier.
 
 // Le chemin est GÉNÉRÉ, jamais repris du fichier déposé : reprendre celui-ci laisserait
-// choisir où l'objet atterrit — `../` compris — et ferait collisionner deux dépôts
+// choisir où l'objet atterrit : `../` compris, et ferait collisionner deux dépôts
 // homonymes. Le nom d'origine survit en base, pour l'affichage seulement.
 //
 // Un `uuid` par dépôt rend aussi le chemin IMMUABLE : rien n'est jamais réécrit, ce qui

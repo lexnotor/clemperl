@@ -19,7 +19,7 @@ parce que… », « un audit l'a signalé comme critique », « ceci était reco
 
 | Où           | Dit quoi                                | Temps                 |
 | ------------ | --------------------------------------- | --------------------- |
-| Le code      | le quoi                                 | —                     |
+| Le code      | le quoi                                 | sans objet            |
 | Le commentaire | pourquoi ça doit RESTER ainsi (contrainte) | présent, intemporel |
 | Le commit    | pourquoi ça A CHANGÉ (motif)            | passé, daté           |
 
@@ -34,12 +34,12 @@ un `canActivate` ici, parce que… ».
 cadrage. « La forme précédente interrogeait le TYPE, donc le moteur ignorait les
 conditions » devient « Le sujet soumis doit être la LIGNE : passer le type ferait ignorer
 les conditions ». Même information, utile sans connaître l'histoire. Le même fait peut
-légitimement figurer aux deux endroits — ce qui ne doit pas être dupliqué, c'est le
+légitimement figurer aux deux endroits, ce qui ne doit pas être dupliqué, c'est le
 cadrage temporel. Ne pas appauvrir le commentaire pour « laisser la place » au commit.
 
 **Un commentaire est :** court (lisible en trois secondes), en langage courant comme une
 note laissée à un collègue, présent en tête de chaque fichier non trivial (une ligne
-disant son rôle) et au-dessus de tout bloc qui n'est pas évident — absent quand le code
+disant son rôle) et au-dessus de tout bloc qui n'est pas évident, absent quand le code
 se suffit.
 
 **Un commentaire n'est pas :** une paraphrase du code (`// boucle sur les items`), du
@@ -120,7 +120,7 @@ export type TTransactionStatus =
 - Type : préfixe `T` + PascalCase, dans `types/`.
 - Constante : MAJUSCULE_SNAKE_CASE + `as const`, dans `constants/`.
 
-**Exception : les props de composants React** suivent l'écosystème — `ButtonProps`,
+**Exception : les props de composants React** suivent l'écosystème : `ButtonProps`,
 `ProductCardProps`, sans préfixe. C'est ce que produisent shadcn/ui et les bibliothèques
 tierces ; préfixer imposerait une retouche manuelle à chaque installation et à chaque
 mise à jour de composant.
@@ -132,7 +132,7 @@ applications et tous les packages, pas seulement dans l'API. La règle « un par
 tient pour tout ce qui est partagé, avec deux assouplissements :
 
 1. **Plusieurs composants peuvent cohabiter dans un même fichier** quand ils forment un
-   ensemble — un composant et ses sous-composants d'affichage.
+   ensemble : un composant et ses sous-composants d'affichage.
 2. **Une interface utilisée par un seul consommateur** peut être déclarée dans le fichier
    de ce consommateur plutôt que dans `interfaces/`. Dès qu'un second fichier l'importe,
    elle rejoint `interfaces/`.
@@ -158,7 +158,7 @@ consommateurs (voir [Next et React](next.md)).
 
 **Aucune ligne « Entité ».** ClemPerl n'a pas de classes d'entité : les types générés par
 Prisma (`User`, `ProductVariant`) font foi et ne se renomment pas. Le suffixe `Entity`
-décrit un ORM à classes — TypeORM, MikroORM — que ce dépôt n'utilise pas.
+décrit un ORM à classes : TypeORM, MikroORM, que ce dépôt n'utilise pas.
 
 **Les DTO sont propres à l'API.** Ce sont des classes NestJS validées par décorateurs.
 Côté Next, les entrées de server actions se valident avec des schémas Zod, dont on dérive

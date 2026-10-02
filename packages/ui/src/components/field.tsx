@@ -38,7 +38,7 @@ export interface FieldProps extends InputHTMLAttributes<HTMLInputElement>, Label
 // `<textarea>` la valeur aussi, puisque React rend `defaultValue` comme CONTENU de
 // l'élément. Un champ « Description » dont la valeur parle de joaillerie finit donc
 // nommé « DescriptionJoaillerie… », et tout sélecteur par libellé attrape le mauvais
-// élément — ou deux.
+// élément, ou deux.
 //
 // L'indication devient une `aria-describedby` : elle reste lue, après le nom, sans
 // entrer dedans.
@@ -64,7 +64,7 @@ export function Field({
                 className={cn(CONTROL, className)}
                 {...props}
                 // APRÈS le spread, et fusionné : étalé avant, un `aria-describedby`
-                // fourni par l'appelant — un message d'erreur, typiquement — écraserait
+                // fourni par l'appelant (un message d'erreur, typiquement) écraserait
                 // l'indication, qui resterait visible sans être annoncée.
                 aria-describedby={describedIds(describedBy, hint === undefined ? undefined : hintId)}
             />

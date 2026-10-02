@@ -6,7 +6,7 @@ Ce fichier est l'endroit désigné pour l'historique que les commentaires de cod
 n'ont pas le droit de porter (voir « Commentaires : expliquer, jamais narrer »).
 
 **Règles d'admission.** Une entrée n'est ajoutée qu'**après** que le piège a effectivement
-coûté du temps — jamais un risque imaginé. Elle est écrite au moment où on en sort,
+coûté du temps, jamais un risque imaginé. Elle est écrite au moment où on en sort,
 pendant qu'on a encore les preuves sous la main. Elle n'est jamais supprimée quand elle
 est corrigée : la correction se décrit dans l'entrée, parce que le piège reste reproductible
 par quiconque défait la correction sans savoir pourquoi elle est là.
@@ -16,7 +16,7 @@ par quiconque défait la correction sans savoir pourquoi elle est là.
 1. **Un titre en gras qui est une affirmation, pas un thème.** Pas « Attention aux codes
    de retour » mais « `$?` après `if ! cmd` est le statut de la négation, donc toujours 0 ».
    Le titre seul doit suffire à éviter le piège : c'est lui qu'on lit en diagonale.
-2. **Le mécanisme** : pourquoi c'est vrai, en une ou deux phrases. Pas la conséquence — la
+2. **Le mécanisme** : pourquoi c'est vrai, en une ou deux phrases. Pas la conséquence, la
    cause.
 3. **Le symptôme observé**, avec ses chiffres et sa date. « A tourné trois jours avec
    ~4 200 redémarrages » vaut mieux que « redémarrait souvent ».
@@ -26,14 +26,14 @@ par quiconque défait la correction sans savoir pourquoi elle est là.
    le lecteur qui envisage de le retirer sache ce qu'il retire.
 
 **Deux exigences de forme.** Le fichier est **plat** : pas de catégories, pas de
-sous-sections — il se lit au `grep`, et un plan de classement se périme. Et les chiffres
+sous-sections : il se lit au `grep`, et un plan de classement se périme. Et les chiffres
 sont **mesurés**, jamais estimés : préciser quand et comment (« mesuré le <date>, les deux
 chemins sur la même image »).
 
 **Quand une entrée dit qu'une chose est délibérée, l'écrire comme un piège à part
 entière.** Le cas le plus coûteux n'est pas le bug : c'est le code bizarre-mais-correct
 qu'un ingénieur « corrige » en le voyant. Ces entrées-là disent explicitement : « la forme
-X ne casse PAS aujourd'hui, et c'est le piège — ce qu'elle fait, c'est <conséquence
+X ne casse PAS aujourd'hui, et c'est le piège, ce qu'elle fait, c'est <conséquence
 différée> ».
 
 ---
@@ -59,7 +59,7 @@ forme correcte, et la documentation de Prisma nomme le fichier `prisma.config.ts
 que `prisma init` en génère un appelé `prisma7.config.ts`. Vérifié à l'exécution :
 c'est bien `prisma.config.ts` que la CLI charge (« Loaded Prisma config from
 prisma.config.ts »). Le moyen le plus rapide de trancher a été de lancer `prisma init`
-dans un dossier vierge et de lire ce qu'il produit — l'outil documente sa propre version
+dans un dossier vierge et de lire ce qu'il produit : l'outil documente sa propre version
 mieux que la documentation en ligne.
 
 Ce qui protège maintenant : `packages/db/prisma.config.ts` porte l'URL de Migrate,
@@ -89,7 +89,7 @@ refuse.
 
 Ce qui rend le piège coûteux : **rien n'échoue à la compilation**. `tsc --noEmit` passe,
 les tests unitaires passent, `nest build` produit un `dist/` d'apparence correcte.
-L'erreur n'apparaît qu'au démarrage du binaire compilé — soit, en conditions réelles, au
+L'erreur n'apparaît qu'au démarrage du binaire compilé, soit, en conditions réelles, au
 déploiement.
 
 Ce qui protège maintenant : `packages/core` et `packages/db` ont un
@@ -111,19 +111,19 @@ n'apporterait rien et ajouterait une étape à chaque démarrage.
 serveurs écoutent sur `0.0.0.0`, qui est IPv4 seulement.**
 
 Dans les images `node:alpine`, `/etc/hosts` fait résoudre `localhost` vers `::1`. Un
-serveur lancé avec `--hostname 0.0.0.0` — ou `app.listen(port, "0.0.0.0")` — n'écoute
+serveur lancé avec `--hostname 0.0.0.0` (ou `app.listen(port, "0.0.0.0")`) n'écoute
 que sur IPv4. La sonde tente donc une connexion IPv6 vers un port qui n'écoute pas
 dessus, et reçoit un refus.
 
 Observé le 2026-09-18, au premier `pnpm docker:up` de la stack complète : les quatre
 applications sont restées `unhealthy` pendant trois minutes alors que leurs journaux
-montraient un démarrage parfaitement normal — NestJS annonçant `Mapped {/health, GET}
+montraient un démarrage parfaitement normal, NestJS annonçant `Mapped {/health, GET}
 route` et `Nest application successfully started`.
 
 Ce qui rend le piège coûteux : le symptôme accuse l'application, jamais la sonde. Le
 réflexe est de chercher pourquoi le service ne démarre pas, alors qu'il répond déjà. Le
 test qui tranche en une commande :
-`docker exec clemperl_dev_<service> sh -c 'wget -qO- http://127.0.0.1:<port>/health'` — s'il
+`docker exec clemperl_dev_<service> sh -c 'wget -qO- http://127.0.0.1:<port>/health'`, s'il
 répond alors que la sonde échoue, c'est la résolution de nom, pas le service.
 
 Ce qui protège maintenant : les cinq `healthcheck` de `docker/docker-compose.dev.yml` interrogent
@@ -139,7 +139,7 @@ Retirer une valeur d'énumération, supprimer une colonne ou une table déclench
 avertissement, et Prisma exige alors une confirmation. En environnement non interactif
 il n'échoue pas sur l'opération elle-même : il refuse de démarrer, avec
 `Prisma Migrate has detected that the environment is non-interactive`. `--create-only`
-ne change rien — l'avertissement suffit à bloquer.
+ne change rien : l'avertissement suffit à bloquer.
 
 Observé le 2026-09-18, en retirant `VENDOR` de `E_USER_ROLE` pendant T1a.
 
@@ -162,7 +162,7 @@ La recette qui fonctionne, à rejouer telle quelle :
 Troisième détail de la même famille : `prisma generate` **exige `DATABASE_URL`** alors
 qu'il n'ouvre aucune connexion, parce que `prisma.config.ts` la résout par `env()`. Le
 script `build` de `@clemperl/db` fournit donc une valeur de repli, cantonnée à cette
-commande — toute commande touchant vraiment la base reçoit la vraie URL.
+commande : toute commande touchant vraiment la base reçoit la vraie URL.
 
 Ce qui protège maintenant : la recette ci-dessus, et le repli dans le script `build`.
 Lancer `migrate dev` depuis un agent rend la main sans rien faire, ce qui se lit à tort
@@ -183,7 +183,7 @@ démarrer en les déclarant absentes. Le conteneur les avait ; `turbo run dev` n
 transmettait pas.
 
 Ce qui rend le piège coûteux : les deux observations se contredisent en apparence, et
-la plus visible — `env` dans le conteneur — est celle qui trompe. On cherche alors du
+la plus visible (`env` dans le conteneur) est celle qui trompe. On cherche alors du
 côté de `env_file` et du compose, qui sont corrects.
 
 Le symptôme se reconnaît à ceci : l'erreur nomme précisément les variables, et elles
@@ -204,7 +204,7 @@ Compose lit `CLE=valeur` littéralement. Le shell, lui, interprète les métacar
 
 Observé le 2026-09-18, en ajoutant l'adresse d'expédition. Les scripts du dépôt et les
 vérifications manuelles utilisent `source .env` : la ligne les casse toutes d'un coup,
-avec un message qui ne nomme ni la variable ni le caractère fautif — seulement un
+avec un message qui ne nomme ni la variable ni le caractère fautif, seulement un
 numéro de ligne.
 
 Ce qui protège maintenant : les valeurs contenant des espaces ou des métacaractères
@@ -228,7 +228,7 @@ inutilisable, et `email_verified` restait à faux sans qu'aucune erreur n'appara
 nulle part.
 
 Ce qui rend le piège coûteux : rien n'échoue. Aucun journal, aucun code d'erreur,
-aucune alerte — le seul symptôme est un utilisateur qui clique et n'obtient rien. En
+aucune alerte : le seul symptôme est un utilisateur qui clique et n'obtient rien. En
 production, il se manifesterait par des inscriptions qui n'aboutissent jamais, sans
 trace côté serveur. Le test qui tranche : lire le lien du courriel reçu, pas seulement
 vérifier qu'il est parti.
@@ -236,7 +236,7 @@ vérifier qu'il est parti.
 Ce qui protège maintenant : `packages/auth/src/config/auth.config.ts` fixe `baseURL` à
 `NEXT_PUBLIC_STOREFRONT_URL` et déclare les trois fronts dans `trustedOrigins`. La
 vérification de bout en bout du plan ouvre effectivement le lien reçu et contrôle que
-`email_verified` bascule — elle ne se contente pas de constater l'envoi.
+`email_verified` bascule, elle ne se contente pas de constater l'envoi.
 
 ---
 
@@ -253,8 +253,8 @@ apparaître `better-auth` ; y ajouter `better-auth` a fait apparaître `@better-
 passer à un critère par extension `.mjs` a fait apparaître `@noble/hashes`, qui publie de
 l'ESM sous `.js`. La liste ne converge pas.
 
-Ce qui rend le piège coûteux : chaque correction semble marcher — l'erreur change de
-paquet — et donne l'impression d'avancer. On peut y passer une heure en croyant se
+Ce qui rend le piège coûteux : chaque correction semble marcher, l'erreur change de
+paquet, et donne l'impression d'avancer. On peut y passer une heure en croyant se
 rapprocher.
 
 Ce qui protège maintenant : `apps/api/jest.transform.ts` déclare
@@ -274,7 +274,7 @@ par `useValue` sur le garde lui-même ne fonctionne pas.**
 
 Un provider `{ provide: MonGarde, useValue: new MonGarde(dep) }` semble logique, mais
 `@UseGuards` référence la classe, et Nest instancie alors la classe en résolvant son
-constructeur — où il ne trouve rien. L'erreur est
+constructeur, où il ne trouve rien. L'erreur est
 `Nest can't resolve dependencies of the SessionGuard (?)`, et le `(?)` désigne
 l'argument introuvable.
 
@@ -293,18 +293,18 @@ au premier appel protégé en production.
 couches, parce que `testMatch` ne les reconnaît pas.**
 
 Jest retire de la couverture les fichiers qui correspondent au `testMatch` de la
-configuration courante — et eux seuls. Les couches intégration et contrat sont
+configuration courante, et eux seuls. Les couches intégration et contrat sont
 colocalisées dans `src/`, mais nommées `*.int-spec.ts` et `*.contract-spec.ts` : la
 configuration unitaire, qui cherche `*.spec.ts`, ne les voit pas comme des tests. Le
 motif `src/**/*.ts` les ramasse alors comme du code de production jamais exécuté, et la
-couverture s'effondre — 94 % tombés à 63 % à l'ajout d'un seul fichier d'intégration.
+couverture s'effondre : 94 % tombés à 63 % à l'ajout d'un seul fichier d'intégration.
 
 Le symptôme trompe : le cliquet crie au moment où l'on ajoute des tests.
 
 Observé le 2026-09-18, à l'arrivée de la première suite d'intégration.
 
 Ce qui protège maintenant : `apps/api/jest.config.ts` exclut `src/**/*-spec.ts`. Le
-tiret est la charnière — il attrape `int-spec` et `contract-spec` sans toucher aux
+tiret est la charnière : il attrape `int-spec` et `contract-spec` sans toucher aux
 `.spec.ts` unitaires, que Jest écarte déjà tout seul.
 
 ---
@@ -315,7 +315,7 @@ fois, à la main, sur une seule machine.**
 `pnpm docker:up` démarrait PostgreSQL et les quatre applications, et aucune étape
 n'appliquait le schéma. Sur la machine de développement, les migrations avaient été
 jouées à la main pendant la tranche, une fois ; le volume les gardait, et tout
-fonctionnait. Sur un volume neuf — un poste qui démarre, un runner de CI — la table
+fonctionnait. Sur un volume neuf (un poste qui démarre, un runner de CI), la table
 des comptes n'existe pas, toute inscription échoue, aucun courriel ne part, et la suite
 Playwright tombe sur des messages qui parlent de Mailpit.
 
@@ -331,7 +331,7 @@ compose comme n'importe qui.
 ---
 
 **Le client Prisma se construisait à l'import, et `next build` échouait faute de
-`DATABASE_URL` — alors que le build n'ouvre aucune connexion.**
+`DATABASE_URL`, alors que le build n'ouvre aucune connexion.**
 
 `next build` charge le module de chaque page pour y lire sa configuration de rendu
 (`export const dynamic`, `revalidate`…). Une page qui importe `@clemperl/auth` importe
@@ -345,7 +345,7 @@ construction pour satisfaire `prisma generate`, qui masquait le problème.
 Observé le 2026-09-18, sur `@clemperl/admin#build` en CI.
 
 Ce qui protège maintenant : `packages/db/src/client.ts` expose un proxy qui construit le
-client à la PREMIÈRE UTILISATION. La variable reste obligatoire — l'erreur arrive
+client à la PREMIÈRE UTILISATION. La variable reste obligatoire, l'erreur arrive
 simplement quand on s'en sert. `client.spec.ts` tient les deux moitiés : l'import passe
 sans la variable, le premier accès échoue avec elle absente.
 
@@ -354,7 +354,7 @@ sans la variable, le premier accès échoue avec elle absente.
 **`dependsOn: ["^build"]` construit les dépendances d'un package, jamais ce que le
 package génère pour lui-même.**
 
-`@clemperl/db` se type contre `generated/prisma/`, produit par `prisma generate` — que
+`@clemperl/db` se type contre `generated/prisma/`, produit par `prisma generate`, que
 seul son propre `build` lançait. Son `typecheck` ne dépendant que de `^build`, il
 s'exécutait sur un dossier absent et échouait par `TS2307: Cannot find module
 '../generated/prisma/client'`. En local, le dossier existait déjà : la dépendance
@@ -373,7 +373,7 @@ dépendent explicitement.
 
 La migration `storage-schema` du service écrit des `GRANT` vers un rôle nommé
 littéralement `postgres`. Le réglage `DB_SUPER_USER` sert aux migrations qui le lisent,
-pas à celles qui codent le nom en dur — et notre instance PostgreSQL a `clemperl` pour
+pas à celles qui codent le nom en dur, et notre instance PostgreSQL a `clemperl` pour
 superutilisateur, pas `postgres`.
 
 Observé le 2026-09-19, image `supabase/storage-api:v1.79.4`, à l'ajout du service au
@@ -413,7 +413,7 @@ interpolé par Compose avant d'atteindre Node.**
 
 Compose substitue `${...}` dans tout le fichier, y compris à l'intérieur d'une commande.
 Une ligne `node -e "...'Bearer ${cle}'..."` voit donc `${cle}` remplacé par une chaîne
-vide, et Compose avertit « The "cle" variable is not set » — un avertissement, pas une
+vide, et Compose avertit « The "cle" variable is not set », un avertissement, pas une
 erreur : le conteneur démarre et échoue plus loin, à l'authentification.
 
 Observé le 2026-09-19, en écrivant le service `storage-init`.
@@ -435,7 +435,7 @@ Observé le 2026-09-19, en inspectant le volume après le premier téléversemen
 
 Ce qui rend le piège difficile à voir : **rien ne casse.** Le téléversement, la
 relecture et les URL signées fonctionnent parfaitement avec `undefined` dans le chemin.
-Ce n'est découvert qu'en regardant le disque — donc, en général, jamais.
+Ce n'est découvert qu'en regardant le disque, donc, en général, jamais.
 
 Ce qui protège maintenant : `STORAGE_S3_BUCKET: clemperl` et `TENANT_ID: clemperl` dans
 le service `storage` du compose.
@@ -448,13 +448,13 @@ quoter `"user"` a disparu avec elles.**
 T0 avait décidé le singulier. T1b l'a renversé pendant que le coût était nul : quatre
 tables, aucune donnée réelle, aucun environnement persistant. Le renommage s'est fait en
 changeant les `@@map` **puis en régénérant** les migrations, jamais en réécrivant leur
-SQL à la main — Prisma dérive les noms d'index et de contraintes du nom de table mappé,
+SQL à la main : Prisma dérive les noms d'index et de contraintes du nom de table mappé,
 et une réécriture manuelle aurait produit `users` avec `user_pkey`, une incohérence que
 personne ne remarque jusqu'au jour où elle gêne.
 
 Le piège n'est pas le renommage : c'est que **modifier une migration déjà appliquée fait
 échouer le prochain `migrate deploy` sur une somme de contrôle divergente**, stockée dans
-`_prisma_migrations`. Toute base de développement existante doit être détruite — et
+`_prisma_migrations`. Toute base de développement existante doit être détruite, et
 `pnpm docker:down` ne supprime PAS les volumes. La commande est
 `docker compose --env-file .env -f docker/docker-compose.dev.yml down -v`.
 
@@ -472,13 +472,13 @@ service `postgres` ne publie aucun port.**
 Le script existe dans `packages/db/package.json` et se lit comme la façon normale de
 créer une migration. Mais `DATABASE_URL` pointe vers l'hôte `postgres`, un nom qui
 n'existe que sur le réseau Docker : depuis la machine, il ne résout pas, et l'adresse IP
-du conteneur n'est pas routée non plus. Le service est délibérément non publié —
+du conteneur n'est pas routée non plus. Le service est délibérément non publié,
 contrairement à Redis, Mailpit et aux quatre applications.
 
 Constaté le 2026-09-19, en régénérant les migrations pour le passage au pluriel. `curl`
 et une ouverture TCP directe sur `172.20.0.2:5432` échouent toutes deux.
 
-Ce qui rend le piège difficile à voir : `migrate deploy` marche, lui — c'est le service
+Ce qui rend le piège difficile à voir : `migrate deploy` marche, lui, c'est le service
 `migrate` du compose qui le joue, **à l'intérieur** du réseau. Seule la CRÉATION d'une
 migration, qui se fait à la main, se heurte au mur.
 
@@ -505,7 +505,7 @@ Prisma ne sait pas déclarer `UNIQUE (colonne) WHERE condition` dans un schéma.
 contrainte « un seul dossier ouvert par candidat » est donc du SQL ajouté à la fin du
 fichier de migration, invisible depuis `schema.prisma`. La tentation, en la découvrant,
 est de la retirer pour « laisser Prisma gérer ». Ce serait rouvrir la porte à deux
-dossiers ouverts pour un même compte, créés par deux onglets — et aucune vérification
+dossiers ouverts pour un même compte, créés par deux onglets, et aucune vérification
 applicative ne gagne cette course.
 
 La détection de dérive compare le schéma à une base fantôme où les migrations sont
@@ -524,7 +524,7 @@ et fait donc échouer le plancher du package.**
 Les deux couches ont deux exécuteurs : Vitest mesure les tests unitaires du package,
 Jest fait tourner l'intégration dans le conteneur `api`. Un repository de
 `@clemperl/db`, éprouvé uniquement contre un vrai PostgreSQL, apparaît à 0 % côté
-Vitest — et un plancher à 100 % refuse le run.
+Vitest, et un plancher à 100 % refuse le run.
 
 Observé le 2026-09-19, à l'ajout de `vendor-application.repository.ts` : cinq tests
 d'intégration au vert, et `pnpm test` en échec sur « Coverage for statements (32.5%)
@@ -557,7 +557,7 @@ erreurs `TS2591: Cannot find name 'process'` et `TS2304: Cannot find name 'Blob'
 **Ce qui a rendu le piège coûteux, et qui est le vrai sujet : le cache de Turbo l'a
 masqué.** `pnpm lint`, `pnpm typecheck` et `pnpm test` sont restés verts, parce que
 `@clemperl/core#build` était un succès en cache, antérieur au fichier fautif. La faute
-n'est apparue qu'au `docker compose build`, où aucun cache n'existe — donc loin du
+n'est apparue qu'au `docker compose build`, où aucun cache n'existe, donc loin du
 changement, et attribuée d'abord à Docker.
 
 Devant une erreur de compilation qui n'apparaît qu'en conteneur, **reproduire d'abord
@@ -576,7 +576,7 @@ en cache.**
 
 La tâche `build` générique déclare `outputs: ["dist/**"]`. L'entrée
 `"@clemperl/db#build"`, écrite pour ajouter une dépendance à `db:generate`, écrase
-entièrement cette définition — `outputs` compris. La tâche s'exécute correctement, mais
+entièrement cette définition, `outputs` compris. La tâche s'exécute correctement, mais
 son résultat n'entre jamais dans le cache.
 
 Le piège ne se déclenche qu'au **succès** du cache. Cache froid, la tâche tourne pour de
@@ -585,7 +585,7 @@ logs`, ne restaure rien, et `packages/db/dist` reste absent.
 
 Observé le 2026-09-20 en CI. L'erreur n'accuse jamais le coupable : elle sort du
 storefront, en `Module not found: Can't resolve '@clemperl/db'`, à dix fichiers de la
-cause. Reproduit localement en trois commandes — construire, supprimer `dist`,
+cause. Reproduit localement en trois commandes : construire, supprimer `dist`,
 reconstruire : l'empreinte `236793e26dd1a27c` était identique à celle de la CI.
 
 Ce qui rend le piège durable : la CI restaure le cache par la clé de repli
@@ -605,7 +605,7 @@ sans que rien ne le signale.**
 
 Le dépôt mêle délibérément deux langues : le code en anglais, les commentaires et les
 libellés en français. Un remplacement global de `mot` ou d'`adresse` traverse donc les
-deux — un commentaire « soumettait le mot de passe en GET » devient « soumettait le
+deux : un commentaire « soumettait le mot de passe en GET » devient « soumettait le
 newPassword de passe en GET », et une assertion sur « Vérifiez votre adresse » cesse de
 correspondre à l'écran.
 
@@ -617,7 +617,7 @@ abîmé ne casse rien, et une assertion qui ne correspond plus ne se voit qu'en 
 Playwright, c'est-à-dire bien plus tard.
 
 Ce qui protège maintenant : rien d'automatique. Un renommage se fait par réécriture du
-fichier, ou par un `sed` dont chaque motif est un nom de symbole — jamais un mot isolé
+fichier, ou par un `sed` dont chaque motif est un nom de symbole, jamais un mot isolé
 qui existe aussi en prose française.
 
 ---
@@ -627,18 +627,18 @@ ne sont pas déclarées : la page se rend, les classes sont sur les éléments, 
 correspondent à rien.**
 
 La détection automatique des sources part du fichier CSS. Les applications l'atteignent
-par `@clemperl/ui/styles/globals.css`, donc par un lien de `node_modules` — que Tailwind
+par `@clemperl/ui/styles/globals.css`, donc par un lien de `node_modules`, que Tailwind
 ignore. Le balayage retombe alors sur l'arborescence de l'application et rate une partie
 des composants du package.
 
 Observé le 2026-09-19, au premier rendu du design : le bouton principal sortait sans
 fond, sans hauteur et sans espacement. Dans la feuille servie, **aucun utilitaire `bg-*`
-ni `h-*` n'existait**, alors que `text-muet` et `border-bordure` y étaient — deux classes
+ni `h-*` n'existait**, alors que `text-muet` et `border-bordure` y étaient, deux classes
 du même package, dans un fichier voisin.
 
 Ce qui rend le piège coûteux : rien n'échoue. Le HTML porte bien
 `class="bg-texte h-11 …"`, aucune erreur n'apparaît en console, et le test de fumée qui
-vérifie que le bouton « est visible » passe parfaitement — un bouton sans style reste
+vérifie que le bouton « est visible » passe parfaitement : un bouton sans style reste
 visible. Seule une capture d'écran, ou un `getComputedStyle`, le montre.
 
 Ce qui protège maintenant : `packages/ui/src/styles/globals.css` déclare ses sources par
@@ -660,7 +660,7 @@ exporté depuis `actions.ts`, puis passé à `useActionState`, produisait
 
 Ce qui rend le piège coûteux : **rien n'échoue avant l'exécution.** Le typage est
 satisfait des deux côtés, `lint` et `typecheck` passent, et la page ne casse qu'au
-rendu — avec une erreur qui désigne l'endroit où la valeur est lue, jamais celui d'où
+rendu, avec une erreur qui désigne l'endroit où la valeur est lue, jamais celui d'où
 elle vient.
 
 Ce qui protège maintenant : les états initiaux vivent dans un fichier
@@ -677,7 +677,7 @@ revalidation porte dans le vide. La forme correcte est
 `revalidatePath("/[locale]/become-a-vendor", "page")`.
 
 Observé le 2026-09-19, sur le dépôt d'un dossier vendeur : l'action répondait `200`, le
-dossier était bien écrit en base, aucune erreur n'apparaissait nulle part — et
+dossier était bien écrit en base, aucune erreur n'apparaissait nulle part, et
 l'utilisateur revoyait son formulaire vide. Son réflexe suivant, renvoyer le formulaire,
 se serait heurté à « vous avez déjà une demande en cours d'examen ».
 
@@ -696,7 +696,7 @@ libellé.**
 
 Playwright calcule le texte d'un libellé enveloppant à partir du `textContent` du
 `<label>`. Pour un `<textarea>`, React rend `defaultValue` comme **contenu de l'élément**,
-pas comme attribut — le `<label>` contient donc « Description » suivi du texte saisi par
+pas comme attribut : le `<label>` contient donc « Description » suivi du texte saisi par
 l'utilisateur. Et `getByLabel` cherche par sous-chaîne.
 
 Observé le 2026-09-20 sur la fiche boutique. La description valait « Joaillerie
@@ -706,12 +706,12 @@ artisanale, pièces uniques montées à la main. » et
 
 Ce qui rend le piège difficile à voir : **le même sélecteur passe sur un formulaire
 vide.** Au dépôt du dossier, le test remplit la description par `.fill()`, qui écrit la
-*propriété* `value` et laisse le `textContent` vide — aucune ambiguïté. Le piège
+*propriété* `value` et laisse le `textContent` vide, aucune ambiguïté. Le piège
 n'apparaît que sur une page rendue depuis la base, donc seulement à la seconde visite,
 ce qui le fait ressembler à une régression de la page plutôt qu'à un défaut du sélecteur.
 
 Ce qui protège maintenant, depuis T2b : **la cause est fermée**, pas contournée.
-`Field` et `TextAreaField` n'enveloppent plus leur contrôle — le libellé est associé par
+`Field` et `TextAreaField` n'enveloppent plus leur contrôle : le libellé est associé par
 `htmlFor`, comme `FileField` le faisait déjà seul dans le paquet, et l'indication est
 passée en `aria-describedby`. Le nom accessible vaut donc exactement le libellé, quelle
 que soit la valeur affichée.
@@ -719,12 +719,12 @@ que soit la valeur affichée.
 Ce qui l'avait rouvert : en T2b, un champ « Prix » portant une indication s'est retrouvé
 nommé « PrixLe prix de vente, dans la devise de votre boutique. », et
 `getByRole("textbox", { name: "Prix", exact: true })` ne trouvait rien. Le contournement
-de T2a — viser par `getByRole` — ne suffisait pas, parce que le nom accessible était
+de T2a (viser par `getByRole`) ne suffisait pas, parce que le nom accessible était
 lui-même pollué.
 
 `packages/ui/src/components/field.spec.tsx` tient la propriété : un test vérifie que le
 nom ne contient ni l'indication ni la valeur. `CheckboxField` enveloppe encore, et c'est
-sans conséquence — une case n'a ni indication ni contenu.
+sans conséquence : une case n'a ni indication ni contenu.
 
 ---
 
@@ -741,23 +741,23 @@ parenthèses. Compilé avec le Tailwind 4.3.3 du dépôt :
 
 Rien n'échoue : ni le build, ni le lint, ni un test. La classe est bien émise, la règle
 bien écrite, et seul le navigateur la rejette en silence. On ne s'en aperçoit qu'en
-regardant l'élément — ou jamais, si l'apparence par défaut passe pour voulue.
+regardant l'élément, ou jamais, si l'apparence par défaut passe pour voulue.
 
 Observé le 2026-09-21, sur quatre occurrences dont trois vivaient là depuis T1b.
 
 Ce qui protège maintenant : quand le jeton vient de `@theme`, l'utilitaire généré
-(`accent-texte`, `rounded-controle`) est la forme à écrire — elle est plus courte et ne
+(`accent-texte`, `rounded-controle`) est la forme à écrire : elle est plus courte et ne
 peut pas se tromper de syntaxe. Réserver `(--variable)` aux variables qui ne sont pas des
 jetons de thème.
 
 À noter pour qui lirait ce registre à rebours : les trois `rounded-[--radius-controle]`
 n'ont pas été réparées mais **supprimées**. Les contrôles sont carrés par décision de
-design — les rendre ronds aurait « corrigé » le code en cassant l'intention.
+design : les rendre ronds aurait « corrigé » le code en cassant l'intention.
 
 ---
 
 **Les fronts embarquent `packages/db` dans leur image ; un changement de schéma ne les
-atteint qu'après reconstruction — et le symptôme accuse une route sans rapport.**
+atteint qu'après reconstruction, et le symptôme accuse une route sans rapport.**
 
 Le compose monte `packages/db/src` et `packages/db/prisma` sur le conteneur de l'API
 seulement. Les trois applications Next les reçoivent **compilés, au build de l'image**.
@@ -776,7 +776,7 @@ reçoit aucun courriel.
 
 Observé le 2026-09-21, en ajoutant `E_CURRENCY` au schéma pendant T2b.
 
-Ce qui protège maintenant : rien dans le code — c'est une propriété du montage. Après
+Ce qui protège maintenant : rien dans le code, c'est une propriété du montage. Après
 toute modification de `schema.prisma`, relancer `pnpm docker:up`, qui reconstruit les
 images. Migrer la base sans reconstruire ne suffit que pour l'API.
 
@@ -794,7 +794,7 @@ d'abord la régression dans du code qu'on n'a pas touché.
 Observé le 2026-09-21, à l'arrivée de `product-repository.int-spec.ts`.
 
 Ce qui protège maintenant : chaque fichier d'intégration porte un `PREFIX` qui lui est
-propre, et le compose avec son compteur. Un compteur seul ne suffit pas — il est local
+propre, et le compose avec son compteur. Un compteur seul ne suffit pas : il est local
 au fichier, et c'est justement ce qui trompe.
 
 ---
@@ -802,7 +802,7 @@ au fichier, et c'est justement ce qui trompe.
 **Prisma 7 a retiré `--to-schema-datamodel` de `migrate diff`.**
 
 L'option s'appelle désormais `--to-schema`. Le message le dit, mais la commande écrite
-dans les notes d'une tranche précédente, elle, ne le dit pas — et `migrate diff` échoue
+dans les notes d'une tranche précédente, elle, ne le dit pas, et `migrate diff` échoue
 en écrivant un fichier de migration VIDE si la sortie est déjà redirigée.
 
     prisma migrate diff --from-config-datasource prisma.config.ts \
@@ -827,7 +827,7 @@ Observé le 2026-09-21, dans `parsePrice` : la chaîne était correcte, seulemen
 
 Ce qui protège maintenant : la règle ESLint `no-irregular-whitespace`, déjà active, l'a
 attrapée. Le réflexe quand elle parle : `cat -A` sur la ligne, et remplacer les
-caractères par leurs séquences d'échappement — jamais l'inverse.
+caractères par leurs séquences d'échappement, jamais l'inverse.
 
 ---
 
@@ -857,13 +857,13 @@ réexporte que des fonctions pures, sans aucune dépendance serveur. Même raiso
 d'un package interne**, il importe un sous-chemin étroit.
 
 `@clemperl/core` n'en a pas encore, et le même défaut s'y ouvrira au premier composant
-client qui voudra un type ou une constante de là — `TCurrency`, `CURRENCY_EXPONENT`.
+client qui voudra un type ou une constante de là : `TCurrency`, `CURRENCY_EXPONENT`.
 L'échappatoire du jour : laisser le serveur faire le calcul et ne passer au client qu'une
 valeur déjà réduite.
 
 **Et ceci, qui coûte le plus de temps :** la carte `exports` vit dans le `package.json`
 d'un paquet, et les `package.json` ne sont PAS montés dans les conteneurs. Ajouter un
-sous-chemin exige donc `pnpm docker:up` — les sources, elles, sont montées et recompilées
+sous-chemin exige donc `pnpm docker:up` : les sources, elles, sont montées et recompilées
 à chaud, ce qui fait croire que tout l'est.
 
 ---
@@ -871,7 +871,7 @@ sous-chemin exige donc `pnpm docker:up` — les sources, elles, sont montées et
 **Un nom de champ de formulaire ne peut pas porter de caractère de contrôle, et l'erreur
 parle d'un en-tête MIME.**
 
-La clé d'une combinaison de variantes utilise `\u001e` et `\u001f` comme séparateurs —
+La clé d'une combinaison de variantes utilise `\u001e` et `\u001f` comme séparateurs,
 choisis précisément parce qu'un libellé a le droit de contenir « - » ou « = ». Écrite
 telle quelle dans un `name=` de champ, elle traverse un formulaire multipart… et la
 requête entière devient illisible :
@@ -886,7 +886,7 @@ Observé le 2026-09-21, sur la grille de prix de T2b.
 
 Ce qui protège maintenant : les champs de prix sont nommés `price:<position>`. La grille
 est produite par une fonction PURE et déterministe, appelée des deux côtés avec les mêmes
-entrées — les positions correspondent donc sans qu'aucune clé n'ait à voyager. Règle
+entrées : les positions correspondent donc sans qu'aucune clé n'ait à voyager. Règle
 générale : ce qui part dans un `name=` est un identifiant simple, jamais une clé
 composite.
 
@@ -897,7 +897,7 @@ ressource paie cette compilation dans son propre délai.**
 
 `e2e/global-setup.ts` préchauffe les routes pour cette raison, mais on ne pense pas à y
 mettre les routes dynamiques : elles n'ont pas d'URL fixe. Elles en ont pourtant une qui
-suffit — **l'identifiant n'a pas besoin d'exister**, la page est assemblée avant de
+suffit : **l'identifiant n'a pas besoin d'exister**, la page est assemblée avant de
 décider qu'elle répond 404.
 
 Sans `${URL_VENDOR}/products/inexistant` dans la liste, la première fiche produit coûtait
@@ -914,7 +914,7 @@ dynamique, avec un identifiant volontairement inexistant.
 machine où on l'a écrite.**
 
 `@clemperl/db` se teste contre `generated/prisma/`, produit par `prisma generate`. Sa
-tâche `test` ne dépendait que de `^build` — les dépendances du paquet, donc `core`, jamais
+tâche `test` ne dépendait que de `^build` : les dépendances du paquet, donc `core`, jamais
 ce que le paquet génère pour lui-même. Elle réussissait quand même : `@clemperl/api#test`
 dépend de `^build`, qui inclut `@clemperl/db#build`, qui déclenche `db:generate`. La
 génération arrivait donc *à temps*, par un chemin qui ne la garantissait pas.
@@ -924,7 +924,7 @@ lui, il échoue sur `Cannot find module '../generated/prisma/client.js'`. En loc
 dossier existe déjà : **ça ne se voit que sur un dépôt fraîchement cloné**, et de façon
 intermittente.
 
-Observé le 2026-09-21, en CI, sur un run où rien de pertinent n'avait changé — le même
+Observé le 2026-09-21, en CI, sur un run où rien de pertinent n'avait changé, le même
 code était passé deux runs plus tôt.
 
 Ce qui protège maintenant : `@clemperl/db#test` et `@clemperl/db#lint` déclarent
@@ -938,10 +938,10 @@ silence.
 ---
 
 **Les SOURCES sont montées dans les conteneurs, les FICHIERS DE CONFIGURATION ne le sont
-pas — et la différence coûte une reconstruction à chaque fois qu'on l'oublie.**
+pas, et la différence coûte une reconstruction à chaque fois qu'on l'oublie.**
 
-Le compose monte `packages/*/src` et `apps/*/src`. Tout le reste — `package.json`,
-`turbo.json`, `pnpm-workspace.yaml`, `packages/db/generated` — vit dans l'image, figé au
+Le compose monte `packages/*/src` et `apps/*/src`. Tout le reste (`package.json`,
+`turbo.json`, `pnpm-workspace.yaml`, `packages/db/generated`) vit dans l'image, figé au
 build. Modifier une source se voit en deux secondes ; modifier une configuration ne se
 voit **jamais**, jusqu'à `pnpm docker:up`.
 
@@ -949,9 +949,9 @@ Trois formes du même défaut, toutes rencontrées pendant la seule tranche T2c 
 
 | Ce qu'on a changé | Ce qu'on a lu |
 |---|---|
-| `packages/domain/package.json` — un sous-chemin `exports` | `Module not found: @clemperl/domain/browser` |
-| `apps/api/package.json` — une dépendance | `BullMQ could not load the optional 'ioredis' package` |
-| `turbo.json` — une variable dans `globalEnv` | `Environnement invalide : STORAGE_PUBLIC_URL … undefined`, alors que `docker exec env` la MONTRE |
+| `packages/domain/package.json`, un sous-chemin `exports` | `Module not found: @clemperl/domain/browser` |
+| `apps/api/package.json`, une dépendance | `BullMQ could not load the optional 'ioredis' package` |
+| `turbo.json`, une variable dans `globalEnv` | `Environnement invalide : STORAGE_PUBLIC_URL … undefined`, alors que `docker exec env` la MONTRE |
 
 La dernière est la plus déroutante : la variable est bien dans l'environnement du
 conteneur, et `docker exec sh -c 'echo $VAR'` l'affiche. C'est **Turbo** qui la filtre en
@@ -959,14 +959,14 @@ mode strict, d'après un `turbo.json` périmé que l'image transporte.
 
 Observé les 2026-09-21 et 2026-09-24.
 
-Ce qui protège maintenant : rien dans le code — c'est une propriété du montage. Le
+Ce qui protège maintenant : rien dans le code, c'est une propriété du montage. Le
 réflexe : **si le fichier changé n'est pas sous un `src/`, il faut reconstruire.** Et
 quand une variable existe dans le conteneur mais pas dans le processus, regarder
 `globalEnv` avant de chercher ailleurs.
 
 ---
 
-**`packages/db/src` n'était monté que dans l'API — les trois fronts Next lisaient un
+**`packages/db/src` n'était monté que dans l'API : les trois fronts Next lisaient un
 `dist` figé au build de l'image.**
 
 Le compose monte les sources paquet par paquet, à la main, service par service. `auth`,
@@ -975,7 +975,7 @@ fronts Next parlent pourtant à PostgreSQL par server actions, donc ils dépende
 `@clemperl/db` autant que l'API.
 
 Le symptôme ne nomme pas la cause : `The export productIsOwnedBy was not found in module
-packages/db/dist/src/index.js` — « Did you mean to import saveProduct? ». Le fichier
+packages/db/dist/src/index.js`, « Did you mean to import saveProduct? ». Le fichier
 source contient bien l'export, et le rebâtir depuis l'hôte ne change rien puisque le
 conteneur ne voit pas ce source-là. Reconstruire le paquet DANS le conteneur ne change
 rien non plus : il recompile sa propre copie, celle de l'image.
@@ -992,7 +992,7 @@ Zéro sur le SOURCE, alors que l'hôte le contient : le dossier n'est pas monté
 Observé le 2026-09-24.
 
 Ce qui protège maintenant : `packages/db/src` est monté dans `storefront`, `vendor` et
-`admin`. La liste reste manuelle, donc le piège renaîtra au prochain paquet ajouté —
+`admin`. La liste reste manuelle, donc le piège renaîtra au prochain paquet ajouté :
 **un nouveau paquet partagé se monte dans tous les services qui l'importent, pas
 seulement celui où on l'a testé.**
 
@@ -1003,8 +1003,8 @@ document qui exécute du script.**
 
 `image/svg+xml` satisfait le préfixe. sharp le parse, en rend des métadonnées crédibles
 (`svg 800 600`) et en produit des déclinaisons WebP parfaitement valables. L'image atteint
-donc `READY` par le chemin normal, et l'original — que le worker ne supprime que lorsqu'il
-REFUSE — survit.
+donc `READY` par le chemin normal, et l'original, que le worker ne supprime que lorsqu'il
+REFUSE, survit.
 
 Ce qui reste est un objet stocké avec le type que le navigateur du déposant avait déclaré.
 Servi tel quel depuis l'origine publique, il s'exécute là où vit le cookie de session.
@@ -1032,13 +1032,13 @@ avec .rotate() :  320 x 480
 ```
 
 Deux conséquences, pas une. La visible : les vignettes sont couchées. La sournoise : tout
-ce qu'on décide à partir de `metadata.width` juge le mauvais côté — une photo large de
+ce qu'on décide à partir de `metadata.width` juge le mauvais côté : une photo large de
 200 px stockée en 5000 × 200 passe un contrôle « au moins 320 px de large ».
 
 Observé le 2026-09-24.
 
 Ce qui protège maintenant : `.rotate()` sans argument dans la chaîne de redimensionnement
-— c'est ce qui applique l'orientation — et `orientedSize()`, pure et testée sur les huit
+(c'est ce qui applique l'orientation), et `orientedSize()`, pure et testée sur les huit
 valeurs, qui permute les dimensions pour 5 à 8 avant que quoi que ce soit en juge.
 
 ---
@@ -1046,7 +1046,7 @@ valeurs, qui permute les dimensions pour 5 à 8 avant que quoi que ce soit en ju
 **BullMQ n'informe pas votre domaine qu'un job a cessé de réessayer : la ligne reste dans
 l'état où elle était, pour toujours.**
 
-`attempts: 3` fait retenter, puis range le job dans la liste des échecs — et c'est tout.
+`attempts: 3` fait retenter, puis range le job dans la liste des échecs, et c'est tout.
 Rien ne repasse sur la ligne. Une image dont le traitement tombe pour une raison qui ne la
 concerne pas (stockage injoignable, base coupée) reste donc `PENDING` indéfiniment, et
 l'écran qui l'interroge toutes les deux secondes ne montrera jamais ni photo ni raison.

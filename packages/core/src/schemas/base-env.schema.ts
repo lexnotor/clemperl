@@ -16,7 +16,7 @@ export const baseEnvSchema = z.object({
     EMAIL_FROM: z.string().min(1),
 
     // Stockage des pièces justificatives. Le bucket est privé : rien n'y est lisible
-    // sans la clé de service, qui ne quitte jamais le serveur — mais elle voyage dans un
+    // sans la clé de service, qui ne quitte jamais le serveur, mais elle voyage dans un
     // en-tête `Authorization` à chaque requête. En clair sur le réseau, elle est lisible
     // par qui écoute, et avec elle tous les justificatifs. D'où le chiffrement exigé
     // partout sauf en développement, où le service vit sur le réseau Docker.
@@ -31,7 +31,7 @@ export const baseEnvSchema = z.object({
 
 
     // Lève l'exigence de chiffrement. Elle existe pour la stack e2e locale, qui monte un
-    // build de PRODUCTION contre un stockage vivant sur le réseau Docker — donc le cas
+    // build de PRODUCTION contre un stockage vivant sur le réseau Docker, donc le cas
     // que `NODE_ENV === "development"` couvrait, mais sous un autre `NODE_ENV`.
     //
     // Un drapeau explicite plutôt qu'une détection d'hôte « privé » : personne ne

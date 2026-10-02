@@ -7,7 +7,7 @@ import {
     signInFromPage,
 } from "./helpers/accounts";
 
-// Les deux tests partagent un état global — l'existence d'un administrateur, que le
+// Les deux tests partagent un état global : l'existence d'un administrateur, que le
 // premier crée par la page d'amorçage. En parallèle, le second tomberait tantôt sur un
 // 404, tantôt sur une redirection vers `/setup`.
 test.describe.configure({ mode: "serial" });
@@ -73,7 +73,7 @@ test("un candidat dépose, est refusé, corrige, et devient vendeur", async ({
     await adminPage.getByLabel("Motif (obligatoire pour un refus)").selectOption("UNREADABLE_DOCUMENT");
     await adminPage.getByLabel("Commentaire, lu par le candidat").fill("Le registre est illisible.");
     await adminPage.getByRole("button", { name: "Refuser" }).click();
-    await expect(adminPage.getByText("Refusé —")).toBeVisible();
+    await expect(adminPage.getByText("Refusé :")).toBeVisible();
 
     // Le candidat lit le motif, redépose la seule pièce en cause, et renvoie.
     await page.reload();

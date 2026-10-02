@@ -11,7 +11,7 @@ describe("buildOriginalPath", () => {
         expect(path).toMatch(new RegExp(`^${PRODUCT}/[0-9a-f-]{36}/original\\.jpg$`));
     });
 
-    // Reprendre le nom du fichier laisserait choisir OÙ l'objet atterrit — `../` compris.
+    // Reprendre le nom du fichier laisserait choisir OÙ l'objet atterrit : `../` compris.
     it("ne reprend rien du nom fourni sauf l'extension", () => {
         const path = buildOriginalPath(PRODUCT, "../../secret.png");
         expect(path).not.toContain("..");
@@ -51,7 +51,7 @@ describe("isServableMediaPath", () => {
     });
 
     // L'original n'est JAMAIS servi par le relais. Il est conservé pour reproduire les
-    // déclinaisons plus tard, ce qui se fait côté serveur par `readMedia` — sans passer
+    // déclinaisons plus tard, ce qui se fait côté serveur par `readMedia` : sans passer
     // par cette route. L'autoriser rendait au navigateur un octet-pour-octet déposé par
     // le vendeur, avec le type qu'il avait lui-même déclaré : un SVG portant un `script`
     // revenait alors en `image/svg+xml` sur l'origine de la boutique, celle qui porte le

@@ -81,8 +81,8 @@ describe("createPendingImage", () => {
     });
 
     // Deux dépôts simultanés lisent la même dernière position et visent la même suivante ;
-    // la base en refuse un. Ce qui se teste n'est pas QUI gagne — la course n'est pas
-    // déterministe — mais que le perdant produise un refus NOMMÉ, jamais une erreur non
+    // la base en refuse un. Ce qui se teste n'est pas QUI gagne : la course n'est pas
+    // déterministe, mais que le perdant produise un refus NOMMÉ, jamais une erreur non
     // traitée qui remonterait au vendeur en 500.
     it("ne produit jamais d'erreur non traitée quand deux dépôts se croisent", async () => {
         const { productId, vendorId } = await createShopWithProduct();
@@ -268,7 +268,7 @@ describe("setImageAltText", () => {
 });
 
 // L'objet est déposé AVANT que la ligne soit écrite, et c'est `createPendingImage` qui
-// vérifie l'appartenance — donc trop tard : un `productId` étranger glissé dans le
+// vérifie l'appartenance, donc trop tard : un `productId` étranger glissé dans le
 // formulaire faisait écrire des octets dans le bucket, que la compensation effaçait
 // ensuite. Cette lecture-ci existe pour refuser avant de payer le transfert.
 describe("productIsOwnedBy", () => {
@@ -300,7 +300,7 @@ describe("productIsOwnedBy", () => {
 });
 
 // La publication contrôle les photos UNE FOIS. Sans cette garde, un vendeur qui supprime
-// sa dernière photo laisse une fiche publiée sans image — exactement la garantie sur
+// sa dernière photo laisse une fiche publiée sans image : exactement la garantie sur
 // laquelle T2d doit pouvoir s'appuyer sans rien vérifier. On refuse plutôt que de
 // dépublier dans son dos : sa fiche ne disparaît pas de la boutique sans qu'il l'ait
 // demandé.

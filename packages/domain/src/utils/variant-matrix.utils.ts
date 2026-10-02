@@ -28,7 +28,7 @@ export function selectionKey(selections: Readonly<Record<string, string>>): stri
 }
 
 // Pure : ni base, ni réseau, ni horloge. C'est la fonction où une erreur coûterait le
-// plus cher — un produit sans variante, ou des variantes en double — et c'est la seule
+// plus cher : un produit sans variante, ou des variantes en double, et c'est la seule
 // de la tranche qui se teste exhaustivement sans rien monter.
 //
 // Elle est appelée des DEUX côtés : par le composant client pour afficher la grille, et

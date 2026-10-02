@@ -27,7 +27,7 @@ function describedIds(...ids: (string | undefined)[]): string | undefined {
 
 // Libellé, contrôle et indication sont FRÈRES, comme dans `Field`. Envelopper le
 // `<select>` dans son `<label>` ferait entrer l'indication dans le nom accessible du
-// contrôle — « Devise des prix Elle se fige dès que… » — et un sélecteur par nom exact
+// contrôle : « Devise des prix Elle se fige dès que… », et un sélecteur par nom exact
 // ne trouverait plus rien.
 export function SelectField({
     label,

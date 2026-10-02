@@ -18,7 +18,7 @@ const DESCRIPTION = "Cuir pleine fleur, coutures à la main, doublure en lin.";
 
 // Les suites partagent une seule base et un seul run. Un préfixe propre au fichier, et
 // non un simple compteur : `Vendor.slug` est unique, et deux suites qui nomment leurs
-// boutiques pareil se marchent dessus — la panne se lit alors dans la suite VOISINE.
+// boutiques pareil se marchent dessus : la panne se lit alors dans la suite VOISINE.
 const PREFIX = "repo-product";
 let counter = 0;
 

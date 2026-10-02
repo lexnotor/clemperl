@@ -42,7 +42,7 @@ export const auth = betterAuth({
 
     // Sans `baseURL`, Better Auth déduit l'adresse des liens de courriels de l'hôte
     // d'écoute du processus : en conteneur, `0.0.0.0:3000`, qui ne mène nulle part.
-    // Le courriel part correctement et son lien est inutilisable — un défaut qui ne se
+    // Le courriel part correctement et son lien est inutilisable : un défaut qui ne se
     // voit qu'en ouvrant le message reçu.
     //
     // La boutique sert de base pour tous les liens : c'est l'entrée publique, et un
