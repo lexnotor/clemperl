@@ -2,7 +2,7 @@
 #
 # Chaque application est publiée sur son propre port : pas de proxy, pas de TLS, pas de
 # certificat à générer. Les cookies n'étant PAS isolés par port, une session ouverte sur
-# localhost:3000 vaut pour localhost:3001 et localhost:3002 — le partage de session se
+# localhost:3000 vaut pour localhost:3001 et localhost:3002, le partage de session se
 # vérifie donc ici sans aucune configuration.
 #
 # nginx reste dans `docker/proxy/`, pour la production, et n'est pas démarré ici. Le seul
@@ -56,7 +56,7 @@ services:
   storage:
     container_name: clemperl_dev_storage
     ports:
-      - "5010:5000"
+      - "${STORAGE_PORT:-5010}:5000"
     build:
       context: ..
       dockerfile: docker/storage/Dockerfile
@@ -104,7 +104,7 @@ services:
   # Crée les DEUX buckets au démarrage, pour que `pnpm docker:up` suffise sur une
   # machine neuve. Deux, parce que les photos de produit et les pièces d'identité ne
   # partagent jamais un espace : c'est la barrière qui rend la route de relais sûre. Doit rester idempotent : une création en double répond HTTP 400, le 409
-  # n'étant que dans le corps — d'où le test sur `BucketAlreadyExists` et non sur le
+  # n'étant que dans le corps, d'où le test sur `BucketAlreadyExists` et non sur le
   # statut. Et pas de littéral de gabarit dans ce script : Compose interpole `${...}`
   # avant que node ne le voie.
   storage-init:
@@ -127,7 +127,7 @@ services:
         const cle=process.env.STORAGE_SERVICE_KEY;const seaux=[process.env.STORAGE_BUCKET,process.env.STORAGE_MEDIA_BUCKET];Promise.all(seaux.map(function(s){return fetch('http://storage:5000/bucket',{method:'POST',headers:{Authorization:'Bearer '+cle,'Content-Type':'application/json'},body:JSON.stringify({name:s,public:false})}).then(function(r){return r.json().then(function(c){return{r:r,c:c,s:s};});}).then(function(x){if(x.r.ok||x.c.code==='BucketAlreadyExists'){console.log('bucket '+x.s+' pret');return;}console.error(x.c);throw new Error(x.s);});})).catch(function(e){console.error(e);process.exit(1);});
 
   # Déploie les migrations, puis s'arrête. Les quatre applications l'attendent : sur un
-  # volume neuf — une machine qui démarre, un runner de CI — la base est vide, et sans
+  # volume neuf (une machine qui démarre, un runner de CI), la base est vide, et sans
   # cette étape la première inscription échoue sur une table qui n'existe pas. Jouer les
   # migrations à la main marche une fois, sur la machine où on l'a fait.
   #
@@ -150,7 +150,7 @@ services:
   mailpit:
     container_name: clemperl_dev_mailpit
     ports:
-      - "8025:8025"
+      - "${MAILPIT_PORT:-8025}:8025"
     build:
       context: ..
       dockerfile: docker/mailpit/Dockerfile
@@ -163,7 +163,7 @@ services:
   storefront:
     container_name: clemperl_dev_storefront
     ports:
-      - "3000:3000"
+      - "${STOREFRONT_PORT:-3000}:3000"
     build:
       context: ..
       dockerfile: apps/storefront/Dockerfile
@@ -193,7 +193,7 @@ services:
   vendor:
     container_name: clemperl_dev_vendor
     ports:
-      - "3001:3001"
+      - "${VENDOR_PORT:-3001}:3001"
     build:
       context: ..
       dockerfile: apps/vendor/Dockerfile
@@ -221,7 +221,7 @@ services:
   admin:
     container_name: clemperl_dev_admin
     ports:
-      - "3002:3002"
+      - "${ADMIN_PORT:-3002}:3002"
     build:
       context: ..
       dockerfile: apps/admin/Dockerfile
@@ -249,7 +249,7 @@ services:
   api:
     container_name: clemperl_dev_api
     ports:
-      - "3003:3003"
+      - "${API_PORT:-3003}:3003"
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
@@ -273,7 +273,7 @@ services:
       - ../packages/db/prisma:/app/packages/db/prisma
       - ../packages/domain/src:/app/packages/domain/src
       # Testcontainers démarre de vrais conteneurs : il lui faut le démon Docker.
-      # Les conteneurs qu'il crée sont FRÈRES de celui-ci, pas enfants — ils ne sont
+      # Les conteneurs qu'il crée sont FRÈRES de celui-ci, pas enfants : ils ne sont
       # donc joignables ni par localhost ni par un port publié, mais par leur adresse
       # sur le réseau Docker.
       - /var/run/docker.sock:/var/run/docker.sock
