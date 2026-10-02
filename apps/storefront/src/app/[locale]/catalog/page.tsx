@@ -2,7 +2,7 @@ import { prisma, searchPublishedProducts } from "@clemperl/db";
 import {
     CATALOG_PAGE_SIZE,
     catalogOffset,
-    formatPrice,
+    catalogPageHref,
     readCatalogFilters,
 } from "@clemperl/domain";
 import { getTranslations } from "next-intl/server";
@@ -12,6 +12,7 @@ import { readCurrencyCookie } from "../../../lib/currency-cookie";
 import { CurrencySelector } from "../components/currency-selector";
 import { CatalogFilters } from "./components/catalog-filters";
 import { ProductCard } from "./components/product-card";
+import { displayPrice } from "./components/product-price";
 
 // La devise vient d'un cookie, donc la page est PERSONNELLE et ne se met pas en cache page
 // entière. C'est la conséquence assumée du choix de ranger la devise là. Le poids réel est
@@ -27,7 +28,8 @@ export default async function CatalogPage({
 }): Promise<JSX.Element> {
     const { locale } = await params;
     const t = await getTranslations("catalog");
-    const filters = readCatalogFilters(await searchParams);
+    const recherche = await searchParams;
+    const filters = readCatalogFilters(recherche);
     const { current, available } = await readCurrencyCookie();
 
     // La page TRADUIT les filtres du domaine en primitives. Le dépôt ne connaît pas le
@@ -93,43 +95,30 @@ export default async function CatalogPage({
                                     // `@clemperl/core`, donc nodemailer : un composant
                                     // client qui l'importerait casserait le paquet
                                     // navigateur.
-                                    price={
-                                        row.variantCount > 1
-                                            ? t("fromPrice", {
-                                                  price: formatPrice(
-                                                      row.minPriceAmount,
-                                                      row.currency as never,
-                                                      locale,
-                                                  ),
-                                              })
-                                            : formatPrice(
-                                                  row.minPriceAmount,
-                                                  row.currency as never,
-                                                  locale,
-                                              )
-                                    }
+                                    price={displayPrice(row, locale, t)}
                                 />
                             </li>
                         ))}
                     </ul>
-
-                    <nav className="mt-12 flex items-center gap-6 text-sm">
-                        {filters.page > 1 && (
-                            <Link href={`?page=${filters.page - 1}`} className="underline">
-                                {t("previous")}
-                            </Link>
-                        )}
-                        <span className="text-muet">
-                            {t("pageStatus", { page: filters.page, pages })}
-                        </span>
-                        {filters.page < pages && (
-                            <Link href={`?page=${filters.page + 1}`} className="underline">
-                                {t("next")}
-                            </Link>
-                        )}
-                    </nav>
                 </>
             )}
+
+            {/* HORS de la branche non vide : une page au-delà de la dernière laissait le
+                visiteur sans aucun chemin de retour, pas même « page précédente ». Et les
+                liens REPORTENT les filtres, qu'un `href` commençant par « ? » effaçait. */}
+            <nav className="mt-12 flex items-center gap-6 text-sm">
+                {filters.page > 1 && (
+                    <Link href={catalogPageHref(recherche, filters.page - 1)} className="underline">
+                        {t("previous")}
+                    </Link>
+                )}
+                <span className="text-muet">{t("pageStatus", { page: filters.page, pages })}</span>
+                {filters.page < pages && (
+                    <Link href={catalogPageHref(recherche, filters.page + 1)} className="underline">
+                        {t("next")}
+                    </Link>
+                )}
+            </nav>
         </main>
     );
 }

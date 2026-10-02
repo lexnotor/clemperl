@@ -2,13 +2,15 @@ import { prisma, readPublishedShop, searchPublishedProducts } from "@clemperl/db
 import {
     CATALOG_PAGE_SIZE,
     catalogOffset,
-    formatPrice,
+    catalogPageHref,
     readCatalogFilters,
 } from "@clemperl/domain";
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { JSX } from "react";
 import { ProductCard } from "../../catalog/components/product-card";
+import { displayPrice } from "../../catalog/components/product-price";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +35,9 @@ export default async function ShopPage({
     //
     // Le filtre par boutique part à la REQUÊTE, pas après coup : filtrer en mémoire la page
     // rendue tronquerait la vitrine d'une boutique de plus d'une page, en silence.
-    const filters = readCatalogFilters(await searchParams);
-    const { rows } = await searchPublishedProducts(prisma, {
+    const recherche = await searchParams;
+    const filters = readCatalogFilters(recherche);
+    const { rows, total } = await searchPublishedProducts(prisma, {
         search: filters.search,
         category: filters.category,
         sort: filters.sort,
@@ -43,12 +46,22 @@ export default async function ShopPage({
         limit: CATALOG_PAGE_SIZE,
         offset: catalogOffset(filters.page),
     });
+    const pages = Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE));
+
+    const categories: Record<string, string> = {
+        APPAREL: t("productCategory.APPAREL"),
+        JEWELLERY: t("productCategory.JEWELLERY"),
+        LEATHER_GOODS: t("productCategory.LEATHER_GOODS"),
+    };
 
     return (
         <main className="mx-auto max-w-6xl px-6 py-16">
             <h1 className="font-titre text-4xl tracking-tight">{shop.shopName}</h1>
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-muet">
                 {shop.shopDescription}
+            </p>
+            <p className="mt-4 text-xs text-muet">
+                {shop.categories.map((code) => categories[code] ?? code).join(", ")}
             </p>
 
             <h2 className="mt-16 text-sm text-muet">{t("shopProducts")}</h2>
@@ -61,11 +74,30 @@ export default async function ShopPage({
                             title={row.title}
                             shopName={row.shopName}
                             imagePath={row.imagePath}
-                            price={formatPrice(row.minPriceAmount, row.currency as never, locale)}
+                            price={displayPrice(row, locale, t)}
                         />
                     </li>
                 ))}
             </ul>
+
+            {rows.length === 0 && <p className="mt-8 text-sm text-muet">{t("empty")}</p>}
+
+            {/* La vitrine pagine comme la liste. Sans ces liens, une boutique de plus de
+                vingt-quatre articles n'en montrait que vingt-quatre, et les autres
+                n'étaient atteignables que par une URL forgée à la main. */}
+            <nav className="mt-12 flex items-center gap-6 text-sm">
+                {filters.page > 1 && (
+                    <Link href={catalogPageHref(recherche, filters.page - 1)} className="underline">
+                        {t("previous")}
+                    </Link>
+                )}
+                <span className="text-muet">{t("pageStatus", { page: filters.page, pages })}</span>
+                {filters.page < pages && (
+                    <Link href={catalogPageHref(recherche, filters.page + 1)} className="underline">
+                        {t("next")}
+                    </Link>
+                )}
+            </nav>
         </main>
     );
 }

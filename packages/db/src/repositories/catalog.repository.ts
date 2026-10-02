@@ -21,11 +21,26 @@ import type { PrismaClient } from "../../generated/prisma/client.js";
 // Ce dépôt ne reçoit que des PRIMITIVES, jamais un type du domaine : `packages/domain`
 // dépend déjà de `@clemperl/db`, et l'importer ici fermerait un cycle que Turbo ne saurait
 // pas ordonner. C'est la même règle que pour la grille de variantes en T2b.
+//
+// Chaque ordre se CLÔT sur `p.id`, qui est unique. Sans cette colonne finale,
+// `LIMIT ... OFFSET` n'est pas déterministe dès que des lignes partagent la valeur triée :
+// une ligne se répète d'une page à l'autre et une autre est sautée, donc un produit devient
+// invisible sans que rien ne le signale. Deux `published_at` identiques suffisent, et les
+// ex aequo de prix sont massifs sur un vrai catalogue.
 const ORDERS: Record<string, Prisma.Sql> = {
-    price_asc: Prisma.raw(`MIN(v.price_amount) ASC, p.published_at DESC`),
-    price_desc: Prisma.raw(`MIN(v.price_amount) DESC, p.published_at DESC`),
-    newest: Prisma.raw(`p.published_at DESC`),
+    price_asc: Prisma.raw(`MIN(v.price_amount) ASC, p.published_at DESC, p.id ASC`),
+    price_desc: Prisma.raw(`MIN(v.price_amount) DESC, p.published_at DESC, p.id ASC`),
+    newest: Prisma.raw(`p.published_at DESC, p.id ASC`),
 };
+
+// `Object.hasOwn` et non `ORDERS[cle] ?? ORDERS.newest` : un objet littéral hérite de son
+// prototype, donc `ORDERS["toString"]` rend une fonction et `ORDERS["__proto__"]` un objet.
+// Le `??` ne rattrape ni l'une ni l'autre, et la requête partirait avec un `ORDER BY`
+// dégénéré. Aucun appelant ne peut y arriver aujourd'hui, mais la signature de ce dépôt
+// prend une chaîne et invite le prochain à passer autre chose.
+function orderFor(sort: string): Prisma.Sql {
+    return Object.hasOwn(ORDERS, sort) ? (ORDERS[sort] as Prisma.Sql) : (ORDERS["newest"] as Prisma.Sql);
+}
 
 export interface ICatalogQuery {
     search: string | null;
@@ -50,11 +65,17 @@ export interface ICatalogRow {
     imagePath: string;
 }
 
-// `%` et `_` sont les jokers d'`ILIKE`. Échappés, « 100% coton » cherche ce texte ; laissés
-// tels quels, il rendrait le catalogue entier. La barre oblique doit être échappée en
-// premier, sinon elle échapperait les échappements qu'on vient de poser.
-function escapeLike(terme: string): string {
-    return terme.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+// `%` et `_` sont les jokers d'`ILIKE`, et ils s'échappent APRÈS `unaccent`, donc en SQL.
+//
+// L'ordre n'est pas un détail : `unaccent` normalise les formes pleine chasse vers l'ASCII,
+// donc `unaccent('％')` vaut `%`. Échapper en JavaScript puis laisser le SQL unaccenter le
+// motif recréait le joker après coup, et une recherche d'un seul caractère rendait le
+// catalogue entier en balayant la table deux fois.
+//
+// La barre oblique est échappée en premier, sinon elle échapperait les échappements qu'on
+// vient de poser.
+function likePattern(terme: string): Prisma.Sql {
+    return Prisma.sql`'%' || replace(replace(replace(unaccent(${terme}), '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%'`;
 }
 
 function conditions(input: ICatalogQuery): Prisma.Sql[] {
@@ -63,9 +84,10 @@ function conditions(input: ICatalogQuery): Prisma.Sql[] {
         Prisma.sql`p.deleted_at IS NULL`,
         Prisma.sql`s.deleted_at IS NULL`,
         Prisma.sql`s.currency = ${input.currency}::"currency"`,
-        // Un produit publié a forcément une image prête, c'est la garantie du dépôt depuis
-        // T2c. La jointure reste une condition explicite : une ligne sans image rendrait
-        // une carte sans vignette, et la garantie se vérifie ici plutôt que de se supposer.
+        // Une carte sans vignette n'a pas de sens, donc cette condition est la garantie,
+        // pas un rappel d'une garantie prise ailleurs. Des produits publiés SANS image
+        // prête existent : ceux d'avant T2c, et ceux dont la dernière image prête a été
+        // supprimée avant que la garde du dépôt d'images ne compte les statuts.
         Prisma.sql`i.object_path IS NOT NULL`,
     ];
 
@@ -80,10 +102,10 @@ function conditions(input: ICatalogQuery): Prisma.Sql[] {
     }
 
     if (input.search !== null) {
-        const motif = `%${escapeLike(input.search)}%`;
+        const motif = likePattern(input.search);
         liste.push(
-            Prisma.sql`(unaccent(p.title) ILIKE unaccent(${motif}) ESCAPE '\\'
-                     OR unaccent(s.shop_name) ILIKE unaccent(${motif}) ESCAPE '\\')`,
+            Prisma.sql`(unaccent(p.title) ILIKE ${motif} ESCAPE '\\'
+                     OR unaccent(s.shop_name) ILIKE ${motif} ESCAPE '\\')`,
         );
     }
 
@@ -91,7 +113,8 @@ function conditions(input: ICatalogQuery): Prisma.Sql[] {
 }
 
 // La jointure d'image choisit la READY de position la plus basse. `LEFT JOIN LATERAL` avec
-// `LIMIT 1` est la forme PostgreSQL : un seul passage, et c'est la ligne qu'on veut.
+// `LIMIT 1` est la forme PostgreSQL : un parcours d'index par produit, et c'est la ligne
+// qu'on veut. Elle est exécutée une fois PAR LIGNE candidate, pas une fois pour la requête.
 const IMAGE_JOIN = Prisma.raw(`
     LEFT JOIN LATERAL (
         SELECT pi.object_path
@@ -107,7 +130,7 @@ export async function searchPublishedProducts(
     input: ICatalogQuery,
 ): Promise<{ rows: ICatalogRow[]; total: number }> {
     const where = Prisma.join(conditions(input), " AND ");
-    const order = ORDERS[input.sort] ?? (ORDERS["newest"] as Prisma.Sql);
+    const order = orderFor(input.sort);
 
     // `::int` sur les agrégats : `MIN` et `COUNT` reviennent en bigint ou en numeric selon
     // le type de départ, et `node-postgres` rend ces types en CHAÎNE. Un prix devenu chaîne
@@ -143,12 +166,18 @@ export async function searchPublishedProducts(
 export async function listCatalogCurrencies(
     prisma: PrismaClient,
 ): Promise<{ currency: string; productCount: number }[]> {
+    // Les MÊMES conditions que la liste, jointure d'image et variante comprises. Compter
+    // des produits que la liste ne sait pas montrer fait choisir, à la première visite, une
+    // devise qui affiche « aucun article ne correspond » sans qu'aucun filtre soit actif, et
+    // le repli ne se déclenche pas puisque la devise est techniquement disponible.
     return prisma.$queryRaw`
         SELECT s.currency::text AS "currency", COUNT(DISTINCT p.id)::int AS "productCount"
         FROM products p
         JOIN vendors s ON s.id = p.vendor_id
+        JOIN product_variants v ON v.product_id = p.id
+        ${IMAGE_JOIN}
         WHERE p.status = 'PUBLISHED' AND p.deleted_at IS NULL AND s.deleted_at IS NULL
-              AND s.currency IS NOT NULL
+              AND s.currency IS NOT NULL AND i.object_path IS NOT NULL
         GROUP BY s.currency
         ORDER BY "productCount" DESC, "currency" ASC
     `;

@@ -457,10 +457,19 @@ describe("la clé de combinaison", () => {
             category: "APPAREL",
             slug: `${PREFIX}-cle-${counter}`,
             description: DESCRIPTION,
-            options: [{ name: "Taille", values: ["S", "M"] }],
+            // DEUX axes, et c'est le point du test. Avec un seul, chaque clé ne contient
+            // qu'un identifiant et le tri qu'elle est censée protéger est sans effet : un
+            // côté qui passerait à `localeCompare` donnerait « Zbc|abc » et l'autre
+            // « abc|Zbc », et un test à un axe passerait quand même.
+            options: [
+                { name: "Taille", values: ["S", "M"] },
+                { name: "Couleur", values: ["Noir", "Ecru"] },
+            ],
             variants: [
-                { selections: { Taille: "S" }, priceAmount: 4900, position: 0 },
-                { selections: { Taille: "M" }, priceAmount: 5200, position: 1 },
+                { selections: { Taille: "S", Couleur: "Noir" }, priceAmount: 4900, position: 0 },
+                { selections: { Taille: "S", Couleur: "Ecru" }, priceAmount: 4900, position: 1 },
+                { selections: { Taille: "M", Couleur: "Noir" }, priceAmount: 5200, position: 2 },
+                { selections: { Taille: "M", Couleur: "Ecru" }, priceAmount: 5200, position: 3 },
             ],
         });
 
@@ -469,8 +478,9 @@ describe("la clé de combinaison", () => {
             select: { combinationKey: true, values: { select: { optionValueId: true } } },
         });
 
-        expect(variants).toHaveLength(2);
+        expect(variants).toHaveLength(4);
         for (const variant of variants) {
+            expect(variant.values).toHaveLength(2);
             expect(variant.combinationKey).toBe(
                 variantCombinationKey(variant.values.map((v) => v.optionValueId)),
             );

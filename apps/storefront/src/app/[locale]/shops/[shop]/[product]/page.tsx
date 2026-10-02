@@ -24,23 +24,51 @@ export default async function ProductPage({
         notFound();
     }
 
-    // Formaté ICI, une fois, et passé au composant client sous forme de chaînes.
-    const prices = Object.fromEntries(
+    // Formaté ICI, côté serveur, et UNE ENTRÉE PAR DÉCLINAISON. Le lien de contact était
+    // calculé une seule fois, hors sélection : il annonçait le nom de l'axe au lieu de la
+    // valeur choisie, et le prix plancher au lieu du prix de cette déclinaison. Un visiteur
+    // qui choisissait la plus chère envoyait au vendeur un courriel annonçant la moins
+    // chère, donc un prix faux dans un message qui part chez quelqu'un.
+    //
+    // Le composant client ne reçoit que des chaînes prêtes : il ne connaît ni devise, ni
+    // exposant, ni gabarit de message.
+    const libelleParValeur = new Map(
+        product.options.flatMap((option) =>
+            option.values.map((valeur) => [valeur.id, `${option.name} : ${valeur.label}`] as const),
+        ),
+    );
+
+    // Les identifiants de valeur de chaque déclinaison, dans l'ordre où la clé les range,
+    // pour que le libellé lu par le vendeur suive la combinaison et non l'ordre des axes.
+    const valeursParCle = new Map(
         product.variants.map((variant) => [
             variant.combinationKey,
-            formatPrice(variant.priceAmount, product.currency as never, locale),
+            variant.combinationKey === "" ? [] : variant.combinationKey.split("|"),
         ]),
     );
-    const plancher = Math.min(...product.variants.map((variant) => variant.priceAmount));
-    const prixPlancher = formatPrice(plancher, product.currency as never, locale);
 
-    const sujet = t("contactSubject", { title: product.title });
-    const corps = t("contactBody", {
-        title: product.title,
-        variant: product.options.map((option) => option.name).join(", "),
-        price: prixPlancher,
-    });
-    const contactHref = `mailto:${product.shopContactEmail}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
+    const offers = Object.fromEntries(
+        product.variants.map((variant) => {
+            const prix = formatPrice(variant.priceAmount, product.currency as never, locale);
+            const libelle = (valeursParCle.get(variant.combinationKey) ?? [])
+                .map((id) => libelleParValeur.get(id) ?? id)
+                .join(", ");
+            const sujet = t("contactSubject", { title: product.title });
+            const corps = t("contactBody", {
+                title: product.title,
+                variant: libelle === "" ? product.title : libelle,
+                price: prix,
+            });
+
+            return [
+                variant.combinationKey,
+                {
+                    price: prix,
+                    href: `mailto:${product.shopContactEmail}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`,
+                },
+            ];
+        }),
+    );
 
     return (
         <main className="mx-auto max-w-6xl px-6 py-16">
@@ -69,8 +97,8 @@ export default async function ProductPage({
 
                     <VariantSelector
                         options={product.options}
-                        prices={prices}
-                        contact={{ href: contactHref, label: t("contactShop") }}
+                        offers={offers}
+                        contactLabel={t("contactShop")}
                         emptyLabel={t("noVariantChosen")}
                     />
                 </div>

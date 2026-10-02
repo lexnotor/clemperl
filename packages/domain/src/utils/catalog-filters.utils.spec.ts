@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     CATALOG_PAGE_SIZE,
     catalogOffset,
+    catalogPageHref,
     chooseCatalogCurrency,
     readCatalogFilters,
 } from "./catalog-filters.utils.js";
@@ -85,5 +86,46 @@ describe("catalogOffset", () => {
 
     it("avance d'une page entière", () => {
         expect(catalogOffset(3)).toBe(CATALOG_PAGE_SIZE * 2);
+    });
+});
+
+describe("catalogPageHref", () => {
+    // LE défaut que ce lien avait : un `href` qui commence par « ? » remplace TOUTE la
+    // chaîne de requête. Cliquer « page suivante » sur une recherche filtrée faisait donc
+    // sauter la recherche, la catégorie et le tri, et le visiteur recevait la page 2 du
+    // catalogue entier sans que rien ne le lui dise.
+    it("garde les filtres en changeant de page", () => {
+        const href = catalogPageHref({ q: "cabas", category: "JEWELLERY", sort: "price_asc" }, 2);
+
+        expect(href).toContain("q=cabas");
+        expect(href).toContain("category=JEWELLERY");
+        expect(href).toContain("sort=price_asc");
+        expect(href).toContain("page=2");
+    });
+
+    it("remplace la page au lieu de l'ajouter", () => {
+        const href = catalogPageHref({ q: "cabas", page: "3" }, 4);
+
+        expect(href.match(/page=/g)).toHaveLength(1);
+        expect(href).toContain("page=4");
+    });
+
+    it("n'écrit pas la page pour la première", () => {
+        expect(catalogPageHref({ q: "cabas" }, 1)).toBe("?q=cabas");
+    });
+
+    it("rend un chemin propre quand il n'y a aucun filtre", () => {
+        expect(catalogPageHref({}, 1)).toBe("?");
+        expect(catalogPageHref({}, 2)).toBe("?page=2");
+    });
+
+    // Un paramètre répété, ou un paramètre que la liste ne connaît pas, ne doit pas se
+    // retrouver recopié dans le lien : seul ce que `readCatalogFilters` sait lire voyage.
+    it("ne recopie que les paramètres que la liste connaît", () => {
+        const href = catalogPageHref({ q: ["a", "b"], inconnu: "x", sort: "newest" }, 2);
+
+        expect(href).toContain("q=a");
+        expect(href).not.toContain("inconnu");
+        expect(href).toContain("sort=newest");
     });
 });

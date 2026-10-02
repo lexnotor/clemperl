@@ -11,7 +11,9 @@ export type TCatalogSort = (typeof CATALOG_SORTS)[number];
 export const CATALOG_PAGE_SIZE = 24;
 
 // Mille pages de vingt-quatre, soit vingt-quatre mille produits. Au-delà, personne ne
-// pagine : la borne existe pour qu'un `OFFSET` démesuré ne fasse pas balayer la table.
+// pagine. La borne limite le coût du TRI FINAL sur un décalage démesuré ; elle ne borne pas
+// le balayage, que la forme de la requête impose de toute façon (mesuré à 50 000 produits :
+// la page 1 parcourt déjà toute la table).
 const MAX_PAGE = 1000;
 
 // Cent caractères. Un terme plus long ne décrit plus un produit, et la borne évite de
@@ -74,4 +76,32 @@ export function chooseCatalogCurrency(
         return requested;
     }
     return available[0] ?? "EUR";
+}
+
+// Le lien de pagination doit REPORTER les filtres. Un `href` qui commence par « ? »
+// remplace toute la chaîne de requête : écrit naïvement, cliquer « page suivante » sur une
+// recherche filtrée faisait sauter la recherche, la catégorie et le tri, et le visiteur
+// recevait la page 2 du catalogue entier sans que rien ne le lui dise.
+//
+// Seuls les paramètres que `readCatalogFilters` sait lire voyagent : recopier l'inconnu
+// ferait grossir les URL de tout ce qu'un lien entrant y aurait laissé.
+export function catalogPageHref(
+    params: Record<string, string | string[] | undefined>,
+    page: number,
+): string {
+    const suivants = new URLSearchParams();
+
+    for (const cle of ["q", "category", "sort"]) {
+        const valeur = premiere(params[cle]);
+        if (valeur !== undefined && valeur.trim() !== "") {
+            suivants.set(cle, valeur);
+        }
+    }
+
+    // La première page ne porte pas de numéro : son URL est celle que le visiteur partage.
+    if (page > 1) {
+        suivants.set("page", String(page));
+    }
+
+    return `?${suivants.toString()}`;
 }
