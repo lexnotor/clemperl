@@ -1,13 +1,15 @@
 "use client";
 
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
-import { Button, Field, FormSection, TextAreaField } from "@clemperl/ui";
+import { PRODUCT_CATEGORIES } from "@clemperl/domain/browser";
+import { Button, Field, FormSection, SelectField, TextAreaField } from "@clemperl/ui";
 import { useActionState, type JSX } from "react";
 import { createProductAction } from "../actions";
 import { INITIAL_PRODUCT_STATE } from "../types/product-form-state.interface";
 
 export function NewProductForm(): JSX.Element {
     const t = messages.products;
+    const categories = messages.productCategory as Record<string, string>;
     const [state, action, pending] = useActionState(createProductAction, INITIAL_PRODUCT_STATE);
 
     return (
@@ -22,6 +24,17 @@ export function NewProductForm(): JSX.Element {
                     maxLength={4000}
                     rows={4}
                     hint={t.descriptionHint}
+                />
+                <SelectField
+                    label={t.category}
+                    name="category"
+                    required
+                    hint={t.categoryHint}
+                    placeholder={t.categoryPlaceholder}
+                    options={PRODUCT_CATEGORIES.map((value) => ({
+                        value,
+                        label: categories[value] ?? value,
+                    }))}
                 />
                 {/* Un champ TEXTE et non `type="number"` : la saisie francophone écrit
                     « 12,50 », qu'un contrôle numérique refuse selon la locale du

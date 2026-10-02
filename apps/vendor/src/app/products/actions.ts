@@ -29,6 +29,7 @@ export async function createProductAction(
     const parsed = productDetailsSchema.safeParse({
         title: form.get("title"),
         description: form.get("description"),
+        category: form.get("category"),
     });
     if (!parsed.success) {
         return { message: [messages.errors.invalid], saved: false };
@@ -48,6 +49,7 @@ export async function createProductAction(
             slug: slugifyProductTitle(parsed.data.title),
             title: parsed.data.title,
             description: parsed.data.description,
+            category: parsed.data.category,
             priceAmount,
             // La devise sous laquelle `parsePrice` vient de convertir. Le dépôt la relit
             // après avoir pris son verrou et refuse si elle a changé entre-temps.

@@ -97,7 +97,10 @@
     "imageRetry": "Réessayer",
     "imageMoveUp": "Monter",
     "imageMoveDown": "Descendre",
-    "imageMain": "Principale"
+    "imageMain": "Principale",
+    "category": "Catégorie",
+    "categoryHint": "Ce qu'est cet article, indépendamment de ce que votre boutique vend par ailleurs.",
+    "categoryPlaceholder": "Choisir une catégorie"
   },
   "imageFailure": {
     "object_missing": "Le dépôt n'a pas abouti. Supprimez cette photo et recommencez.",
@@ -105,5 +108,10 @@
     "too_small": "Cette image fait moins de 320 pixels de large. Supprimez-la et déposez-en une plus grande.",
     "too_large": "Cette image est trop grande pour être traitée. Supprimez-la et déposez-en une plus petite.",
     "processing_failed": "Le traitement n'a pas abouti. Réessayez."
+  },
+  "productCategory": {
+    "APPAREL": "Vêtements",
+    "JEWELLERY": "Joaillerie",
+    "LEATHER_GOODS": "Maroquinerie"
   }
 }

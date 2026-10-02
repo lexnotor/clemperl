@@ -20,13 +20,41 @@ plan, exécution, un commit.
 | T2a | Espace vendeur et boutique | **Livrée** |
 | T2b | Produit et variantes | **Livrée** |
 | T2c | Pipeline médias (BullMQ, sharp, worker) | **Livrée** |
-| T2d | Catalogue public : liste, filtres, fiche | non commencée |
+| T2d | Catalogue public : liste, filtres, fiche | **Livrée** |
+| T2e | Collections de produits | à cadrer |
 | T3 | Panier et commande | non commencée |
 | T4 | Paiement, point d'extension | non commencée |
 | T5 | Abonnements vendeurs | non commencée |
 | T6 | Administration | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
+
+**La liste du catalogue n'est pas cacheable page entière.** La devise vit dans un cookie,
+donc la page est personnelle, et un lien partagé ne montre pas la même chose à deux
+personnes. C'est la conséquence assumée du choix de T2d ; le poids réel reste sur les
+images, qui gardent le cache d'un an de la route de relais. Le jour où la liste coûte trop
+cher, la sortie est de passer la devise dans l'URL, ce qui rend la page cacheable par
+adresse.
+
+**La requête du catalogue est la seule du dépôt écrite en SQL.** Prisma ne sait pas trier
+une liste de produits par le minimum du prix de leurs variantes, et on a refusé de
+dénormaliser une colonne pour contourner cette limite. Trois règles la rendent sûre :
+valeurs paramétrées, tri choisi dans une table fermée, conditions assemblées par
+`Prisma.join`. Y ajouter un filtre, c'est ajouter un fragment à `conditions`, jamais
+concaténer une chaîne.
+
+**Les dépôts ne reçoivent que des primitives, jamais un type du domaine.**
+`packages/domain` dépend de `@clemperl/db`, donc l'inverse fermerait un cycle que Turbo ne
+saurait pas ordonner. La page traduit les filtres avant d'appeler le dépôt. Même raison
+pour la clé de combinaison, construite des deux côtés et épinglée par un test
+d'intégration de `apps/api`, seul paquet qui voit les deux.
+
+**Les collections viendront après le catalogue, et c'est délibéré.** Un vendeur créera des
+collections transversales, par exemple `hot-summer-sales`, et y rangera des articles de son
+catalogue : une relation N à N entre `Product` et une table `Collection`, avec son propre
+slug public. Une collection capte une intention d'achat qu'une catégorie ne capte pas. Elle
+ne vient pas en T2d parce que la catégorie et les filtres doivent d'abord vivre contre de
+vrais produits. Voir la section 3 de la spec T2d.
 
 **L'API passera en GraphQL, et ce sera sa propre tranche.** La raison n'est pas une
 préférence de style : une application mobile React Native (Expo) est prévue, donc l'API
@@ -44,9 +72,44 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
+## Où en est le travail, au 2026-10-02
+
+**Branche `feat/public-catalogue`.** Elle porte trois commits : deux d'intendance
+(`456dfb9` les ports paramétrables et Playwright qui lit `.env`, `d46e461` la convention de
+rédaction et le nettoyage des tirets quadratins), puis le commit de T2d.
+
+**T2d est implémentée et vérifiée**, mais sa revue par contexte neuf n'était pas rendue au
+moment du commit. Les constats qu'elle produira sont à traiter en une passe, chacun avec un
+test qui échoue d'abord, et ils feront un second commit sur la même branche. Le registre des
+décisions prises pendant l'exécution a été supprimé avec la fin du chantier ; elles sont
+dans le message du commit de T2d.
+
+**Rien n'est poussé vers `main`.** Aucune PR n'est ouverte pour T2d. La précédente, la #5,
+est mergée.
+
+**Un résidu à nettoyer, qui demande `sudo`.** `apps/api/test/.fixtures-uid1000/` est un
+dossier créé par un conteneur sous un autre uid que le tien. Son contenu est identique aux
+fixtures officielles, donc il est jetable :
+
+    sudo rm -rf apps/api/test/.fixtures-uid1000
+
+Il n'existe que sur l'ancienne machine et ne voyage pas avec le dépôt.
+
 ## Reprendre sur une autre machine
 
-Le dépôt ne suffit pas : quatre choses n'y sont pas.
+Le dépôt ne suffit pas : cinq choses n'y sont pas.
+
+**Les ports publiés peuvent entrer en conflit avec un autre projet.** Depuis `456dfb9`, les
+six ports du compose se lisent dans l'environnement, avec les valeurs habituelles par
+défaut : `STOREFRONT_PORT`, `VENDOR_PORT`, `ADMIN_PORT`, `API_PORT`, `MAILPIT_PORT`,
+`STORAGE_PORT`. Sur l'ancienne machine, un Grafana d'un autre projet occupait `3001`, donc
+l'espace vendeur y tournait sur `3011`.
+
+Ce choix ne voyage pas, puisqu'il vit dans `.env`. Sur la nouvelle machine, partir des
+valeurs par défaut, et ne les changer que si un port est déjà pris. **Changer un port oblige
+à changer l'URL correspondante** : le port dit à Docker où publier, l'URL dit au navigateur
+où aller, et rien ne signale leur désaccord. Les deux blocs sont côte à côte dans
+`.env.example` pour cette raison.
 
 **`.env` n'est pas versionné.** Le partir de `.env.example`, puis :
 
@@ -66,6 +129,13 @@ sont vides, et le bouton « Continuer avec Google » n'apparaît que si
 `NEXT_PUBLIC_GOOGLE_ACTIF` vaut `1`. Sans eux, le parcours par mot de passe est entier :
 rien n'est bloqué. `docker/README.md` donne les URL de rappel à déclarer dans la console
 Google le jour où on les crée.
+
+**La base a besoin de l'extension `unaccent`.** La recherche du catalogue compare des
+titres sans tenir compte des accents, et une migration de T2d pose l'extension. Elle est
+livrée avec PostgreSQL, donc le conteneur du compose l'accepte sans rien installer. Sur une
+base gérée qui refuserait `CREATE EXTENSION`, la migration échoue au démarrage : il faudrait
+alors la faire poser par un administrateur, ou retomber sur un `ILIKE` sans `unaccent`, ce
+qui rendrait « etole » incapable de trouver « Étole ».
 
 **Les volumes Docker sont locaux.** La base de la nouvelle machine part vide. Le service
 `migrate` du compose déploie les migrations avant que les applications démarrent, et

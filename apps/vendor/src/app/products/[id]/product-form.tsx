@@ -3,9 +3,9 @@
 // `@clemperl/domain/browser` et non le barillet : celui-ci réexporte les erreurs du
 // domaine, qui tirent `@clemperl/core`, qui tire nodemailer, qui tire `node:net`,
 // et Turbopack refuse d'assembler un paquet navigateur qui le contient.
-import { buildVariantMatrix, selectionKey } from "@clemperl/domain/browser";
+import { PRODUCT_CATEGORIES, buildVariantMatrix, selectionKey } from "@clemperl/domain/browser";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
-import { Button, Field, FormSection, TextAreaField } from "@clemperl/ui";
+import { Button, Field, FormSection, SelectField, TextAreaField } from "@clemperl/ui";
 import { useActionState, useState, type JSX } from "react";
 import { INITIAL_PRODUCT_STATE } from "../types/product-form-state.interface";
 import { saveProductAction } from "./actions";
@@ -19,6 +19,7 @@ interface ProductFormProps {
     productId: string;
     title: string;
     description: string;
+    category: string;
     /** Nombre de décimales de la devise de la boutique, pour l'affichage des prix. */
     exponent: number;
     options: OptionRow[];
@@ -36,6 +37,7 @@ function priceForInput(amount: number, exponent: number): string {
 
 export function ProductForm(product: ProductFormProps): JSX.Element {
     const t = messages.products;
+    const categories = messages.productCategory as Record<string, string>;
     const [state, action, pending] = useActionState(saveProductAction, INITIAL_PRODUCT_STATE);
     const [options, setOptions] = useState<OptionRow[]>(product.options);
 
@@ -74,6 +76,18 @@ export function ProductForm(product: ProductFormProps): JSX.Element {
                     maxLength={4000}
                     rows={4}
                     defaultValue={product.description}
+                />
+                <SelectField
+                    label={t.category}
+                    name="category"
+                    required
+                    hint={t.categoryHint}
+                    placeholder={t.categoryPlaceholder}
+                    defaultValue={product.category}
+                    options={PRODUCT_CATEGORIES.map((value) => ({
+                        value,
+                        label: categories[value] ?? value,
+                    }))}
                 />
             </FormSection>
 

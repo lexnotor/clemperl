@@ -6,7 +6,8 @@
   },
   "navigation": {
     "shop": "Shop",
-    "account": "My account"
+    "account": "My account",
+    "catalog": "Catalogue"
   },
   "auth": {
     "signUp": {
@@ -121,6 +122,35 @@
       "already_open": "You already have an application under review.",
       "submit_failed": "Your application could not be saved. Try again in a moment.",
       "not_resubmittable": "This application cannot be sent again as it stands."
+    }
+  },
+  "catalog": {
+    "title": "The catalogue",
+    "searchLabel": "Search",
+    "searchPlaceholder": "An item, a shop",
+    "categoryLabel": "Category",
+    "categoryAll": "All categories",
+    "sortLabel": "Sort by",
+    "sortNewest": "Most recent",
+    "sortPriceAsc": "Price, low to high",
+    "sortPriceDesc": "Price, high to low",
+    "currencyLabel": "Currency",
+    "empty": "Nothing matches. Try another term, or remove a filter.",
+    "emptyCurrency": "No shop sells in this currency yet.",
+    "fromPrice": "from {price}",
+    "previous": "Previous page",
+    "next": "Next page",
+    "pageStatus": "Page {page} of {pages}",
+    "resultCount": "{count} items",
+    "shopProducts": "This shop's items",
+    "contactShop": "Contact the shop",
+    "contactSubject": "Your item: {title}",
+    "contactBody": "Hello,\n\nI am interested in “{title}” ({variant}), priced at {price}.\n\nPlease let me know how to proceed.",
+    "noVariantChosen": "Choose a variant",
+    "productCategory": {
+      "APPAREL": "Apparel",
+      "JEWELLERY": "Jewellery",
+      "LEATHER_GOODS": "Leather goods"
     }
   }
 }

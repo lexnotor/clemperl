@@ -2,6 +2,8 @@ import type { PrismaClient } from "../../generated/prisma/client.js";
 
 export interface ICreateProduct {
     vendorId: string;
+    /** Ce qu'EST cet objet, distinct de ce que la boutique déclare vendre. */
+    category: string;
     slug: string;
     title: string;
     description: string;
@@ -26,6 +28,8 @@ export interface ISaveProduct {
     productId: string;
     vendorId: string;
     title: string;
+    /** Ce qu'EST cet objet, distinct de ce que la boutique déclare vendre. */
+    category: string;
     /** Dérivé du titre. Ignoré dès que le produit a été publié une fois. */
     slug: string;
     description: string;
@@ -133,6 +137,7 @@ export async function createProduct(
                     slug: input.slug,
                     title: input.title,
                     description: input.description,
+                    category: input.category as never,
                     variants: {
                         create: { priceAmount: input.priceAmount, combinationKey: "", position: 0 },
                     },
@@ -227,6 +232,7 @@ export async function saveProduct(prisma: PrismaClient, input: ISaveProduct): Pr
                 data: {
                     title: input.title,
                     description: input.description,
+                    category: input.category as never,
                     // Le slug suit le titre tant que le produit n'a JAMAIS été publié.
                     // Après la première publication il est figé : il est parti dans une
                     // URL publique, et une URL qui bouge est une URL cassée.

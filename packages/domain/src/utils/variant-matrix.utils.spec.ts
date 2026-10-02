@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildVariantMatrix, selectionKey } from "./variant-matrix.utils.js";
+import { buildVariantMatrix, selectionKey, variantCombinationKey } from "./variant-matrix.utils.js";
 
 describe("selectionKey", () => {
     // Sans le tri, la même combinaison produirait deux clés différentes et l'unicité de
@@ -135,5 +135,25 @@ describe("buildVariantMatrix", () => {
         );
         expect(grid).toHaveLength(6);
         expect(new Set(grid.map((variant) => selectionKey(variant.selections))).size).toBe(6);
+    });
+});
+
+describe("variantCombinationKey", () => {
+    // C'est la clé rangée en BASE, et elle n'a rien à voir avec `selectionKey`, qui est une
+    // clé d'écran faite de noms d'axes et de libellés. Les confondre ferait chercher un
+    // prix sous une clé qui n'existe nulle part, en silence.
+    it("trie les identifiants puis les joint", () => {
+        expect(variantCombinationKey(["v2", "v1"])).toBe("v1|v2");
+        expect(variantCombinationKey(["v1", "v2"])).toBe("v1|v2");
+    });
+
+    it("rend la chaîne vide pour un produit sans axe", () => {
+        expect(variantCombinationKey([])).toBe("");
+    });
+
+    it("ne modifie pas le tableau reçu", () => {
+        const source = ["v2", "v1"];
+        variantCombinationKey(source);
+        expect(source).toEqual(["v2", "v1"]);
     });
 });

@@ -61,6 +61,7 @@ export async function saveProductAction(
     const details = productDetailsSchema.safeParse({
         title: form.get("title"),
         description: form.get("description"),
+        category: form.get("category"),
     });
     const options = productOptionsSchema.safeParse(readOptions(form));
     if (!details.success || !options.success) {
@@ -111,6 +112,7 @@ export async function saveProductAction(
             // l'ignore après la première publication, c'est lui qui connaît cette date.
             slug: slugifyProductTitle(details.data.title),
             description: details.data.description,
+            category: details.data.category,
             options: options.data,
             variants: grid,
         });

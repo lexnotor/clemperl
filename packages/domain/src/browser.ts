@@ -9,9 +9,14 @@
 // Le même raisonnement que `@clemperl/db/enums` : un sous-chemin étroit vaut mieux
 // qu'un barillet qu'on n'ose plus importer.
 export * from "./utils/variant-matrix.utils.js";
+export * from "./utils/catalog-filters.utils.js";
 export * from "./utils/slug.utils.js";
 export * from "./utils/product-slug.utils.js";
 export * from "./constants/image-derivatives.constant.js";
 export * from "./constants/image-failure.constant.js";
 export * from "./utils/media-path.utils.js";
 export * from "./utils/media-type.utils.js";
+
+// Le formulaire vendeur construit ses options depuis `PRODUCT_CATEGORIES`. Ce fichier
+// n'importe que zod, donc il ne fait entrer ni le client Prisma ni `@clemperl/core`.
+export * from "./schemas/product.schema.js";

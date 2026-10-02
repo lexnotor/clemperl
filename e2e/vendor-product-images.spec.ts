@@ -26,6 +26,7 @@ test("un vendeur dépose une photo, attend son traitement, puis publie", async (
     await page
         .getByRole("textbox", { name: "Description" })
         .fill("Cuir pleine fleur tanné végétal, coutures à la main, doublure en lin.");
+    await page.getByRole("combobox", { name: "Catégorie" }).selectOption("LEATHER_GOODS");
     await page.getByRole("textbox", { name: "Prix", exact: true }).fill("180,00");
     await page.getByRole("button", { name: "Créer le produit" }).click();
     await page.waitForURL(/\/products\/[^/]+$/);
@@ -79,6 +80,7 @@ test("une image illisible est signalée, pas escamotée, et bloque la publicatio
     await page
         .getByRole("textbox", { name: "Description" })
         .fill("Cuir tressé à la main, fermoir en laiton massif, taille ajustable.");
+    await page.getByRole("combobox", { name: "Catégorie" }).selectOption("JEWELLERY");
     await page.getByRole("textbox", { name: "Prix", exact: true }).fill("45,00");
     await page.getByRole("button", { name: "Créer le produit" }).click();
     await page.waitForURL(/\/products\/[^/]+$/);

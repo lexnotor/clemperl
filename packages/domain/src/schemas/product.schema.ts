@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+// La liste, NOMMÉE, pour trois usages : ce schéma, les options du formulaire vendeur, et
+// le test d'intégration qui la compare à l'enum Prisma. Elle est écrite ici et non
+// importée de `@clemperl/db` parce que ce fichier part dans le paquet navigateur, où le
+// barillet du client Prisma n'a rien à faire.
+export const PRODUCT_CATEGORIES = ["APPAREL", "JEWELLERY", "LEATHER_GOODS"] as const;
+
+export type TProductCategory = (typeof PRODUCT_CATEGORIES)[number];
+
 // Le titre produit le slug, donc la même exigence que pour un nom de boutique : deux
 // caractères latins au moins. Sans eux le slug est vide, et le deuxième produit du
 // genre casse sur l'unicité avec un message de base que personne ne relie à sa saisie.
@@ -11,6 +19,11 @@ export const productDetailsFields = {
         .max(120)
         .regex(/(?:[a-zA-Z0-9].*){2}/u, "doit contenir au moins deux caractères latins"),
     description: z.string().trim().min(20).max(4000),
+
+    // Ce qu'EST cet objet, distinct de ce que la boutique déclare vendre. Aucun défaut :
+    // un défaut silencieux rangerait toutes les bagues en vêtements, et le filtre du
+    // catalogue mentirait sans que rien ne le signale.
+    category: z.enum(PRODUCT_CATEGORIES),
 };
 
 export const productDetailsSchema = z.object(productDetailsFields);

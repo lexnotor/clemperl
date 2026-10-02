@@ -57,6 +57,7 @@ export default async function ProductPage({
                 productId={product.id}
                 title={product.title}
                 description={product.description}
+                category={product.category}
                 exponent={CURRENCY_EXPONENT[currency]}
                 options={options}
                 variants={variants}
