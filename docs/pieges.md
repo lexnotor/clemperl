@@ -1064,3 +1064,28 @@ Ce qui protège maintenant : un `@OnWorkerEvent("failed")` qui bascule la ligne 
 quand `attemptsMade >= opts.attempts`, et `removeOnComplete: true` / `removeOnFail: 1000`
 sur les options du job. La règle : **tout état transitoire écrit en base a besoin de
 quelqu'un qui le termine quand le mécanisme qui devait le faire abandonne.**
+
+---
+
+**L'annonceur de route de Next porte le titre de la page, donc un `getByText` non
+restreint trouve deux éléments dès que le texte cherché est ce titre.**
+
+Sur toute page App Router, Next pose `<div id="__next-route-announcer__" role="alert">`
+hors de `main`, et y écrit le titre après chaque navigation. Un test qui cherche le nom
+d'un produit tombe donc sur la carte du produit **et** sur l'annonceur, et Playwright
+refuse de choisir.
+
+Observé le 2026-10-03 sur `e2e/catalog.spec.ts`, en CI. La particularité qui coûte cher :
+la suite entière était passée au tour précédent, et le commit qui a déclenché l'échec ne
+touchait qu'un fichier `.md`. L'annonceur se remplit après la navigation, donc il est là
+ou non selon l'instant où l'assertion s'exécute. Le test ne tombe qu'une fois sur deux, ce
+qui le fait passer pour une panne d'infrastructure.
+
+Un second cas, plus traître, se cachait dans le même fichier : un `toHaveCount(0)` après
+un filtrage. L'annonceur portant encore l'ancien titre, le compte vaut 1 et l'assertion
+échoue en affirmant qu'un produit filtré est toujours là.
+
+Ce qui protège maintenant : `inMain()` dans `e2e/catalog.spec.ts`, et le même motif dans
+`e2e/sign-up.spec.ts`, qui avait rencontré le piège dès T1a sur `role="alert"` sans
+jamais le consigner ici. Règle : **chercher un texte qui peut être le titre de la page se
+fait dans `main`**, jamais sur la page entière.

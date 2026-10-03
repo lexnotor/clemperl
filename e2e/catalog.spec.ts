@@ -1,6 +1,15 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { URL_STOREFRONT, URL_VENDOR } from "../playwright.config";
 import { createApprovedVendorShop } from "./helpers/accounts";
+
+// L'annonceur de route de Next (`#__next-route-announcer__`, `role="alert"`) porte le
+// titre de la page après chaque navigation, et le titre d'une fiche EST le nom du
+// produit. Un `getByText(titre)` non restreint en trouve donc deux, et le second est là
+// ou non selon l'instant : le test passe une fois sur deux. Chercher dans `main`
+// l'exclut, l'annonceur étant posé hors de lui.
+function inMain(page: Page, text: string): Locator {
+    return page.locator("main").getByText(text);
+}
 
 // Sériel : le premier test amorce l'administrateur, que les autres trouvent déjà là.
 test.describe.configure({ mode: "serial" });
@@ -56,16 +65,16 @@ test("un visiteur parcourt le catalogue, filtre, et ouvre une fiche", async ({
     // Le visiteur, SANS session : c'est tout l'objet de cette tranche.
     const visiteur = await browser.newPage();
     await visiteur.goto(`${URL_STOREFRONT}/catalog`);
-    await expect(visiteur.getByText(titre)).toBeVisible();
+    await expect(inMain(visiteur, titre)).toBeVisible();
 
     // Critère 2 : le filtre ne remonte que les produits de cette catégorie.
     await visiteur.getByRole("combobox", { name: "Catégorie" }).selectOption("JEWELLERY");
     await visiteur.getByRole("button", { name: "Rechercher" }).click();
-    await expect(visiteur.getByText(titre)).toHaveCount(0);
+    await expect(inMain(visiteur, titre)).toHaveCount(0);
 
     await visiteur.getByRole("combobox", { name: "Catégorie" }).selectOption("LEATHER_GOODS");
     await visiteur.getByRole("button", { name: "Rechercher" }).click();
-    await visiteur.getByText(titre).click();
+    await inMain(visiteur, titre).click();
 
     // Critère 7 : le prix SUIT la déclinaison choisie, et le lien de contact annonce cette
     // déclinaison avec son prix. Le lien était calculé une fois pour toute la fiche, donc
@@ -87,7 +96,7 @@ test("un visiteur parcourt le catalogue, filtre, et ouvre une fiche", async ({
     // Le nom de la boutique mène à sa vitrine, qui montre le même article.
     await visiteur.getByRole("link", { name: /Atelier|Boutique/ }).first().click();
     await visiteur.waitForURL(/\/shops\/[^/]+$/);
-    await expect(visiteur.getByText(titre)).toBeVisible();
+    await expect(inMain(visiteur, titre)).toBeVisible();
     await visiteur.close();
 });
 
