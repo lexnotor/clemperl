@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-09-24.
+Dernière mise à jour : 2026-10-03.
 
 ## Où en est le projet
 
@@ -20,7 +20,7 @@ plan, exécution, un commit.
 | T2a | Espace vendeur et boutique | **Livrée** |
 | T2b | Produit et variantes | **Livrée** |
 | T2c | Pipeline médias (BullMQ, sharp, worker) | **Livrée** |
-| T2d | Catalogue public : liste, filtres, fiche | **Livrée** |
+| T2d | Catalogue public : liste, filtres, fiche | En revue, PR #6 |
 | T2e | Collections de produits | à cadrer |
 | T3 | Panier et commande | non commencée |
 | T4 | Paiement, point d'extension | non commencée |
@@ -83,11 +83,12 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
-## Où en est le travail, au 2026-10-02
+## Où en est le travail, au 2026-10-03
 
-**Branche `feat/public-catalogue`.** Elle porte trois commits : deux d'intendance
-(`456dfb9` les ports paramétrables et Playwright qui lit `.env`, `d46e461` la convention de
-rédaction et le nettoyage des tirets quadratins), puis le commit de T2d.
+**Branche `feat/public-catalogue`, PR #6, CI verte.** Elle porte cinq commits : deux
+d'intendance (`456dfb9` les ports paramétrables et Playwright qui lit `.env`, `d46e461` la
+convention de rédaction et le nettoyage des tirets quadratins), le commit de T2d
+(`e1d07ea`), le tour de revue (`691ac05`), et cette passation (`01bba7b`).
 
 **T2d est implémentée, revue et corrigée.** La revue par contexte neuf a rendu quatorze
 constats ; les dix qui changent ce qu'un visiteur obtient sont corrigés dans `691ac05`,
@@ -96,8 +97,14 @@ son message : décompte et liste hors transaction, pluriel ICU absent sur le nom
 résultats, lien « suivante » au-delà de la millième page, et repli de casse limité à
 l'ASCII en collation C.
 
-**Rien n'est poussé vers `main`.** Aucune PR n'est ouverte pour T2d. La précédente, la #5,
-est mergée.
+**La PR #6 attend une relecture humaine.** CodeRabbit ne la lit pas : le dépôt est public,
+et il exige alors une demande manuelle. La CI, elle, est passée du premier coup le
+2026-10-03, e2e compris, sans qu'une seule ligne ait été retouchée.
+
+Elle n'avait jamais tourné sur cette branche avant l'ouverture de la PR : `ci.yml` ne se
+déclenche que sur `pull_request` ou sur un push vers `main`. **Une branche poussée seule
+n'est donc vérifiée par rien.** Ouvrir la PR tôt, quitte à la laisser en brouillon, évite
+de découvrir en fin de chantier que le banc le plus sévère n'a jamais été consulté.
 
 **Un résidu à nettoyer, qui demande `sudo`.** `apps/api/test/.fixtures-uid1000/` est un
 dossier créé par un conteneur sous un autre uid que le tien. Son contenu est identique aux
