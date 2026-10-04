@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-03.
+Dernière mise à jour : 2026-10-04.
 
 ## Où en est le projet
 
@@ -21,7 +21,7 @@ plan, exécution, un commit.
 | T2b | Produit et variantes | **Livrée** |
 | T2c | Pipeline médias (BullMQ, sharp, worker) | **Livrée** |
 | T2d | Catalogue public : liste, filtres, fiche | En revue, PR #6 |
-| T2e | Collections de produits | à cadrer |
+| T2e | Collections de produits | **Livrée** |
 | T3 | Panier et commande | non commencée |
 | T4 | Paiement, point d'extension | non commencée |
 | T5 | Abonnements vendeurs | non commencée |
@@ -60,12 +60,25 @@ saurait pas ordonner. La page traduit les filtres avant d'appeler le dépôt. M�
 pour la clé de combinaison, construite des deux côtés et épinglée par un test
 d'intégration de `apps/api`, seul paquet qui voit les deux.
 
-**Les collections viendront après le catalogue, et c'est délibéré.** Un vendeur créera des
-collections transversales, par exemple `hot-summer-sales`, et y rangera des articles de son
-catalogue : une relation N à N entre `Product` et une table `Collection`, avec son propre
-slug public. Une collection capte une intention d'achat qu'une catégorie ne capte pas. Elle
-ne vient pas en T2d parce que la catégorie et les filtres doivent d'abord vivre contre de
-vrais produits. Voir la section 3 de la spec T2d.
+**L'ordre d'une collection est réécrit en entier à chaque mouvement.** `position` ne porte
+AUCUNE contrainte d'unicité, et c'est délibéré : PostgreSQL vérifie une contrainte à chaque
+instruction et non en fin de transaction, donc échanger deux rangs la violerait avant de la
+rétablir. Chaque déplacement réécrit donc toutes les lignes de la collection, ce qui
+referme au passage les trous laissés par un retrait. Une collection est un choix humain,
+donc une poignée de lignes ; le jour où elle est longue, la sortie est un pas d'incrément
+et des positions espacées. Voir la section 4 de la spec T2e.
+
+**`collections` est un mot réservé dans le slug d'un produit.** Next résout un segment
+statique avant un segment dynamique, donc un produit ainsi nommé serait masqué par
+`/shops/<shop>/collections/<slug>` et répondrait 404 sans message. Le refus est porté par
+`slugifyProductTitle`, et la migration vérifie qu'aucun produit existant ne porte ce slug,
+en échouant si c'en est un.
+
+**La page publique d'une collection n'a pas sa propre requête.** Elle ajoute un fragment à
+`conditions()` du catalogue, et une jointure interne sur `collection_items` qui n'existe
+que lorsqu'une collection est demandée. Recopier les conditions d'éligibilité créerait la
+seconde vérité que la revue de T2d a déjà payée sur le décompte des devises. La jointure
+est posée dans les DEUX requêtes, celle des lignes et celle du décompte.
 
 **L'API passera en GraphQL, et ce sera sa propre tranche.** La raison n'est pas une
 préférence de style : une application mobile React Native (Expo) est prévue, donc l'API
@@ -83,28 +96,26 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
-## Où en est le travail, au 2026-10-03
+## Où en est le travail, au 2026-10-04
 
-**Branche `feat/public-catalogue`, PR #6, CI verte.** Elle porte cinq commits : deux
-d'intendance (`456dfb9` les ports paramétrables et Playwright qui lit `.env`, `d46e461` la
-convention de rédaction et le nettoyage des tirets quadratins), le commit de T2d
-(`e1d07ea`), le tour de revue (`691ac05`), et cette passation (`01bba7b`).
+**T2d est fusionnée** par la PR #6, en rebase. La CI y est passée du premier coup, puis un
+test instable de `catalog.spec.ts` a été corrigé par-dessus (`22bf142`).
 
-**T2d est implémentée, revue et corrigée.** La revue par contexte neuf a rendu quatorze
-constats ; les dix qui changent ce qu'un visiteur obtient sont corrigés dans `691ac05`,
-chacun reproduit avant correction. Quatre mineurs restent consignés dans ce commit et dans
-son message : décompte et liste hors transaction, pluriel ICU absent sur le nombre de
-résultats, lien « suivante » au-delà de la millième page, et repli de casse limité à
-l'ASCII en collation C.
+**T2e est implémentée**, sur la branche `feat/product-collections`. Un vendeur crée une
+collection, y range des articles, choisit leur ordre à la main, et la publie sous un slug
+propre à sa boutique.
 
-**La PR #6 attend une relecture humaine.** CodeRabbit ne la lit pas : le dépôt est public,
-et il exige alors une demande manuelle. La CI, elle, est passée du premier coup le
-2026-10-03, e2e compris, sans qu'une seule ligne ait été retouchée.
+Quatre constats mineurs de T2d restent ouverts, consignés dans son commit de revue :
+décompte et liste hors transaction, pluriel ICU absent sur le nombre de résultats, lien
+« suivante » au-delà de la millième page, et repli de casse limité à l'ASCII en
+collation C.
 
-Elle n'avait jamais tourné sur cette branche avant l'ouverture de la PR : `ci.yml` ne se
-déclenche que sur `pull_request` ou sur un push vers `main`. **Une branche poussée seule
-n'est donc vérifiée par rien.** Ouvrir la PR tôt, quitte à la laisser en brouillon, évite
-de découvrir en fin de chantier que le banc le plus sévère n'a jamais été consulté.
+**La suite bout en bout n'est pas verte d'un bloc sur cette machine, et ce n'est pas une
+régression.** Deux exécutions, deux jeux d'échecs différents, aucun test tombant deux
+fois. Chacun repasse isolément. La charge montait à 10,8 sur quatre cœurs : en mode
+développement Next compile chaque route au premier accès, et deux workers Playwright
+suffisent à saturer. C'est la raison d'être de la surcharge de production, décrite plus
+bas. La CI, sur un runner dédié, est le banc qui tranche.
 
 **Un résidu à nettoyer, qui demande `sudo`.** `apps/api/test/.fixtures-uid1000/` est un
 dossier créé par un conteneur sous un autre uid que le tien. Son contenu est identique aux
@@ -381,6 +392,21 @@ photos d'un brouillon sont lisibles par qui connaît leur chemin. C'est une déc
 répertorié, et vérifier la publication coûterait une lecture en base par vignette : sur
 une grille de quarante, quarante lectures, ce qui anéantirait la mise en cache qui
 justifie le relais.
+
+**Aucune collection de plateforme.** Une collection appartient à une boutique et ne peut
+contenir que ses articles. Une collection transversale à plusieurs vendeurs, par exemple
+« Soldes d'été » tous vendeurs confondus, demanderait un écran de curation côté
+administration et surtout un arbitrage : qui y entre, sur quel critère, et que devient un
+article mis en avant puis dépublié. Écartée au cadrage de T2e.
+
+**Aucune collection construite par règle.** Pas de « tous les articles à moins de 50 € »
+qui se remplirait tout seul. Une collection est un choix humain, et le rendre automatique
+changerait sa nature.
+
+**Il n'y a pas de page d'index des collections.** La vitrine d'une boutique liste les
+siennes, et `/shops/<shop>/collections` répond 404. C'est correct : le segment existe dans
+l'arbre des routes sans porter de page, et c'est la mécanique même qui oblige à réserver
+ce mot dans le slug d'un produit.
 
 **Aucun sélecteur de boutique.** Le schéma autorise plusieurs `vendor_members` pour un
 même compte, mais rien ne les crée. Le sélecteur arrivera avec les invitations, pas

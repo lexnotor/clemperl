@@ -1089,3 +1089,58 @@ Ce qui protège maintenant : `inMain()` dans `e2e/catalog.spec.ts`, et le même 
 `e2e/sign-up.spec.ts`, qui avait rencontré le piège dès T1a sur `role="alert"` sans
 jamais le consigner ici. Règle : **chercher un texte qui peut être le titre de la page se
 fait dans `main`**, jamais sur la page entière.
+
+---
+
+**Une image Docker non reconstruite après plusieurs tranches échoue sur un message de
+permissions, jamais sur son âge.**
+
+`pnpm` compare `node_modules` au fichier de verrouillage. Si l'image a été construite
+avant qu'une tranche n'ajoute une dépendance, il décide de réinstaller, se heurte à
+`/app/node_modules/.pnpm` qui appartient à `root`, et annonce
+`ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR : Permission denied`. Rien ne dit que
+l'image est périmée.
+
+Observé le 2026-10-04, au démarrage de la tranche T2e. Les quatre images d'application
+dataient du 21 septembre, donc d'avant T2b, T2c et T2d. Le même décalage a pris trois
+déguisements dans la même matinée : l'erreur de permissions ci-dessus, un conteneur `api`
+qui ne devenait jamais sain, et des `fetch failed` vers des services absents.
+
+Ce qui rend le piège coûteux : on démarre la stack sans `--build` pour ménager la machine,
+ce qui est raisonnable, et on obtient des conteneurs qui mentent. La commande qui tranche
+en deux secondes :
+
+    docker images --format '{{.Repository}}\t{{.CreatedSince}}' | grep clemperl
+
+Ce qui protège maintenant : rien d'automatique. Le réflexe est de regarder l'âge des
+images avant de chercher ailleurs, dès qu'un conteneur se comporte d'une façon que le code
+n'explique pas.
+
+---
+
+**Un cache `.next` corrompu survit à `docker restart` et ne se répare que par
+`--force-recreate`.**
+
+`docker restart` relance le processus et conserve le système de fichiers du conteneur,
+`.next` compris. Seul `docker compose up -d --force-recreate` repart de l'image et donne
+un cache vierge.
+
+Observé le 2026-10-04 sur le storefront. Le symptôme n'avait aucun rapport avec sa cause :
+
+    ⨯ [next]/internal/font/google/archivo_5ec49be.module.css:8:8
+    Error: Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'
+
+Toutes les routes répondaient 500, `/api/health` compris, alors que `apps/vendor` et
+`apps/admin` tournaient normalement avec la même configuration de polices, et que le
+conteneur joignait bien `fonts.googleapis.com`.
+
+Ce qui rend le piège difficile à voir : le réflexe est de redémarrer, et le redémarrage ne
+change rien, ce qui oriente vers une cause plus profonde qu'elle ne l'est. Cinq hypothèses
+ont été écartées avant la bonne, chacune par une expérience distincte : la page qu'on
+venait d'ajouter (retirée de l'arbre, toujours 500), l'état en mémoire (redémarrage), le
+réseau (`wget` vers Google depuis le conteneur), les catalogues de traduction réécrits par
+script (JSON validé), un paquet Turbopack absent (comparaison avec le conteneur vendeur).
+
+Ce qui protège maintenant : rien d'automatique. Devant un Next qui échoue sur la
+résolution d'un module interne, recréer le conteneur avant de chercher le défaut dans le
+code.

@@ -4,7 +4,8 @@
   },
   "navigation": {
     "shop": "Ma boutique",
-    "products": "Mes produits"
+    "products": "Mes produits",
+    "collections": "Mes collections"
   },
   "shop": {
     "title": "Ma boutique",
@@ -51,7 +52,9 @@
     "imagePositionTaken": "Une autre photo vient d'être ajoutée. Réessayez.",
     "publishNeedsImages": "Ajoutez au moins une photo, et attendez qu'elles soient toutes traitées.",
     "imageNotAnImage": "Ce fichier n'est pas une image.",
-    "imageLastPublished": "Dépubliez d'abord ce produit : une fiche en ligne garde au moins une photo."
+    "imageLastPublished": "Dépubliez d'abord ce produit : une fiche en ligne garde au moins une photo.",
+    "collectionSlugTaken": "Vous avez déjà une collection portant ce titre. Choisissez-en un autre.",
+    "collectionNotFound": "Cette collection n'existe pas, ou elle n'est pas la vôtre."
   },
   "currency": {
     "EUR": "Euro (€)",
@@ -113,5 +116,33 @@
     "APPAREL": "Vêtements",
     "JEWELLERY": "Joaillerie",
     "LEATHER_GOODS": "Maroquinerie"
+  },
+  "collections": {
+    "title": "Mes collections",
+    "empty": "Vous n'avez pas encore de collection. Créez la première.",
+    "create": "Nouvelle collection",
+    "createTitle": "Nouvelle collection",
+    "detailsSection": "La collection",
+    "collectionTitle": "Titre",
+    "description": "Description",
+    "descriptionHint": "Facultative. Elle s'affiche en tête de la page publique.",
+    "save": "Créer la collection",
+    "DRAFT": "Brouillon",
+    "PUBLISHED": "Publiée",
+    "itemCount": "{count} articles",
+    "singleItem": "Un seul article",
+    "noItem": "Aucun article",
+    "itemsSection": "Les articles, dans l'ordre d'affichage",
+    "itemsHint": "Le premier de la liste s'affiche en premier sur la page publique.",
+    "moveUp": "Monter",
+    "moveDown": "Descendre",
+    "remove": "Retirer",
+    "addItem": "Ajouter un produit",
+    "addItemHint": "Seuls vos produits non encore rangés ici apparaissent.",
+    "noProductLeft": "Tous vos produits sont déjà dans cette collection.",
+    "notVisible": "non visible publiquement",
+    "publish": "Publier la collection",
+    "unpublish": "Repasser en brouillon",
+    "publicLink": "Voir la page publique"
   }
 }

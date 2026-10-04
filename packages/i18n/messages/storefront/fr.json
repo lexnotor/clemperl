@@ -151,6 +151,8 @@
       "APPAREL": "Vêtements",
       "JEWELLERY": "Joaillerie",
       "LEATHER_GOODS": "Maroquinerie"
-    }
+    },
+    "shopCollections": "Ses collections",
+    "collectionEmpty": "Cette collection n'a encore aucun article à montrer."
   }
 }

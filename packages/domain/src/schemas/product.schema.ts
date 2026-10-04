@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isReservedProductSlug, slugifyProductTitle } from "../utils/product-slug.utils.js";
 
 // La liste, NOMMÉE, pour trois usages : ce schéma, les options du formulaire vendeur, et
 // le test d'intégration qui la compare à l'enum Prisma. Elle est écrite ici et non
@@ -17,7 +18,13 @@ export const productDetailsFields = {
         .trim()
         .min(2)
         .max(120)
-        .regex(/(?:[a-zA-Z0-9].*){2}/u, "doit contenir au moins deux caractères latins"),
+        .regex(/(?:[a-zA-Z0-9].*){2}/u, "doit contenir au moins deux caractères latins")
+        // Le refus se formule sur le TITRE, qui est ce que le vendeur a sous les yeux. Lui
+        // parler du slug lui demanderait de deviner comment son titre se transforme.
+        .refine(
+            (title) => !isReservedProductSlug(slugifyProductTitle(title)),
+            "ce titre est réservé, choisissez-en un autre",
+        ),
     description: z.string().trim().min(20).max(4000),
 
     // Ce qu'EST cet objet, distinct de ce que la boutique déclare vendre. Aucun défaut :
