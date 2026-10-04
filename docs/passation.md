@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-04.
+Dernière mise à jour : 2026-10-05.
 
 ## Où en est le projet
 
@@ -96,14 +96,17 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
-## Où en est le travail, au 2026-10-04
+## Où en est le travail, au 2026-10-05
 
 **T2d est fusionnée** par la PR #6, en rebase. La CI y est passée du premier coup, puis un
 test instable de `catalog.spec.ts` a été corrigé par-dessus (`22bf142`).
 
-**T2e est implémentée**, sur la branche `feat/product-collections`. Un vendeur crée une
-collection, y range des articles, choisit leur ordre à la main, et la publie sous un slug
-propre à sa boutique.
+**T2e est livrée, PR #7, CI verte du premier coup**, e2e comprise. Branche
+`feat/product-collections`, un seul commit, 34 fichiers. Elle attend une relecture
+humaine : CodeRabbit ne lit pas ce dépôt, public, sans demande manuelle.
+
+Un vendeur crée une collection, y range des articles, choisit leur ordre à la main, et la
+publie sous un slug propre à sa boutique.
 
 Quatre constats mineurs de T2d restent ouverts, consignés dans son commit de revue :
 décompte et liste hors transaction, pluriel ICU absent sur le nombre de résultats, lien
@@ -115,15 +118,23 @@ régression.** Deux exécutions, deux jeux d'échecs différents, aucun test tom
 fois. Chacun repasse isolément. La charge montait à 10,8 sur quatre cœurs : en mode
 développement Next compile chaque route au premier accès, et deux workers Playwright
 suffisent à saturer. C'est la raison d'être de la surcharge de production, décrite plus
-bas. La CI, sur un runner dédié, est le banc qui tranche.
+bas.
 
-**Un résidu à nettoyer, qui demande `sudo`.** `apps/api/test/.fixtures-uid1000/` est un
-dossier créé par un conteneur sous un autre uid que le tien. Son contenu est identique aux
-fixtures officielles, donc il est jetable :
+**La CI a tranché : elle est passée d'un bloc.** Ce que la machine locale ne pouvait pas
+établir, le runner dédié l'a fait. Devant une suite instable ici, ne pas s'acharner :
+ouvrir la PR et lire le verdict de la CI coûte quatre minutes.
 
-    sudo rm -rf apps/api/test/.fixtures-uid1000
+**Les conteneurs écrivent sous `root`, et `sudo` n'est PAS nécessaire pour le réparer.**
+Une version antérieure de ce document conseillait `sudo rm -rf` pour
+`apps/api/test/.fixtures-uid1000/`. C'est inutile : le conteneur qui a créé ces fichiers
+peut aussi corriger leurs droits.
 
-Il n'existe que sur l'ancienne machine et ne voyage pas avec le dépôt.
+Le cas s'est reposé le 2026-10-04 avec une migration générée par Prisma, sortie en `uid 0`
+et donc impossible à compléter à la main. Le remède, sans toucher à son propre système :
+
+    docker compose --env-file .env -f docker/docker-compose.dev.yml \
+      run --rm --no-deps --user root migrate \
+      sh -c "chown -R 1000:1000 /app/packages/db/prisma/migrations" 
 
 ## Reprendre sur une autre machine
 
@@ -186,6 +197,23 @@ Un volume antérieur porte les anciens types, et `migrate deploy` échoue sur
 contient que des comptes d'essai :
 
     pnpm docker:down && docker volume rm clemperl_dev_pg_data clemperl_dev_storage_data
+
+**`pnpm install` seul ne rend pas les tests exécutables.** Les paquets consomment le
+`dist` les uns des autres, pas leurs sources. Sur un clone neuf, `pnpm test` échoue sur
+des symptômes qui n'ont rien à voir, par exemple `z.enum(E_CURRENCY)` recevant
+`undefined` parce que le client Prisma n'est pas généré. Construire d'abord :
+
+    pnpm install && pnpm turbo run build --filter="./packages/*"
+
+**Les images Docker se périment en silence, et leurs symptômes ne parlent jamais de leur
+âge.** Démarrer la stack sans `--build` après quelques tranches donne des conteneurs
+construits avant les dépendances que le verrou attend désormais. Le 2026-10-04, le même
+décalage a pris trois déguisements : une erreur de permissions `pnpm`
+(`ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR`), un conteneur `api` qui ne devenait jamais
+sain, et des `fetch failed` vers des services absents. La commande qui tranche en deux
+secondes :
+
+    docker images --format '{{.Repository}}\t{{.CreatedSince}}' | grep clemperl
 
 **Les navigateurs de Playwright ne sont pas dans le dépôt.** `pnpm install` ne les pose
 pas : il faut `pnpm exec playwright install`. Sans eux, `pnpm test:e2e` échoue sur
