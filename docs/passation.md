@@ -99,14 +99,6 @@ l'ASCII en collation C.
 **Rien n'est poussé vers `main`.** Aucune PR n'est ouverte pour T2d. La précédente, la #5,
 est mergée.
 
-**Un résidu à nettoyer, qui demande `sudo`.** `apps/api/test/.fixtures-uid1000/` est un
-dossier créé par un conteneur sous un autre uid que le tien. Son contenu est identique aux
-fixtures officielles, donc il est jetable :
-
-    sudo rm -rf apps/api/test/.fixtures-uid1000
-
-Il n'existe que sur l'ancienne machine et ne voyage pas avec le dépôt.
-
 ## Reprendre sur une autre machine
 
 Le dépôt ne suffit pas : cinq choses n'y sont pas.
