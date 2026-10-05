@@ -1,9 +1,13 @@
 import {
+    ERROR_COLLECTION_FOREIGN_PRODUCT,
     createCollection,
     createProduct,
+    listPublishedCollections,
     prisma,
+    readPublishedCollection,
     searchPublishedProducts,
     setCollectionItems,
+    setCollectionStatus,
     setProductStatus,
 } from "@clemperl/db";
 
@@ -96,8 +100,8 @@ describe("setCollectionItems", () => {
         const c = await createDraft(shop.id);
         const collectionId = await newCollection(shop.id);
 
-        await setCollectionItems(prisma, { collectionId, productIds: [a, b, c] });
-        await setCollectionItems(prisma, { collectionId, productIds: [c, b, a] });
+        await setCollectionItems(prisma, { collectionId, vendorId: shop.id, productIds: [a, b, c] });
+        await setCollectionItems(prisma, { collectionId, vendorId: shop.id, productIds: [c, b, a] });
 
         expect(await positionsOf(collectionId)).toEqual([
             { productId: c, position: 0 },
@@ -114,8 +118,8 @@ describe("setCollectionItems", () => {
         const c = await createDraft(shop.id);
         const collectionId = await newCollection(shop.id);
 
-        await setCollectionItems(prisma, { collectionId, productIds: [a, b, c] });
-        await setCollectionItems(prisma, { collectionId, productIds: [a, c] });
+        await setCollectionItems(prisma, { collectionId, vendorId: shop.id, productIds: [a, b, c] });
+        await setCollectionItems(prisma, { collectionId, vendorId: shop.id, productIds: [a, c] });
 
         expect(await positionsOf(collectionId)).toEqual([
             { productId: a, position: 0 },
@@ -132,9 +136,9 @@ describe("setCollectionItems", () => {
         const b = await createDraft(shop.id);
         const collectionId = await newCollection(shop.id);
 
-        await setCollectionItems(prisma, { collectionId, productIds: [a, b] });
+        await setCollectionItems(prisma, { collectionId, vendorId: shop.id, productIds: [a, b] });
         await expect(
-            setCollectionItems(prisma, { collectionId, productIds: [b, a] }),
+            setCollectionItems(prisma, { collectionId, vendorId: shop.id, productIds: [b, a] }),
         ).resolves.not.toThrow();
 
         expect(await positionsOf(collectionId)).toEqual([
@@ -150,7 +154,7 @@ describe("setCollectionItems", () => {
         const a = await createDraft(shop.id);
         const b = await createDraft(shop.id);
         const collectionId = await newCollection(shop.id);
-        await setCollectionItems(prisma, { collectionId, productIds: [a, b] });
+        await setCollectionItems(prisma, { collectionId, vendorId: shop.id, productIds: [a, b] });
 
         await prisma.product.delete({ where: { id: a } });
 
@@ -169,7 +173,7 @@ describe("le filtre de collection sur le catalogue", () => {
         await publish(shop.id, visible);
 
         const collectionId = await newCollection(shop.id);
-        await setCollectionItems(prisma, { collectionId, productIds: [visible, brouillon] });
+        await setCollectionItems(prisma, { collectionId, vendorId: shop.id, productIds: [visible, brouillon] });
 
         const { rows, total } = await searchPublishedProducts(prisma, {
             search: null,
@@ -194,7 +198,7 @@ describe("le filtre de collection sur le catalogue", () => {
         await publish(shop.id, second);
 
         const collectionId = await newCollection(shop.id);
-        await setCollectionItems(prisma, { collectionId, productIds: [second, premier] });
+        await setCollectionItems(prisma, { collectionId, vendorId: shop.id, productIds: [second, premier] });
 
         const { rows } = await searchPublishedProducts(prisma, {
             search: null,
@@ -207,5 +211,161 @@ describe("le filtre de collection sur le catalogue", () => {
         });
 
         expect(rows.map((row) => row.id)).toEqual([second, premier]);
+    });
+});
+
+// La règle que T2c a écrite en toutes lettres en tête de `product-image.repository.ts` :
+// TOUTE fonction porte `vendorId` et filtre par la boutique, parce que les identifiants
+// viennent du formulaire, donc du client. La garantie est dans la SIGNATURE, pas dans une
+// vérification à l'entrée que le prochain appelant oubliera.
+//
+// Sans elle, un vendeur range le produit d'une autre boutique dans sa collection : il lui
+// suffit de lire un identifiant de produit dans l'URL d'une vignette du catalogue public,
+// où il est en clair. Rien ne fuit publiquement aujourd'hui, parce que la page publique
+// passe aussi `shopSlug` à la requête du catalogue, mais la relation est écrite en base et
+// l'écran vendeur affiche le titre et l'état de publication du produit d'autrui.
+describe("setCollectionItems, face à un produit d'une autre boutique", () => {
+    it("refuse la liste entière plutôt que d'en écrire une partie", async () => {
+        const mienne = await createShop();
+        const autre = await createShop();
+        const collection = await createCollection(prisma, {
+            vendorId: mienne.id,
+            title: `Soldes ${counter}`,
+            description: "",
+            slug: `soldes-${counter}`,
+        });
+        const aMoi = await createDraft(mienne.id);
+        const aAutrui = await createDraft(autre.id);
+
+        await expect(
+            setCollectionItems(prisma, {
+                collectionId: collection.id,
+                vendorId: mienne.id,
+                productIds: [aMoi, aAutrui],
+            }),
+        ).rejects.toThrow(ERROR_COLLECTION_FOREIGN_PRODUCT);
+
+        // RIEN n'est écrit : le refus porte sur la liste, pas sur la ligne fautive.
+        expect(await prisma.collectionItem.count({ where: { collectionId: collection.id } })).toBe(
+            0,
+        );
+    });
+
+    it("refuse une collection qui n'est pas celle du vendeur", async () => {
+        const mienne = await createShop();
+        const autre = await createShop();
+        const collection = await createCollection(prisma, {
+            vendorId: autre.id,
+            title: `Soldes ${counter}`,
+            description: "",
+            slug: `soldes-autrui-${counter}`,
+        });
+        const aMoi = await createDraft(mienne.id);
+
+        await expect(
+            setCollectionItems(prisma, {
+                collectionId: collection.id,
+                vendorId: mienne.id,
+                productIds: [aMoi],
+            }),
+        ).rejects.toThrow();
+    });
+
+    it("accepte une liste dont tous les articles sont de la boutique", async () => {
+        const mienne = await createShop();
+        const collection = await createCollection(prisma, {
+            vendorId: mienne.id,
+            title: `Soldes ${counter}`,
+            description: "",
+            slug: `soldes-ok-${counter}`,
+        });
+        const premier = await createDraft(mienne.id);
+        const second = await createDraft(mienne.id);
+
+        await setCollectionItems(prisma, {
+            collectionId: collection.id,
+            vendorId: mienne.id,
+            productIds: [premier, second],
+        });
+
+        expect(await prisma.collectionItem.count({ where: { collectionId: collection.id } })).toBe(
+            2,
+        );
+    });
+});
+
+// Les deux fonctions qui décident ce qu'un VISITEUR voit n'avaient aucun test. Le plancher
+// de couverture de `packages/db` exclut les dépôts au motif que la couche intégration les
+// couvre : ce motif doit être vrai.
+describe("les lectures publiques d'une collection", () => {
+    async function publieeAvecSlug(vendorId: string, slug: string): Promise<string> {
+        const collection = await createCollection(prisma, {
+            vendorId,
+            title: `Collection ${slug}`,
+            description: "",
+            slug,
+        });
+        await setCollectionStatus(prisma, { collectionId: collection.id, vendorId, publish: true });
+        return slug;
+    }
+
+    it("rend null pour une collection en brouillon", async () => {
+        const shop = await createShop();
+        counter += 1;
+        await createCollection(prisma, {
+            vendorId: shop.id,
+            title: "Brouillon",
+            description: "",
+            slug: `brouillon-${counter}`,
+        });
+
+        await expect(
+            readPublishedCollection(prisma, { shopSlug: shop.slug, slug: `brouillon-${counter}` }),
+        ).resolves.toBeNull();
+    });
+
+    // Le slug d'une collection n'est unique QUE par boutique, exactement comme celui d'un
+    // produit. Demander celle de B sous l'identité de A doit rendre null, jamais celle de B.
+    it("rend null quand la collection appartient à une autre boutique", async () => {
+        const premiere = await createShop();
+        const seconde = await createShop();
+        counter += 1;
+        const slug = `soldes-partage-${counter}`;
+        await publieeAvecSlug(seconde.id, slug);
+
+        await expect(
+            readPublishedCollection(prisma, { shopSlug: premiere.slug, slug }),
+        ).resolves.toBeNull();
+    });
+
+    it("rend null pour une boutique supprimée", async () => {
+        const shop = await createShop();
+        counter += 1;
+        const slug = await publieeAvecSlug(shop.id, `fermee-${counter}`);
+        await prisma.vendor.update({ where: { id: shop.id }, data: { deletedAt: new Date() } });
+
+        await expect(
+            readPublishedCollection(prisma, { shopSlug: shop.slug, slug }),
+        ).resolves.toBeNull();
+    });
+
+    it("ne liste que les collections publiées de la boutique demandée", async () => {
+        const shop = await createShop();
+        const voisine = await createShop();
+        counter += 1;
+        const visible = await publieeAvecSlug(shop.id, `visible-${counter}`);
+        counter += 1;
+        await createCollection(prisma, {
+            vendorId: shop.id,
+            title: "Cachee",
+            description: "",
+            slug: `cachee-${counter}`,
+        });
+        counter += 1;
+        await publieeAvecSlug(voisine.id, `voisine-${counter}`);
+
+        const listees = await listPublishedCollections(prisma, shop.slug);
+
+        expect(listees.map((c) => c.slug)).toEqual([visible]);
     });
 });

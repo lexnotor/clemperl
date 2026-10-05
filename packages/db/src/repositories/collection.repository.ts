@@ -8,8 +8,17 @@ export interface ICreateCollection {
     description?: string;
 }
 
+// Des erreurs NOMMÉES plutôt qu'un message de base relu à l'autre bout. C'est la forme
+// que `product.repository.ts` emploie déjà pour le slug déjà pris, et elle survit à une
+// reformulation de Prisma.
+export const ERROR_COLLECTION_NOT_FOUND = "COLLECTION_NOT_FOUND";
+export const ERROR_COLLECTION_FOREIGN_PRODUCT = "COLLECTION_FOREIGN_PRODUCT";
+export const ERROR_COLLECTION_SLUG_TAKEN = "COLLECTION_SLUG_TAKEN";
+
 export interface ISetCollectionItems {
     collectionId: string;
+    /** La boutique de l'appelant. Tout article doit lui appartenir. */
+    vendorId: string;
     /** L'ordre VOULU, du premier au dernier. Les positions en découlent. */
     productIds: readonly string[];
 }
@@ -68,11 +77,46 @@ export async function createCollection(
 // C'est aussi ce qui referme les trous laissés par un retrait. Une collection est un choix
 // humain, donc une poignée de lignes : le jour où elle est longue, la sortie est un pas
 // d'incrément et des positions espacées.
+// TOUTE fonction porte `vendorId` et filtre par la boutique. C'est la règle que T2c a
+// écrite en tête de `product-image.repository.ts`, et elle vaut ici pour la même raison :
+// `collectionId` et `productIds` viennent du formulaire, donc du client. La garantie est
+// dans la SIGNATURE, pas dans une vérification à l'entrée que le prochain appelant
+// oubliera.
+//
+// Sans elle, un vendeur range le produit d'une autre boutique dans sa collection. Il lui
+// suffit de lire un identifiant de produit dans l'URL d'une vignette du catalogue public,
+// où il figure en clair. Rien ne fuit publiquement, parce que la page publique passe aussi
+// `shopSlug` à la requête du catalogue, mais la relation est écrite en base et l'écran
+// vendeur affiche le titre et l'état de publication du produit d'autrui.
+//
+// La vérification vit DANS la transaction, comme `reorderImages` : lue avant, elle
+// jugerait un état que l'écriture ne retrouve pas.
 export async function setCollectionItems(
     prisma: PrismaClient,
     input: ISetCollectionItems,
 ): Promise<void> {
     await prisma.$transaction(async (tx) => {
+        const collection = await tx.collection.findFirst({
+            where: { id: input.collectionId, vendorId: input.vendorId, deletedAt: null },
+            select: { id: true },
+        });
+        if (!collection) {
+            throw new Error(ERROR_COLLECTION_NOT_FOUND);
+        }
+
+        // Le compte, et non une lecture ligne à ligne : un identifiant répété ou inconnu
+        // fait chuter le compte, donc le même refus les couvre tous les trois.
+        const siens = await tx.product.count({
+            where: {
+                id: { in: [...input.productIds] },
+                vendorId: input.vendorId,
+                deletedAt: null,
+            },
+        });
+        if (siens !== new Set(input.productIds).size) {
+            throw new Error(ERROR_COLLECTION_FOREIGN_PRODUCT);
+        }
+
         await tx.collectionItem.deleteMany({ where: { collectionId: input.collectionId } });
         await tx.collectionItem.createMany({
             data: input.productIds.map((productId, position) => ({

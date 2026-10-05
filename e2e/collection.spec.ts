@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { URL_VENDOR } from "../playwright.config";
+import { URL_STOREFRONT, URL_VENDOR } from "../playwright.config";
 import { createApprovedVendorShop } from "./helpers/accounts";
 
 // L'annonceur de route de Next porte le titre de la page hors de `main`, et le titre
@@ -117,7 +117,12 @@ test("un vendeur range deux articles, choisit leur ordre, et le visiteur le voit
     await inMain(page, second).click();
     await page.waitForURL(/\/products\/[^/]+$/);
     await page.getByRole("button", { name: "Repasser en brouillon" }).click();
-    await expect(inMain(page, "Brouillon")).toBeVisible();
+    // On attend que le BOUTON change, pas que le mot « Brouillon » apparaisse : `getByText`
+    // cherche une sous-chaîne sans tenir compte de la casse, donc « Brouillon » matchait
+    // « Repasser en brouillon », le bouton présent AVANT le clic. L'assertion passait
+    // instantanément et le rechargement du visiteur courait contre l'écriture en base, ce
+    // qui faisait échouer la suite environ deux fois sur cinq.
+    await expect(page.getByRole("button", { name: "Publier", exact: true })).toBeVisible();
 
     await visiteur.reload();
     await expect(inMain(visiteur, second)).toHaveCount(0);
@@ -137,7 +142,19 @@ test("une collection en brouillon ne se visite pas", async ({ page, request, bro
     const suffix = Date.now();
     const titreCollection = `Brouillon ${suffix}`;
 
-    await createApprovedVendorShop(page, request, browser);
+    const { shopName } = await createApprovedVendorShop(page, request, browser);
+    // Le slug de la boutique dérive de son nom, « Atelier 1234-567 ». On le reconstruit
+    // ici, et l'assertion qui suit le vérifie : une boutique introuvable répondrait 404 et
+    // le test dirait alors que le slug est faux, pas que le brouillon est visible.
+    const boutique = shopName.toLowerCase().replaceAll(" ", "-");
+
+    // La vitrine n'existe que pour une boutique qui a une devise : `readPublishedShop`
+    // rend `null` sans elle, puisqu'une boutique sans devise n'a aucun produit publiable.
+    // Sans cette étape, la vitrine répond 404 et le test accuserait le brouillon.
+    await page.goto(`${URL_VENDOR}/shop`);
+    await page.getByRole("combobox", { name: "Devise des prix" }).selectOption("EUR");
+    await page.getByRole("button", { name: "Enregistrer la devise" }).click();
+    await expect(page.getByText("Votre devise est enregistrée.")).toBeVisible();
     await page.goto(`${URL_VENDOR}/collections/new`);
     await page.getByRole("textbox", { name: "Titre" }).fill(titreCollection);
     await page.getByRole("button", { name: "Créer la collection" }).click();
@@ -145,4 +162,21 @@ test("une collection en brouillon ne se visite pas", async ({ page, request, bro
 
     // Aucun lien public n'est proposé tant qu'elle est en brouillon.
     await expect(page.getByRole("link", { name: "Voir la page publique" })).toHaveCount(0);
+
+    // Et le critère 6 porte sur ce qu'un VISITEUR obtient, pas sur ce que l'écran vendeur
+    // affiche. Le test s'arrêtait là, donc il ne visitait rien : ni la page du brouillon,
+    // ni la vitrine. Si le bloc des collections disparaissait de la vitrine, il restait
+    // vert.
+    const slug = `brouillon-${suffix}`;
+    const visiteur = await browser.newPage();
+
+    const vitrine = await visiteur.goto(`${URL_STOREFRONT}/shops/${boutique}`);
+    expect(vitrine?.status()).toBe(200);
+
+    const reponse = await visiteur.goto(`${URL_STOREFRONT}/shops/${boutique}/collections/${slug}`);
+    expect(reponse?.status()).toBe(404);
+
+    await visiteur.goto(`${URL_STOREFRONT}/shops/${boutique}`);
+    await expect(inMain(visiteur, titreCollection)).toHaveCount(0);
+    await visiteur.close();
 });

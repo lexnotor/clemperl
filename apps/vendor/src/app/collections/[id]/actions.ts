@@ -34,6 +34,7 @@ export async function moveCollectionItem(form: FormData): Promise<void> {
 
     await setCollectionItems(prisma, {
         collectionId,
+        vendorId: vendor.id,
         productIds: moveItem(
             order.map((id) => ({ id })),
             productId,
@@ -55,6 +56,7 @@ export async function removeCollectionItem(form: FormData): Promise<void> {
 
     await setCollectionItems(prisma, {
         collectionId,
+        vendorId: vendor.id,
         productIds: order.filter((id) => id !== productId),
     });
     revalidatePath(`/collections/${collectionId}`);
@@ -72,7 +74,11 @@ export async function addCollectionItem(form: FormData): Promise<void> {
 
     // Le nouvel article va en QUEUE : il n'y a aucune raison de deviner que le vendeur le
     // veut en tête, et il peut le remonter d'un clic.
-    await setCollectionItems(prisma, { collectionId, productIds: [...order, productId] });
+    await setCollectionItems(prisma, {
+        collectionId,
+        vendorId: vendor.id,
+        productIds: [...order, productId],
+    });
     revalidatePath(`/collections/${collectionId}`);
 }
 

@@ -1144,3 +1144,32 @@ script (JSON validé), un paquet Turbopack absent (comparaison avec le conteneur
 Ce qui protège maintenant : rien d'automatique. Devant un Next qui échoue sur la
 résolution d'un module interne, recréer le conteneur avant de chercher le défaut dans le
 code.
+
+---
+
+**`getByText` cherche une SOUS-CHAÎNE sans tenir compte de la casse, donc une assertion
+d'état peut être satisfaite par le bouton qui sert à changer cet état.**
+
+`getByText("Brouillon")` trouve « Repasser en brouillon ». Vérifié sur une page fabriquée :
+
+```ts
+await page.setContent(`<main><button>Repasser en brouillon</button></main>`);
+await page.locator("main").getByText("Brouillon").count(); // 1
+```
+
+Ce qui rend le piège coûteux, c'est qu'il ne casse rien : il rend l'assertion VRAIE AVANT
+l'action. Observé le 2026-10-05 dans `e2e/collection.spec.ts`. Le parcours dépubliait un
+produit, attendait « Brouillon », puis rechargeait la page du visiteur. Comme le bouton
+« Repasser en brouillon » portait déjà le mot, l'attente était instantanée et le
+rechargement courait contre l'écriture en base. La suite échouait environ deux fois sur
+cinq, sur une assertion située vingt lignes plus loin qui affirmait qu'un produit dépublié
+restait visible, donc sur une apparence de fuite de données.
+
+Trois hypothèses ont été écartées avant la bonne, chacune par une mesure : la requête du
+dépôt appelée directement ne rend que le produit publié, la page servie en HTTP ne contient
+que lui, et la base confirme le statut `DRAFT`. Le code était juste du premier coup.
+
+Ce qui protège maintenant : attendre le changement qui ne peut PAS préexister. Ici, le
+bouton devient « Publier », et `getByRole("button", { name: "Publier", exact: true })` ne
+matche rien d'autre. Règle : **une assertion qui doit prouver qu'une action a eu lieu vise
+ce que l'action a produit, jamais un mot que l'écran portait déjà.**
