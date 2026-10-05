@@ -1,4 +1,5 @@
 import type { PrismaClient } from "../../generated/prisma/client.js";
+import { isUniqueViolation } from "../prisma-errors.js";
 
 export const ERROR_IMAGE_NOT_FOUND = "IMAGE_NOT_FOUND";
 export const ERROR_POSITION_TAKEN = "IMAGE_POSITION_TAKEN";
@@ -12,15 +13,6 @@ async function lockProduct(
     productId: string,
 ): Promise<void> {
     await tx.$executeRaw`SELECT id FROM products WHERE id = ${productId} FOR UPDATE`;
-}
-
-function isUniqueViolation(error: unknown): boolean {
-    return (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        (error as { code: unknown }).code === "P2002"
-    );
 }
 
 // TOUTE fonction porte `vendorId` et filtre par la boutique du produit. `imageId` et

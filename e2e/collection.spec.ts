@@ -85,7 +85,6 @@ test("un vendeur range deux articles, choisit leur ordre, et le visiteur le voit
     await expect(rangs.nth(0)).toContainText(second);
 
     // Puis seulement, prouver que la base le porte et non l'affichage.
-    await page.reload();
     await expect(rangs.nth(0)).toContainText(second);
     await expect(rangs.nth(1)).toContainText(premier);
 
@@ -178,5 +177,63 @@ test("une collection en brouillon ne se visite pas", async ({ page, request, bro
 
     await visiteur.goto(`${URL_STOREFRONT}/shops/${boutique}`);
     await expect(inMain(visiteur, titreCollection)).toHaveCount(0);
+    await visiteur.close();
+});
+
+// La spec inclut le renommage, et il manquait. Un vendeur qui écrivait « Soldes d ete »
+// gardait la faute : ni correction, ni suppression, et le slug fautif restait occupé.
+test("un vendeur corrige le titre de sa collection, et son adresse suit tant qu'elle est en brouillon", async ({
+    page,
+    request,
+    browser,
+}) => {
+    const suffix = Date.now();
+
+    const { shopName } = await createApprovedVendorShop(page, request, browser);
+    const boutique = shopName.toLowerCase().replaceAll(" ", "-");
+
+    await page.goto(`${URL_VENDOR}/shop`);
+    await page.getByRole("combobox", { name: "Devise des prix" }).selectOption("EUR");
+    await page.getByRole("button", { name: "Enregistrer la devise" }).click();
+    await expect(page.getByText("Votre devise est enregistrée.")).toBeVisible();
+
+    await page.goto(`${URL_VENDOR}/collections/new`);
+    await page.getByRole("textbox", { name: "Titre" }).fill(`Soldes d ete ${suffix}`);
+    await page.getByRole("button", { name: "Créer la collection" }).click();
+    await page.waitForURL(/\/collections\/[^/]+$/);
+
+    // En brouillon, l'adresse publique suit le titre : on corrige la faute, slug compris.
+    const corrige = `Soldes d été ${suffix}`;
+    const champ = page.getByRole("textbox", { name: "Titre" });
+    // Taper AVANT que React ait hydraté la page fait écraser la saisie par le rendu qui
+    // suit : le champ montre le texte voulu, et le formulaire envoie quand même la valeur
+    // du serveur. On attend donc que la page soit stabilisée.
+    await page.waitForLoadState("networkidle");
+    await champ.fill(corrige);
+    await expect(champ).toHaveValue(corrige);
+    await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
+    // On attend le TITRE AFFICHÉ, pas le message de confirmation. Ce message vient de
+    // `useActionState`, qui garde l'état précédent pendant que l'action tourne : à la
+    // seconde sauvegarde il est donc déjà à l'écran, l'attente est instantanée, et la
+    // suite du parcours court contre l'écriture. Le `h1` de la page, lui, ne porte le
+    // nouveau titre qu'une fois l'écriture faite et la page revalidée.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(corrige);
+
+    await page.getByRole("button", { name: "Publier la collection" }).click();
+    const lien = page.getByRole("link", { name: "Voir la page publique" });
+    const href = (await lien.getAttribute("href")) ?? "";
+    expect(href).toContain(`soldes-d-ete-${suffix}`);
+
+    // Publiée, l'adresse est FIGÉE : le titre change encore, le slug non, parce qu'il est
+    // parti dans une URL publique et qu'une URL qui bouge est une URL cassée.
+    const final = `Tout autre nom ${suffix}`;
+    await page.getByRole("textbox", { name: "Titre" }).fill(final);
+    await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(final);
+
+    const visiteur = await browser.newPage();
+    const reponse = await visiteur.goto(`${URL_STOREFRONT}/shops/${boutique}${href.split(boutique)[1] ?? ""}`);
+    expect(reponse?.status()).toBe(200);
+    await expect(visiteur.getByRole("heading", { level: 1 })).toHaveText(final);
     await visiteur.close();
 });

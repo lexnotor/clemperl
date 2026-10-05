@@ -1,4 +1,5 @@
 import type { PrismaClient } from "../../generated/prisma/client.js";
+import { isUniqueViolation } from "../prisma-errors.js";
 
 export interface ICreateCollection {
     vendorId: string;
@@ -91,6 +92,56 @@ export async function createCollection(
 //
 // La vérification vit DANS la transaction, comme `reorderImages` : lue avant, elle
 // jugerait un état que l'écriture ne retrouve pas.
+export interface IRenameCollection {
+    collectionId: string;
+    vendorId: string;
+    title: string;
+    description: string;
+    /** Le slug dérivé du nouveau titre. Le dépôt décide s'il l'applique. */
+    slug: string;
+}
+
+// Le slug SUIT le titre tant que la collection n'a jamais été publiée, puis il se fige.
+// C'est la règle de `saveProduct`, et pour la même raison : après la première publication
+// il est parti dans une URL publique, et une URL qui bouge est une URL cassée. C'est le
+// dépôt qui tranche, parce que c'est lui qui connaît cette date.
+//
+// Sans renommage, un vendeur qui écrivait « Soldes d ete » gardait la faute, et le slug
+// fautif restait occupé puisqu'il n'existe pas de suppression.
+export async function renameCollection(
+    prisma: PrismaClient,
+    input: IRenameCollection,
+): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+        const collection = await tx.collection.findFirst({
+            where: { id: input.collectionId, vendorId: input.vendorId, deletedAt: null },
+            select: { id: true, publishedAt: true },
+        });
+        if (!collection) {
+            throw new Error(ERROR_COLLECTION_NOT_FOUND);
+        }
+
+        try {
+            await tx.collection.update({
+                where: { id: collection.id },
+                data: {
+                    title: input.title,
+                    description: input.description === "" ? null : input.description,
+                    ...(collection.publishedAt === null ? { slug: input.slug } : {}),
+                },
+            });
+        } catch (error) {
+            // Deux collections d'une même boutique ne peuvent pas porter le même slug.
+            // Le distinguer permet de dire au vendeur de changer son titre plutôt que de
+            // lui montrer une panne, et de lui éviter de reproduire le même refus.
+            if (isUniqueViolation(error)) {
+                throw new Error(ERROR_COLLECTION_SLUG_TAKEN, { cause: error });
+            }
+            throw error;
+        }
+    });
+}
+
 export async function setCollectionItems(
     prisma: PrismaClient,
     input: ISetCollectionItems,

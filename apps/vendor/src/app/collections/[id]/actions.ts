@@ -1,9 +1,18 @@
 "use server";
 
-import { prisma, readCollectionForVendor, setCollectionItems, setCollectionStatus } from "@clemperl/db";
-import { moveItem } from "@clemperl/domain";
+import {
+    ERROR_COLLECTION_SLUG_TAKEN,
+    prisma,
+    readCollectionForVendor,
+    renameCollection,
+    setCollectionItems,
+    setCollectionStatus,
+} from "@clemperl/db";
+import { collectionDetailsSchema, moveItem, slugifyCollectionTitle } from "@clemperl/domain";
+import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { revalidatePath } from "next/cache";
 import { requireVendorMembership } from "../../../lib/session";
+import type { ICollectionFormState } from "../types/collection-form-state.interface";
 
 // Les quatre actions lisent l'ordre courant, le modifient, et le réécrivent en entier.
 // Aucune ne fait d'affichage optimiste : l'ordre EST la donnée, et une liste qui
@@ -93,4 +102,46 @@ export async function toggleCollectionStatus(form: FormData): Promise<void> {
     });
     revalidatePath(`/collections/${collectionId}`);
     revalidatePath("/collections");
+}
+
+// Rend un ÉTAT, et non `void` : un titre déjà pris n'est pas une panne, et le vendeur doit
+// lire pourquoi plutôt que de reproduire le même refus.
+export async function renameCollectionAction(
+    _previous: ICollectionFormState,
+    form: FormData,
+): Promise<ICollectionFormState> {
+    const { vendor } = await requireVendorMembership();
+    const collectionId = String(form.get("collectionId") ?? "");
+
+    const description = String(form.get("description") ?? "").trim();
+    const parsed = collectionDetailsSchema.safeParse({
+        title: form.get("title"),
+        ...(description === "" ? {} : { description }),
+    });
+    if (!parsed.success) {
+        return { message: [messages.errors.invalid], saved: false };
+    }
+
+    try {
+        await renameCollection(prisma, {
+            collectionId,
+            vendorId: vendor.id,
+            title: parsed.data.title,
+            description: parsed.data.description ?? "",
+            // Le dépôt décide s'il l'applique : le slug ne suit le titre que tant que la
+            // collection n'a jamais été publiée.
+            slug: slugifyCollectionTitle(parsed.data.title),
+        });
+    } catch (error) {
+        console.error("renameCollectionAction", error);
+        const pris = error instanceof Error && error.message === ERROR_COLLECTION_SLUG_TAKEN;
+        return {
+            message: [pris ? messages.errors.collectionSlugTaken : messages.errors.failed],
+            saved: false,
+        };
+    }
+
+    revalidatePath(`/collections/${collectionId}`);
+    revalidatePath("/collections");
+    return { message: [], saved: true };
 }

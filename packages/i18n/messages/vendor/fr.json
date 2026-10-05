@@ -143,6 +143,10 @@
     "notVisible": "non visible publiquement",
     "publish": "Publier la collection",
     "unpublish": "Repasser en brouillon",
-    "publicLink": "Voir la page publique"
+    "publicLink": "Voir la page publique",
+    "renamed": "Votre collection est enregistrée.",
+    "slugFollowsHint": "Son adresse publique suivra ce titre tant qu'elle n'a pas été publiée.",
+    "slugFrozenHint": "Son adresse publique est figée depuis sa première publication : seul le titre affiché change.",
+    "saveChanges": "Enregistrer"
   }
 }

@@ -5,6 +5,7 @@ import type { JSX } from "react";
 import { requireVendorMembership } from "../../../lib/session";
 import { toggleCollectionStatus } from "./actions";
 import { CollectionItems } from "./collection-items";
+import { RenameForm } from "./rename-form";
 
 // Cette page lit la session : elle ne peut pas être pré-rendue au build.
 export const dynamic = "force-dynamic";
@@ -45,9 +46,12 @@ export default async function CollectionPage({
                 <span className="text-sm text-muet">{t[collection.status]}</span>
             </div>
 
-            {collection.description !== null && (
-                <p className="mt-4 text-base text-muet">{collection.description}</p>
-            )}
+            <RenameForm
+                collectionId={collection.id}
+                title={collection.title}
+                description={collection.description}
+                slugFrozen={collection.publishedAt !== null}
+            />
 
             <CollectionItems
                 collectionId={collection.id}

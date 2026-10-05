@@ -1,15 +1,18 @@
 import {
     ERROR_COLLECTION_FOREIGN_PRODUCT,
+    ERROR_COLLECTION_SLUG_TAKEN,
     createCollection,
     createProduct,
     listPublishedCollections,
     prisma,
     readPublishedCollection,
     searchPublishedProducts,
+    renameCollection,
     setCollectionItems,
     setCollectionStatus,
     setProductStatus,
 } from "@clemperl/db";
+import { slugifyCollectionTitle } from "@clemperl/domain";
 
 // Préfixe propre au fichier : les suites partagent une base et un run, et deux suites qui
 // nomment leurs boutiques pareil se marchent dessus. La panne se lit alors dans la suite
@@ -367,5 +370,142 @@ describe("les lectures publiques d'une collection", () => {
         const listees = await listPublishedCollections(prisma, shop.slug);
 
         expect(listees.map((c) => c.slug)).toEqual([visible]);
+    });
+});
+
+// La spec inclut le renommage, et il manquait : un vendeur qui écrivait « Soldes d'ete »
+// gardait la faute, et le slug fautif restait occupé puisqu'il n'y a pas de suppression.
+//
+// Le slug suit le titre tant que la collection n'a JAMAIS été publiée, et se fige ensuite.
+// C'est exactement la règle de `saveProduct`, et pour la même raison : après publication
+// le slug est parti dans une URL publique, et une URL qui bouge est une URL cassée.
+describe("renameCollection", () => {
+    it("change le titre et la description", async () => {
+        const shop = await createShop();
+        counter += 1;
+        const { id } = await createCollection(prisma, {
+            vendorId: shop.id,
+            title: "Soldes d ete",
+            description: "",
+            slug: `soldes-d-ete-${counter}`,
+        });
+
+        await renameCollection(prisma, {
+            collectionId: id,
+            vendorId: shop.id,
+            title: "Soldes d'été",
+            description: "Les pièces de la saison.",
+            slug: slugifyCollectionTitle("Soldes d'été"),
+        });
+
+        const relue = await prisma.collection.findUnique({ where: { id } });
+        expect(relue?.title).toBe("Soldes d'été");
+        expect(relue?.description).toBe("Les pièces de la saison.");
+    });
+
+    it("fait suivre le slug tant que la collection n'a jamais été publiée", async () => {
+        const shop = await createShop();
+        counter += 1;
+        const { id } = await createCollection(prisma, {
+            vendorId: shop.id,
+            title: "Avant",
+            description: "",
+            slug: `avant-${counter}`,
+        });
+
+        await renameCollection(prisma, {
+            collectionId: id,
+            vendorId: shop.id,
+            title: `Apres ${counter}`,
+            description: "",
+            slug: slugifyCollectionTitle(`Apres ${counter}`),
+        });
+
+        const relue = await prisma.collection.findUnique({ where: { id } });
+        expect(relue?.slug).toBe(`apres-${counter}`);
+    });
+
+    // Après la première publication, le slug est parti dans une URL publique.
+    it("fige le slug dès la première publication", async () => {
+        const shop = await createShop();
+        counter += 1;
+        const slugInitial = `fige-${counter}`;
+        const { id } = await createCollection(prisma, {
+            vendorId: shop.id,
+            title: `Fige ${counter}`,
+            description: "",
+            slug: slugInitial,
+        });
+        await setCollectionStatus(prisma, {
+            collectionId: id,
+            vendorId: shop.id,
+            publish: true,
+        });
+
+        await renameCollection(prisma, {
+            collectionId: id,
+            vendorId: shop.id,
+            title: `Tout autre titre ${counter}`,
+            description: "",
+            slug: slugifyCollectionTitle(`Tout autre titre ${counter}`),
+        });
+
+        const relue = await prisma.collection.findUnique({ where: { id } });
+        expect(relue?.title).toBe(`Tout autre titre ${counter}`);
+        expect(relue?.slug).toBe(slugInitial);
+    });
+
+    it("signale un titre déjà pris plutôt qu'une panne", async () => {
+        const shop = await createShop();
+        counter += 1;
+        const occupe = `occupe-${counter}`;
+        await createCollection(prisma, {
+            vendorId: shop.id,
+            title: `Occupe ${counter}`,
+            description: "",
+            slug: occupe,
+        });
+        counter += 1;
+        const { id } = await createCollection(prisma, {
+            vendorId: shop.id,
+            title: `Libre ${counter}`,
+            description: "",
+            slug: `libre-${counter}`,
+        });
+
+        await expect(
+            renameCollection(prisma, {
+                collectionId: id,
+                vendorId: shop.id,
+                title: occupe.replace(/-/g, " "),
+                description: "",
+                slug: slugifyCollectionTitle(occupe.replace(/-/g, " ")),
+            }),
+        ).rejects.toThrow(ERROR_COLLECTION_SLUG_TAKEN);
+    });
+
+    it("ne touche pas à la collection d'une autre boutique", async () => {
+        const mienne = await createShop();
+        const autre = await createShop();
+        counter += 1;
+        const { id } = await createCollection(prisma, {
+            vendorId: autre.id,
+            title: "Intouchable",
+            description: "",
+            slug: `intouchable-${counter}`,
+        });
+
+        await expect(
+            renameCollection(prisma, {
+                collectionId: id,
+                vendorId: mienne.id,
+                title: "Pirate",
+                description: "",
+                slug: slugifyCollectionTitle("Pirate"),
+            }),
+        ).rejects.toThrow();
+
+        const relue = await prisma.collection.findUnique({ where: { id } });
+        expect(relue?.title).toBe("Intouchable");
     });
 });

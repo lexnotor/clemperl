@@ -1173,3 +1173,33 @@ Ce qui protège maintenant : attendre le changement qui ne peut PAS préexister.
 bouton devient « Publier », et `getByRole("button", { name: "Publier", exact: true })` ne
 matche rien d'autre. Règle : **une assertion qui doit prouver qu'une action a eu lieu vise
 ce que l'action a produit, jamais un mot que l'écran portait déjà.**
+
+---
+
+**Une saisie faite avant l'hydratation de React est écrasée par le rendu qui suit, et le
+champ affiche pourtant le texte voulu.**
+
+Playwright tape dans le DOM servi par le serveur. Si React hydrate ensuite, il repose la
+valeur venue du serveur, et le formulaire envoie celle-là. Rendre le champ contrôlé n'y
+change rien : l'état initial se seme sur les props, donc il revient à la même valeur.
+
+Observé le 2026-10-05 sur `e2e/collection.spec.ts`, au renommage d'une collection. La
+séquence rend le défaut presque indétectable :
+
+1. `fill()` écrit la correction, et `await expect(champ).toHaveValue(corrigé)` PASSE.
+2. L'hydratation survient entre cette assertion et le clic.
+3. L'action serveur reçoit l'ancienne valeur. Mesuré en vidant la `FormData` côté
+   serveur : `[["title","Soldes d ete 1791199538352"]]`, alors que le DOM montrait
+   « Soldes d été » une milliseconde plus tôt.
+4. La page se recharge, affiche l'ancien titre, et l'échec ressemble à une écriture qui
+   n'a pas pris. La base, elle, est cohérente avec ce qui a été envoyé.
+
+Quatre hypothèses ont été écartées avant la bonne, chacune par une mesure : l'écriture en
+base (le test d'intégration du dépôt passe), le rafraîchissement de la page (un
+`page.reload()` explicite ne change rien), un second champ portant le même `name` (un seul
+dans le DOM), et le cache HTTP (`no-cache, must-revalidate` sur la réponse).
+
+Ce qui protège maintenant : `await page.waitForLoadState("networkidle")` avant la première
+saisie sur une page fraîchement atteinte. Règle : **sur une page qu'on vient d'atteindre,
+attendre qu'elle soit stabilisée avant de taper**, sinon la frappe vit dans un DOM que
+React va remplacer.
