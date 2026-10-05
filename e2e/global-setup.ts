@@ -18,6 +18,11 @@ const ROUTES = [
     // La route de relais se compile au premier accès comme les autres, et un 404 la
     // compile aussi bien qu'un 200.
     `${URL_STOREFRONT}/api/media/inexistant`,
+    // Le catalogue public et ses pages, arrivés en T2d, et la page de collection de T2e.
+    `${URL_STOREFRONT}/catalog`,
+    `${URL_STOREFRONT}/shops/inexistante`,
+    `${URL_STOREFRONT}/shops/inexistante/inexistant`,
+    `${URL_STOREFRONT}/shops/inexistante/collections/inexistante`,
     `${URL_VENDOR}/`,
     `${URL_VENDOR}/shop`,
     `${URL_VENDOR}/products`,
@@ -27,6 +32,12 @@ const ROUTES = [
     // fiche produit coûte sept secondes au test qui vient de la créer, et l'assertion
     // expire avant que le rendu n'arrive.
     `${URL_VENDOR}/products/inexistant`,
+    // Les collections, arrivées en T2e. Sans ces lignes, `/collections` coûte plus de six
+    // secondes au test qui vient d'y créer quelque chose, et son assertion expire : la
+    // suite échoue selon l'ordonnancement, ce qui ressemble à une panne d'infrastructure.
+    `${URL_VENDOR}/collections`,
+    `${URL_VENDOR}/collections/new`,
+    `${URL_VENDOR}/collections/inexistante`,
     `${URL_ADMIN}/`,
     `${URL_ADMIN}/setup`,
     `${URL_ADMIN}/applications`,
