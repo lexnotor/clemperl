@@ -124,6 +124,20 @@ bas.
 établir, le runner dédié l'a fait. Devant une suite instable ici, ne pas s'acharner :
 ouvrir la PR et lire le verdict de la CI coûte quatre minutes.
 
+**Deux filets ne sont PAS tendus par défaut, et les deux se croient tendus.**
+
+`ci.yml` se déclenche sur `pull_request` et sur les poussées vers `main`. Une branche
+poussée seule n'est donc vérifiée par rien. Une tranche peut vivre plusieurs jours sur une
+branche, être annoncée « vérifiée » sur la foi des couches lancées à la main, et n'avoir
+jamais rencontré la CI. Ouvrir la PR est ce qui la déclenche.
+
+**CodeRabbit ne relit rien automatiquement sur ce dépôt.** Son premier message sur chaque
+PR le dit : « This repository does not receive automatic reviews because it has fewer than
+10 stars. » Ce n'est pas un réglage du projet, c'est sa politique pour les dépôts peu
+suivis. La revue se demande à la main, en commentant `@coderabbitai review` sur la PR, et
+sans cela une PR reste ouverte sans qu'aucun relecteur externe la voie. Vérifié le
+2026-10-05 sur la PR #7, ouverte la veille et jamais relue.
+
 **Les conteneurs écrivent sous `root`, et `sudo` n'est PAS nécessaire pour le réparer.**
 Une version antérieure de ce document conseillait `sudo rm -rf` pour
 `apps/api/test/.fixtures-uid1000/`. C'est inutile : le conteneur qui a créé ces fichiers
