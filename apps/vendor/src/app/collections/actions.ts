@@ -3,6 +3,7 @@
 import { createCollection, prisma } from "@clemperl/db";
 import { collectionDetailsSchema, slugifyCollectionTitle } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireVendorMembership } from "../../lib/session";
 import type { ICollectionFormState } from "./types/collection-form-state.interface";
@@ -45,6 +46,11 @@ export async function createCollectionAction(
             : messages.errors.failed;
         return { message: [raison], saved: false };
     }
+
+    // La liste des collections a changé. `toggleCollectionStatus` et le renommage la
+    // revalident déjà : sans cet appel, un retour arrière du navigateur montre l'ancienne
+    // liste, servie par le cache du routeur côté client.
+    revalidatePath("/collections");
 
     // `redirect` lève pour interrompre le rendu : il reste HORS du `try`, sinon le
     // `catch` l'avale et le vendeur lit « l'enregistrement a échoué » sur une création

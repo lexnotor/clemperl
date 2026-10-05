@@ -92,6 +92,22 @@ export async function createCollection(
 //
 // La vérification vit DANS la transaction, comme `reorderImages` : lue avant, elle
 // jugerait un état que l'écriture ne retrouve pas.
+// Le verrou se prend sur la LIGNE de la collection, et c'est lui qui sérialise ce que la
+// base ne sérialise pas d'elle-même. Deux onglets qui réécrivent la même collection lisent
+// sinon tous deux une table vide, suppriment zéro ligne, puis insèrent chacun la sienne :
+// la collection contient l'union des deux listes, donc ni l'une ni l'autre. Et un
+// renommage concurrent d'une publication lit `publishedAt === null` avant qu'elle commite,
+// puis écrit un nouveau slug APRÈS : l'URL publique change malgré le gel.
+//
+// Même mécanique que `lockVendor` pour le gel de la devise et que le `SELECT ... FOR
+// UPDATE` de `deleteImage`.
+async function lockCollection(
+    tx: { $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number> },
+    collectionId: string,
+): Promise<void> {
+    await tx.$executeRaw`SELECT id FROM collections WHERE id = ${collectionId} FOR UPDATE`;
+}
+
 export interface IRenameCollection {
     collectionId: string;
     vendorId: string;
@@ -113,6 +129,10 @@ export async function renameCollection(
     input: IRenameCollection,
 ): Promise<void> {
     await prisma.$transaction(async (tx) => {
+        // AVANT la lecture de `publishedAt` : lue sans verrou, elle décrirait un état
+        // qu'une publication concurrente aurait déjà changé au moment de l'écriture.
+        await lockCollection(tx, input.collectionId);
+
         const collection = await tx.collection.findFirst({
             where: { id: input.collectionId, vendorId: input.vendorId, deletedAt: null },
             select: { id: true, publishedAt: true },
@@ -147,6 +167,8 @@ export async function setCollectionItems(
     input: ISetCollectionItems,
 ): Promise<void> {
     await prisma.$transaction(async (tx) => {
+        await lockCollection(tx, input.collectionId);
+
         const collection = await tx.collection.findFirst({
             where: { id: input.collectionId, vendorId: input.vendorId, deletedAt: null },
             select: { id: true },
@@ -183,17 +205,37 @@ export async function setCollectionStatus(
     prisma: PrismaClient,
     input: { collectionId: string; vendorId: string; publish: boolean },
 ): Promise<void> {
-    // `updateMany` conditionné sur la boutique : une collection étrangère n'est pas
-    // refusée bruyamment, elle n'est simplement pas touchée. Même forme que pour un
-    // produit, et même raison.
-    await prisma.collection.updateMany({
-        where: { id: input.collectionId, vendorId: input.vendorId, deletedAt: null },
-        data: {
-            status: input.publish ? "PUBLISHED" : "DRAFT",
-            // `publishedAt` ne se remet jamais à zéro : il date le moment où le slug a
-            // cessé de pouvoir bouger.
-            ...(input.publish ? { publishedAt: new Date() } : {}),
-        },
+    await prisma.$transaction(async (tx) => {
+        // Le MÊME verrou que le renommage, et c'est ce qui ferme le gel du slug : sans
+        // lui, un renommage concurrent lit `publishedAt === null` avant que cette
+        // publication commite, puis écrit un nouveau slug après. L'URL publique change
+        // alors malgré le gel, et un lien déjà partagé casse.
+        await lockCollection(tx, input.collectionId);
+
+        const collection = await tx.collection.findFirst({
+            where: { id: input.collectionId, vendorId: input.vendorId, deletedAt: null },
+            select: { id: true, publishedAt: true },
+        });
+        // Une collection étrangère n'est pas refusée bruyamment, elle n'est simplement pas
+        // touchée. Même forme que pour un produit, et même raison.
+        if (!collection) {
+            return;
+        }
+
+        await tx.collection.update({
+            where: { id: collection.id },
+            data: {
+                status: input.publish ? "PUBLISHED" : "DRAFT",
+                // Écrit une SEULE fois, à la première publication. Il date le moment où le
+                // slug a cessé de pouvoir bouger, donc le réécrire à chaque publication en
+                // ferait la date de la dernière, ce qui n'est pas ce que son nom promet.
+                // La vitrine trie dessus : réécrit, il ferait remonter en tête une vieille
+                // collection qu'on vient seulement de republier.
+                ...(input.publish && collection.publishedAt === null
+                    ? { publishedAt: new Date() }
+                    : {}),
+            },
+        });
     });
 }
 

@@ -509,3 +509,76 @@ describe("renameCollection", () => {
         expect(relue?.title).toBe("Intouchable");
     });
 });
+
+// Deux onglets qui écrivent la même collection. Sans verrou sur sa ligne, les deux
+// transactions lisent une table vide, suppriment zéro ligne, puis insèrent chacune la
+// sienne : la collection contient l'UNION des deux listes, c'est-à-dire ni l'une ni
+// l'autre. Le vendeur voit des articles qu'il n'a pas rangés, à des positions en double.
+//
+// C'est le même raisonnement que `lockVendor` pour le gel de la devise et que le
+// `SELECT ... FOR UPDATE` de `deleteImage` : sérialiser ce qui doit l'être.
+describe("setCollectionItems, deux écritures concurrentes", () => {
+    it("applique une liste entière, jamais l'union des deux", async () => {
+        const shop = await createShop();
+        const collectionId = await newCollection(shop.id);
+        const a = await createDraft(shop.id);
+        const b = await createDraft(shop.id);
+        const c = await createDraft(shop.id);
+        const d = await createDraft(shop.id);
+
+        await Promise.all([
+            setCollectionItems(prisma, {
+                collectionId,
+                vendorId: shop.id,
+                productIds: [a, b],
+            }),
+            setCollectionItems(prisma, {
+                collectionId,
+                vendorId: shop.id,
+                productIds: [c, d],
+            }),
+        ]);
+
+        const restants = (await positionsOf(collectionId)).map((ligne) => ligne.productId).sort();
+        const premiere = [a, b].sort();
+        const seconde = [c, d].sort();
+
+        expect(restants).toHaveLength(2);
+        expect([JSON.stringify(premiere), JSON.stringify(seconde)]).toContain(
+            JSON.stringify(restants),
+        );
+    });
+});
+
+// Un onglet renomme un brouillon pendant qu'un autre le publie. Sans verrou, le renommage
+// lit `publishedAt === null`, la publication commite, puis le renommage écrit le nouveau
+// slug : l'URL publique change malgré le gel, et un lien déjà partagé casse.
+describe("renameCollection face à une publication concurrente", () => {
+    it("ne change jamais le slug d'une collection qui vient d'être publiée", async () => {
+        const shop = await createShop();
+        counter += 1;
+        const slugInitial = `course-${counter}`;
+        const { id } = await createCollection(prisma, {
+            vendorId: shop.id,
+            title: `Course ${counter}`,
+            description: "",
+            slug: slugInitial,
+        });
+
+        await Promise.all([
+            setCollectionStatus(prisma, { collectionId: id, vendorId: shop.id, publish: true }),
+            renameCollection(prisma, {
+                collectionId: id,
+                vendorId: shop.id,
+                title: `Renomme ${counter}`,
+                description: "",
+                slug: `renomme-${counter}`,
+            }).catch(() => undefined),
+        ]);
+
+        const relue = await prisma.collection.findUnique({ where: { id } });
+        // Publiée : le slug est celui d'origine, quel que soit l'ordre des deux écritures.
+        expect(relue?.status).toBe("PUBLISHED");
+        expect(relue?.slug).toBe(slugInitial);
+    });
+});

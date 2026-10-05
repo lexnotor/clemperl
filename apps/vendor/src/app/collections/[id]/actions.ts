@@ -41,15 +41,23 @@ export async function moveCollectionItem(form: FormData): Promise<void> {
         return;
     }
 
-    await setCollectionItems(prisma, {
-        collectionId,
-        vendorId: vendor.id,
-        productIds: moveItem(
-            order.map((id) => ({ id })),
-            productId,
-            direction,
-        ).map((item) => item.id),
-    });
+    try {
+        await setCollectionItems(prisma, {
+            collectionId,
+            vendorId: vendor.id,
+            productIds: moveItem(
+                order.map((id) => ({ id })),
+                productId,
+                direction,
+            ).map((item) => item.id),
+        });
+    } catch (error) {
+        // Le dépôt refuse une liste qui contient un article d'une autre boutique, un
+        // identifiant inconnu, ou un produit supprimé entre le rendu et le clic. Rien
+        // de tout cela ne mérite une page d'erreur : la page se re-rend avec l'ordre
+        // réel, et c'est ce que le vendeur doit voir.
+        console.error("moveCollectionItem", error);
+    }
     revalidatePath(`/collections/${collectionId}`);
 }
 
@@ -63,11 +71,19 @@ export async function removeCollectionItem(form: FormData): Promise<void> {
         return;
     }
 
-    await setCollectionItems(prisma, {
-        collectionId,
-        vendorId: vendor.id,
-        productIds: order.filter((id) => id !== productId),
-    });
+    try {
+        await setCollectionItems(prisma, {
+            collectionId,
+            vendorId: vendor.id,
+            productIds: order.filter((id) => id !== productId),
+        });
+    } catch (error) {
+        // Le dépôt refuse une liste qui contient un article d'une autre boutique, un
+        // identifiant inconnu, ou un produit supprimé entre le rendu et le clic. Rien
+        // de tout cela ne mérite une page d'erreur : la page se re-rend avec l'ordre
+        // réel, et c'est ce que le vendeur doit voir.
+        console.error("removeCollectionItem", error);
+    }
     revalidatePath(`/collections/${collectionId}`);
 }
 
@@ -83,11 +99,19 @@ export async function addCollectionItem(form: FormData): Promise<void> {
 
     // Le nouvel article va en QUEUE : il n'y a aucune raison de deviner que le vendeur le
     // veut en tête, et il peut le remonter d'un clic.
-    await setCollectionItems(prisma, {
-        collectionId,
-        vendorId: vendor.id,
-        productIds: [...order, productId],
-    });
+    try {
+        await setCollectionItems(prisma, {
+            collectionId,
+            vendorId: vendor.id,
+            productIds: [...order, productId],
+        });
+    } catch (error) {
+        // Le dépôt refuse une liste qui contient un article d'une autre boutique, un
+        // identifiant inconnu, ou un produit supprimé entre le rendu et le clic. Rien
+        // de tout cela ne mérite une page d'erreur : la page se re-rend avec l'ordre
+        // réel, et c'est ce que le vendeur doit voir.
+        console.error("addCollectionItem", error);
+    }
     revalidatePath(`/collections/${collectionId}`);
 }
 

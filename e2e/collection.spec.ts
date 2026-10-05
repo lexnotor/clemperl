@@ -84,7 +84,10 @@ test("un vendeur range deux articles, choisit leur ordre, et le visiteur le voit
     const rangs = page.locator("main ol li");
     await expect(rangs.nth(0)).toContainText(second);
 
-    // Puis seulement, prouver que la base le porte et non l'affichage.
+    // Puis seulement, prouver que la base le porte et non l'affichage. Sans ce
+    // rechargement, la seconde assertion rejouait la première sur le même rendu et ne
+    // disait rien de la persistance qu'elle annonce.
+    await page.reload();
     await expect(rangs.nth(0)).toContainText(second);
     await expect(rangs.nth(1)).toContainText(premier);
 
@@ -220,6 +223,11 @@ test("un vendeur corrige le titre de sa collection, et son adresse suit tant qu'
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(corrige);
 
     await page.getByRole("button", { name: "Publier la collection" }).click();
+    // On attend l'état publié AVANT de lire le lien et de retaper : le rendu qui suit la
+    // publication peut reprendre le champ, et la saisie suivante partirait avec l'ancienne
+    // valeur, exactement comme avant hydratation.
+    await expect(inMain(page, "Publiée")).toBeVisible();
+
     const lien = page.getByRole("link", { name: "Voir la page publique" });
     const href = (await lien.getAttribute("href")) ?? "";
     expect(href).toContain(`soldes-d-ete-${suffix}`);
