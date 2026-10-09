@@ -1089,3 +1089,125 @@ Ce qui protège maintenant : `inMain()` dans `e2e/catalog.spec.ts`, et le même 
 `e2e/sign-up.spec.ts`, qui avait rencontré le piège dès T1a sur `role="alert"` sans
 jamais le consigner ici. Règle : **chercher un texte qui peut être le titre de la page se
 fait dans `main`**, jamais sur la page entière.
+
+---
+
+**Une image Docker non reconstruite après plusieurs tranches échoue sur un message de
+permissions, jamais sur son âge.**
+
+`pnpm` compare `node_modules` au fichier de verrouillage. Si l'image a été construite
+avant qu'une tranche n'ajoute une dépendance, il décide de réinstaller, se heurte à
+`/app/node_modules/.pnpm` qui appartient à `root`, et annonce
+`ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR : Permission denied`. Rien ne dit que
+l'image est périmée.
+
+Observé le 2026-10-04, au démarrage de la tranche T2e. Les quatre images d'application
+dataient du 21 septembre, donc d'avant T2b, T2c et T2d. Le même décalage a pris trois
+déguisements dans la même matinée : l'erreur de permissions ci-dessus, un conteneur `api`
+qui ne devenait jamais sain, et des `fetch failed` vers des services absents.
+
+Ce qui rend le piège coûteux : on démarre la stack sans `--build` pour ménager la machine,
+ce qui est raisonnable, et on obtient des conteneurs qui mentent. La commande qui tranche
+en deux secondes :
+
+    docker images --format '{{.Repository}}\t{{.CreatedSince}}' | grep clemperl
+
+Ce qui protège maintenant : rien d'automatique. Le réflexe est de regarder l'âge des
+images avant de chercher ailleurs, dès qu'un conteneur se comporte d'une façon que le code
+n'explique pas.
+
+---
+
+**Un cache `.next` corrompu survit à `docker restart` et ne se répare que par
+`--force-recreate`.**
+
+`docker restart` relance le processus et conserve le système de fichiers du conteneur,
+`.next` compris. Seul `docker compose up -d --force-recreate` repart de l'image et donne
+un cache vierge.
+
+Observé le 2026-10-04 sur le storefront. Le symptôme n'avait aucun rapport avec sa cause :
+
+    ⨯ [next]/internal/font/google/archivo_5ec49be.module.css:8:8
+    Error: Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'
+
+Toutes les routes répondaient 500, `/api/health` compris, alors que `apps/vendor` et
+`apps/admin` tournaient normalement avec la même configuration de polices, et que le
+conteneur joignait bien `fonts.googleapis.com`.
+
+Ce qui rend le piège difficile à voir : le réflexe est de redémarrer, et le redémarrage ne
+change rien, ce qui oriente vers une cause plus profonde qu'elle ne l'est. Cinq hypothèses
+ont été écartées avant la bonne, chacune par une expérience distincte : la page qu'on
+venait d'ajouter (retirée de l'arbre, toujours 500), l'état en mémoire (redémarrage), le
+réseau (`wget` vers Google depuis le conteneur), les catalogues de traduction réécrits par
+script (JSON validé), un paquet Turbopack absent (comparaison avec le conteneur vendeur).
+
+Ce qui protège maintenant : rien d'automatique. Devant un Next qui échoue sur la
+résolution d'un module interne, recréer le conteneur avant de chercher le défaut dans le
+code.
+
+---
+
+**`getByText` cherche une SOUS-CHAÎNE sans tenir compte de la casse, donc une assertion
+d'état peut être satisfaite par le bouton qui sert à changer cet état.**
+
+`getByText("Brouillon")` trouve « Repasser en brouillon ». Vérifié sur une page fabriquée :
+
+```ts
+await page.setContent(`<main><button>Repasser en brouillon</button></main>`);
+await page.locator("main").getByText("Brouillon").count(); // 1
+```
+
+Ce qui rend le piège coûteux, c'est qu'il ne casse rien : il rend l'assertion VRAIE AVANT
+l'action. Observé le 2026-10-05 dans `e2e/collection.spec.ts`. Le parcours dépubliait un
+produit, attendait « Brouillon », puis rechargeait la page du visiteur. Comme le bouton
+« Repasser en brouillon » portait déjà le mot, l'attente était instantanée et le
+rechargement courait contre l'écriture en base. La suite échouait environ deux fois sur
+cinq, sur une assertion située vingt lignes plus loin qui affirmait qu'un produit dépublié
+restait visible, donc sur une apparence de fuite de données.
+
+Trois hypothèses ont été écartées avant la bonne, chacune par une mesure : la requête du
+dépôt appelée directement ne rend que le produit publié, la page servie en HTTP ne contient
+que lui, et la base confirme le statut `DRAFT`. Le code était juste du premier coup.
+
+Ce qui protège maintenant : attendre le changement qui ne peut PAS préexister. Ici, le
+bouton devient « Publier », et `getByRole("button", { name: "Publier", exact: true })` ne
+matche rien d'autre. Règle : **une assertion qui doit prouver qu'une action a eu lieu vise
+ce que l'action a produit, jamais un mot que l'écran portait déjà.**
+
+---
+
+**Une saisie faite avant l'hydratation de React est écrasée par le rendu qui suit, et le
+champ affiche pourtant le texte voulu.**
+
+Playwright tape dans le DOM servi par le serveur. Si React hydrate ensuite, il repose la
+valeur venue du serveur, et le formulaire envoie celle-là. Rendre le champ contrôlé n'y
+change rien : l'état initial se seme sur les props, donc il revient à la même valeur.
+
+Observé le 2026-10-05 sur `e2e/collection.spec.ts`, au renommage d'une collection. La
+séquence rend le défaut presque indétectable :
+
+1. `fill()` écrit la correction, et `await expect(champ).toHaveValue(corrigé)` PASSE.
+2. L'hydratation survient entre cette assertion et le clic.
+3. L'action serveur reçoit l'ancienne valeur. Mesuré en vidant la `FormData` côté
+   serveur : `[["title","Soldes d ete 1791199538352"]]`, alors que le DOM montrait
+   « Soldes d été » une milliseconde plus tôt.
+4. La page se recharge, affiche l'ancien titre, et l'échec ressemble à une écriture qui
+   n'a pas pris. La base, elle, est cohérente avec ce qui a été envoyé.
+
+Quatre hypothèses ont été écartées avant la bonne, chacune par une mesure : l'écriture en
+base (le test d'intégration du dépôt passe), le rafraîchissement de la page (un
+`page.reload()` explicite ne change rien), un second champ portant le même `name` (un seul
+dans le DOM), et le cache HTTP (`no-cache, must-revalidate` sur la réponse).
+
+Ce qui protège maintenant : `await page.waitForLoadState("networkidle")` avant la première
+saisie sur une page fraîchement atteinte. Règle : **sur une page qu'on vient d'atteindre,
+attendre qu'elle soit stabilisée avant de taper**, sinon la frappe vit dans un DOM que
+React va remplacer.
+
+**Et c'est un pis-aller, qu'il faut savoir en lisant cette entrée.** Playwright marque
+`networkidle` comme déconseillé dans ses tests, et recommande d'asserter la disponibilité
+plutôt que d'attendre le réseau. Ici il n'y a rien à asserter : le formulaire est rendu par
+le serveur AVANT hydratation, donc toute propriété observable est déjà vraie avant que React
+reprenne la main, y compris la valeur du champ qu'on vient de remplir. Le remplacer demande
+un marqueur d'hydratation que l'application n'expose pas. Le jour où elle en expose un, cette
+attente devient une assertion d'une ligne.

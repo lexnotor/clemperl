@@ -120,3 +120,26 @@ describe("la catégorie du produit", () => {
         expect(resultat.success).toBe(false);
     });
 });
+
+// Le `.refine` sur le titre est la SEULE chose qui empêche un produit de prendre l'URL
+// réservée aux collections. Les deux briques étaient testées séparément, leur assemblage
+// non : retirer le `.refine` laissait la suite verte et la couverture à 100 %, parce que
+// la flèche s'exécute à chaque titre valide sans que son refus soit jamais observé.
+describe("le titre réservé aux collections", () => {
+    const valide = {
+        description: "Cuir pleine fleur, coutures à la main, doublure en lin.",
+        category: "LEATHER_GOODS",
+    };
+
+    it("refuse un titre dont le slug entrerait en collision avec la route des collections", () => {
+        for (const title of ["Collections", "collections", "COLLECTIONS", "Collections !!"]) {
+            expect(productDetailsSchema.safeParse({ ...valide, title }).success).toBe(false);
+        }
+    });
+
+    it("laisse passer un titre qui contient le mot sans s'y réduire", () => {
+        for (const title of ["Les collections", "Collection", "Collections privées"]) {
+            expect(productDetailsSchema.safeParse({ ...valide, title }).success).toBe(true);
+        }
+    });
+});

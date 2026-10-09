@@ -1,4 +1,5 @@
 import type { PrismaClient } from "../../generated/prisma/client.js";
+import { isUniqueViolation } from "../prisma-errors.js";
 
 export interface ICreateProduct {
     vendorId: string;
@@ -46,15 +47,6 @@ export const ERROR_VARIANTS_REQUIRED = "VARIANTS_REQUIRED";
 // Prisma signale une violation d'unicité par ce code. Le distinguer d'une panne permet
 // de dire au vendeur de changer son titre plutôt que de « réessayer » : un conseil qui
 // ne marchera jamais, puisque le second essai portera le même slug.
-function isUniqueViolation(error: unknown): boolean {
-    return (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        (error as { code: unknown }).code === "P2002"
-    );
-}
-
 // Verrouille la ligne de la boutique jusqu'à la fin de la transaction courante.
 //
 // Sans lui, `setShopCurrency` compte zéro produit pendant qu'une création s'engage à

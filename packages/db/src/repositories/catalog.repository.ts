@@ -31,6 +31,15 @@ const ORDERS: Record<string, Prisma.Sql> = {
     price_asc: Prisma.raw(`MIN(v.price_amount) ASC, p.published_at DESC, p.id ASC`),
     price_desc: Prisma.raw(`MIN(v.price_amount) DESC, p.published_at DESC, p.id ASC`),
     newest: Prisma.raw(`p.published_at DESC, p.id ASC`),
+
+    // L'ordre choisi par le vendeur dans sa collection. `ci` n'existe que si
+    // `collectionJoin` a produit sa jointure, d'où la garde de `orderFor` : demander ce
+    // tri sans collection trierait sur une table absente, donc échouerait à l'exécution.
+    //
+    // `MIN` et non `ci.position` nu : la requête porte un `GROUP BY p.id`, donc toute
+    // colonne non groupée doit être agrégée. L'unicité `(collection_id, product_id)`
+    // garantit une seule ligne par produit, donc `MIN` rend sa position et rien d'autre.
+    collection: Prisma.raw(`MIN(ci.position) ASC, p.id ASC`),
 };
 
 // `Object.hasOwn` et non `ORDERS[cle] ?? ORDERS.newest` : un objet littéral hérite de son
@@ -38,8 +47,11 @@ const ORDERS: Record<string, Prisma.Sql> = {
 // Le `??` ne rattrape ni l'une ni l'autre, et la requête partirait avec un `ORDER BY`
 // dégénéré. Aucun appelant ne peut y arriver aujourd'hui, mais la signature de ce dépôt
 // prend une chaîne et invite le prochain à passer autre chose.
-function orderFor(sort: string): Prisma.Sql {
-    return Object.hasOwn(ORDERS, sort) ? (ORDERS[sort] as Prisma.Sql) : (ORDERS["newest"] as Prisma.Sql);
+function orderFor(sort: string, hasCollection: boolean): Prisma.Sql {
+    // `collection` trie sur une table qui n'est jointe que pour une collection. Le
+    // demander sans elle ferait échouer la requête, donc on retombe sur le défaut.
+    const cle = sort === "collection" && !hasCollection ? "newest" : sort;
+    return Object.hasOwn(ORDERS, cle) ? (ORDERS[cle] as Prisma.Sql) : (ORDERS["newest"] as Prisma.Sql);
 }
 
 export interface ICatalogQuery {
@@ -48,6 +60,7 @@ export interface ICatalogQuery {
     sort: string;
     currency: string;
     shopSlug?: string;
+    collectionId?: string;
     limit: number;
     offset: number;
 }
@@ -76,6 +89,23 @@ export interface ICatalogRow {
 // vient de poser.
 function likePattern(terme: string): Prisma.Sql {
     return Prisma.sql`'%' || replace(replace(replace(unaccent(${terme}), '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%'`;
+}
+
+// La jointure n'existe QUE lorsqu'une collection est demandée : `Prisma.empty` rend un
+// fragment vide, donc la requête du catalogue global reste exactement ce qu'elle était.
+//
+// INTERNE et non `LEFT` : elle filtre donc d'elle-même, et remplace la condition qu'on
+// aurait écrite en `EXISTS`. Un `EXISTS` aurait demandé une seconde lecture de la même
+// table pour pouvoir trier sur `ci.position`.
+//
+// La valeur passe par l'interpolation de `Prisma.sql`, donc devient un paramètre lié :
+// la règle 1 de l'en-tête de ce fichier tient.
+function collectionJoin(input: ICatalogQuery): Prisma.Sql {
+    return input.collectionId === undefined
+        ? Prisma.empty
+        : Prisma.sql`JOIN collection_items ci
+                       ON ci.product_id = p.id
+                      AND ci.collection_id = ${input.collectionId}`;
 }
 
 function conditions(input: ICatalogQuery): Prisma.Sql[] {
@@ -130,7 +160,13 @@ export async function searchPublishedProducts(
     input: ICatalogQuery,
 ): Promise<{ rows: ICatalogRow[]; total: number }> {
     const where = Prisma.join(conditions(input), " AND ");
-    const order = orderFor(input.sort);
+    const order = orderFor(input.sort, input.collectionId !== undefined);
+
+    // La jointure est posée dans les DEUX requêtes. Dans la seule requête de lignes, le
+    // décompte compterait des produits que la liste ne montre pas, et le visiteur lirait
+    // « 12 résultats » au-dessus de trois cartes. C'est, mot pour mot, le défaut que la
+    // revue de T2d a trouvé sur le décompte des devises.
+    const join = collectionJoin(input);
 
     // `::int` sur les agrégats : `MIN` et `COUNT` reviennent en bigint ou en numeric selon
     // le type de départ, et `node-postgres` rend ces types en CHAÎNE. Un prix devenu chaîne
@@ -144,6 +180,7 @@ export async function searchPublishedProducts(
         FROM products p
         JOIN vendors s ON s.id = p.vendor_id
         JOIN product_variants v ON v.product_id = p.id
+        ${join}
         ${IMAGE_JOIN}
         WHERE ${where}
         GROUP BY p.id, s.slug, s.shop_name, s.currency, i.object_path
@@ -156,6 +193,7 @@ export async function searchPublishedProducts(
         FROM products p
         JOIN vendors s ON s.id = p.vendor_id
         JOIN product_variants v ON v.product_id = p.id
+        ${join}
         ${IMAGE_JOIN}
         WHERE ${where}
     `;

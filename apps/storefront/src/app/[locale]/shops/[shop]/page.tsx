@@ -1,4 +1,9 @@
-import { prisma, readPublishedShop, searchPublishedProducts } from "@clemperl/db";
+import {
+    listPublishedCollections,
+    prisma,
+    readPublishedShop,
+    searchPublishedProducts,
+} from "@clemperl/db";
 import {
     CATALOG_PAGE_SIZE,
     catalogOffset,
@@ -48,6 +53,12 @@ export default async function ShopPage({
     });
     const pages = Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE));
 
+    // Les collections PUBLIÉES seulement. Il n'y a pas de page d'index : la vitrine est
+    // déjà l'endroit où l'on arrive, et `/shops/<shop>/collections` répond 404, ce qui est
+    // correct. C'est la même mécanique de routage qui oblige à réserver ce mot dans le
+    // slug d'un produit.
+    const collections = await listPublishedCollections(prisma, shopSlug);
+
     const categories: Record<string, string> = {
         APPAREL: t("productCategory.APPAREL"),
         JEWELLERY: t("productCategory.JEWELLERY"),
@@ -63,6 +74,24 @@ export default async function ShopPage({
             <p className="mt-4 text-xs text-muet">
                 {shop.categories.map((code) => categories[code] ?? code).join(", ")}
             </p>
+
+            {collections.length > 0 && (
+                <>
+                    <h2 className="mt-16 text-sm text-muet">{t("shopCollections")}</h2>
+                    <ul className="mt-4 flex flex-wrap gap-4">
+                        {collections.map((collection) => (
+                            <li key={collection.id}>
+                                <Link
+                                    href={`/shops/${shopSlug}/collections/${collection.slug}`}
+                                    className="border-b border-bordure pb-1 text-sm hover:border-texte"
+                                >
+                                    {collection.title}
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            )}
 
             <h2 className="mt-16 text-sm text-muet">{t("shopProducts")}</h2>
             <ul className="mt-4 grid grid-cols-2 gap-6 md:grid-cols-4">

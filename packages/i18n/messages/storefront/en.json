@@ -151,6 +151,8 @@
       "APPAREL": "Apparel",
       "JEWELLERY": "Jewellery",
       "LEATHER_GOODS": "Leather goods"
-    }
+    },
+    "shopCollections": "Its collections",
+    "collectionEmpty": "This collection has nothing to show yet."
   }
 }

@@ -314,6 +314,7 @@ model Vendor {
 
   application VendorApplication?
   members     VendorMember[]
+  collections Collection[]
   products    Product[]
 
   @@map("vendors")
@@ -356,10 +357,11 @@ model Product {
 
   // `Cascade` : fermer une boutique emporte son catalogue, qui n'a aucun sens sans elle.
   // C'est l'inverse d'une décision administrative, qu'on conserve par `Restrict`.
-  vendor   Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  options  ProductOption[]
-  variants ProductVariant[]
-  images   ProductImage[]
+  vendor          Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  options         ProductOption[]
+  variants        ProductVariant[]
+  images          ProductImage[]
+  collectionItems CollectionItem[]
 
   // Le slug part dans les URL publiques en T2d. Unique par BOUTIQUE et non globalement :
   // deux vendeurs ont le droit de vendre chacun leur « sac-cabas ».
@@ -473,4 +475,64 @@ model ProductImage {
   @@unique([productId, position])
   @@index([productId, status])
   @@map("product_images")
+}
+
+enum E_COLLECTION_STATUS {
+  DRAFT
+  PUBLISHED
+
+  @@map("collection_status")
+}
+
+// Une collection range des articles d'UNE boutique sous une intention d'achat que la
+// catégorie ne capte pas : la catégorie dit ce qu'est un article, la collection dit
+// pourquoi on le met en avant maintenant.
+model Collection {
+  id          String              @id @default(cuid(2))
+  vendorId    String              @map("vendor_id")
+  slug        String
+  title       String
+  description String?
+  status      E_COLLECTION_STATUS @default(DRAFT)
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  publishedAt DateTime? @map("published_at")
+
+  vendor Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  items  CollectionItem[]
+
+  // Même règle que le produit : unique par BOUTIQUE et non globalement. Deux vendeurs ont
+  // le droit d'avoir chacun leur « soldes-ete », et le premier arrivé ne confisque pas le
+  // nom pour toute la place de marché.
+  @@unique([vendorId, slug])
+  @@index([vendorId, status])
+  @@map("collections")
+}
+
+model CollectionItem {
+  id           String @id @default(cuid(2))
+  collectionId String @map("collection_id")
+  productId    String @map("product_id")
+
+  // PAS d'unicité sur (collection_id, position), et c'est délibéré. PostgreSQL vérifie une
+  // contrainte à chaque INSTRUCTION, pas en fin de transaction : échanger deux rangs la
+  // violerait avant de la rétablir. Le réordonnancement réécrit donc toutes les positions
+  // d'un coup, ce qui referme au passage les trous laissés par un retrait.
+  //
+  // Le tri public se clôt sur `id` : deux positions égales ne devraient pas exister, mais
+  // un tri non déterministe fait répéter une ligne d'une page à l'autre et en saute une
+  // autre, donc un produit devient invisible sans que rien ne le signale.
+  position Int
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  // `Cascade` depuis le produit : une collection qui pointerait vers un article supprimé
+  // afficherait un trou que personne ne saurait expliquer.
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, productId])
+  @@index([productId])
+  @@map("collection_items")
 }
