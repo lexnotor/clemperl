@@ -20,8 +20,8 @@ plan, exécution, un commit.
 | T2a | Espace vendeur et boutique | **Livrée** |
 | T2b | Produit et variantes | **Livrée** |
 | T2c | Pipeline médias (BullMQ, sharp, worker) | **Livrée** |
-| T2d | Catalogue public : liste, filtres, fiche | En revue, PR #6 |
-| T2e | Collections de produits | **Livrée** |
+| T2d | Catalogue public : liste, filtres, fiche | **Livrée**, PR #6 |
+| T2e | Collections de produits | **Livrée**, PR #7 |
 | T3 | Panier et commande | non commencée |
 | T4 | Paiement, point d'extension | non commencée |
 | T5 | Abonnements vendeurs | non commencée |
@@ -268,6 +268,36 @@ Un redémarrage de Docker Desktop règle les deux.
 ## Ce qui reste ouvert
 
 Rien de tout cela ne bloque T2.
+
+### Dette laissée par les revues de T2d et T2e
+
+Cinq points, tous nommés dans les messages de commit des tranches concernées, aucun ne
+bloquant. Ils sont ici pour ne pas vivre uniquement dans l'historique.
+
+**Le test d'éligibilité de la page de collection confond trois conditions.** Il oppose un
+produit publié à un brouillon qui est aussi sans image et sans variante publiable, donc une
+seule observation couvre les trois. Retirer `i.object_path IS NOT NULL` de `conditions()`
+laisse la suite verte. Le cas réel existe : des produits publiés sans image prête, ceux
+d'avant T2c et ceux dont la dernière image prête a été supprimée. Le test à écrire isole la
+condition, et doit d'abord échouer quand on retire celle-ci.
+
+**Deux listes de collections trient sans départage.** `listCollectionsForVendor` sur
+`createdAt`, `listPublishedCollections` sur `publishedAt`, aucune colonne unique pour clore
+l'ordre. Ni l'une ni l'autre n'est paginée, donc aucune ligne ne disparaît : seul l'ordre
+peut osciller entre deux rendus pour des collections créées dans la même milliseconde.
+
+**`readCollectionForVendor` ne filtre pas `product.deletedAt`.** Aucun code applicatif
+n'écrit cette colonne aujourd'hui, donc rien ne se voit. Le jour où la suppression douce
+d'un produit arrivera, l'écran vendeur montrera des articles supprimés comme les autres, et
+un déplacement les réécrira en base.
+
+**L'écran d'une collection charge tous les produits du vendeur dans un `<select>`**, sans
+pagination, et rend trois formulaires par article. Une boutique à cinq mille articles charge
+cinq mille options à chaque affichage et à chaque clic de flèche.
+
+**Le décompte et la liste du catalogue sont deux instantanés.** Deux `$queryRaw` successifs
+hors transaction : une publication entre les deux fait diverger `total` et `rows`. Un
+`COUNT(*) OVER ()` dans la requête de liste supprimerait l'écart et un aller-retour.
 
 **Le tour complet de Google n'a jamais été joué**, faute d'identifiants. La
 configuration est écrite et le bouton se monte, mais aucun aller-retour réel n'a eu
