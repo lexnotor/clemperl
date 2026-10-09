@@ -54,6 +54,8 @@ model User {
   vendorApplications VendorApplication[]
   vendorDecisions    VendorDecision[]    @relation("DecisionsRendues")
   vendorMemberships  VendorMember[]
+  cart               Cart?
+  orders             Order[]
 
   @@map("users")
 }
@@ -316,6 +318,7 @@ model Vendor {
   members     VendorMember[]
   collections Collection[]
   products    Product[]
+  orders      Order[]
 
   @@map("vendors")
 }
@@ -418,8 +421,10 @@ model ProductVariant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  product Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
-  values  ProductVariantValue[]
+  product    Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values     ProductVariantValue[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
 
   @@unique([productId, combinationKey])
   @@map("product_variants")
@@ -484,6 +489,15 @@ enum E_COLLECTION_STATUS {
   @@map("collection_status")
 }
 
+enum E_ORDER_STATUS {
+  PLACED
+  ACCEPTED
+  SHIPPED
+  CANCELLED
+
+  @@map("order_status")
+}
+
 // Une collection range des articles d'UNE boutique sous une intention d'achat que la
 // catégorie ne capte pas : la catégorie dit ce qu'est un article, la collection dit
 // pourquoi on le met en avant maintenant.
@@ -535,4 +549,89 @@ model CollectionItem {
   @@unique([collectionId, productId])
   @@index([productId])
   @@map("collection_items")
+}
+
+model Cart {
+  id       String     @id @default(cuid(2))
+  // Un panier vivant par compte. L'unicité est portée par la base, pas par le code.
+  userId   String     @unique @map("user_id")
+  currency E_CURRENCY
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String @id @default(cuid(2))
+  cartId    String @map("cart_id")
+  variantId String @map("variant_id")
+  quantity  Int
+
+  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  // Un article, UNE ligne : ajouter deux fois la même déclinaison incrémente la
+  // quantité, et l'index le garantit plutôt qu'un code qui y pense.
+  @@unique([cartId, variantId])
+  @@map("cart_items")
+}
+
+model Order {
+  id        String         @id @default(cuid(2))
+  // Lisible, et donnée à l'acheteur. Un `cuid` est un bon identifiant et une mauvaise
+  // chose à dicter au téléphone.
+  reference String         @unique
+  buyerId   String         @map("buyer_id")
+  vendorId  String         @map("vendor_id")
+  status    E_ORDER_STATUS @default(PLACED)
+  currency  E_CURRENCY
+
+  // FIGÉ, comme les lignes : l'acheteur peut déménager, et la commande doit dire où elle
+  // a été envoyée, pas où il habite aujourd'hui.
+  shipToName    String  @map("ship_to_name")
+  shipToPhone   String  @map("ship_to_phone")
+  shipToLine    String  @map("ship_to_line")
+  shipToCity    String  @map("ship_to_city")
+  shipToCountry String  @map("ship_to_country")
+  note          String?
+
+  totalAmount Int      @map("total_amount")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // `Restrict` et non `Cascade` : fermer une boutique ne doit pas effacer l'historique
+  // d'achat de ses clients. C'est l'inverse du catalogue, qui n'a aucun sens sans elle.
+  buyer  User        @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  vendor Vendor      @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  items  OrderItem[]
+
+  @@index([vendorId, status])
+  @@index([buyerId, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id      String @id @default(cuid(2))
+  orderId String @map("order_id")
+
+  // Nullable et `SetNull` : supprimer un produit ne doit JAMAIS emporter une commande.
+  // Sans cela, `Product` cascadant depuis `Vendor`, fermer une boutique effacerait les
+  // commandes de ses clients.
+  variantId String? @map("variant_id")
+
+  // FIGÉS à la validation. Relire la variante ferait dire à la commande ce que le
+  // catalogue dit aujourd'hui, pas ce qui a été acheté.
+  productTitle String @map("product_title")
+  variantLabel String @map("variant_label")
+  imagePath    String @map("image_path")
+  unitAmount   Int    @map("unit_amount")
+  quantity     Int
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([variantId])
+  @@map("order_items")
 }
