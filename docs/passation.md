@@ -96,6 +96,141 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
+## Où en est le travail, au 2026-10-09
+
+**T3, panier et commande, est à mi-chemin : quatre tâches sur huit.** Rien n'est commité
+avant ce commit-ci, qui est le point de reprise. La branche est `feat/cart-and-orders`.
+
+La spec est `docs/superpowers/specs/2026-10-09-t3-panier-commande-design.md`, le plan
+`docs/superpowers/plans/2026-10-09-t3-panier-commande.md`. Le plan a été corrigé dix fois
+pendant l'exécution, chaque correction venant d'un défaut trouvé à l'usage : il est à jour,
+et les tâches 5 à 8 s'y lisent telles qu'elles doivent être faites.
+
+### Ce qui existe
+
+**Tâche 1.** Les quatre modèles `Cart`, `CartItem`, `Order`, `OrderItem`, l'enum
+`E_ORDER_STATUS`, et la migration `20261009120000_cart_and_orders`, appliquée. Les
+transitions de commande vivent en donnée dans `order-transitions.constant.ts`, avec
+`canAdvanceOrder`, `advanceOrder` et `allowedOrderActions`.
+
+**Tâche 2.** Les règles pures : `boundQuantity`, `variantLabel`, `groupByShop`, `sumLines`,
+et `checkoutSchema`. Couverture du domaine à 100 % sur les quatre axes, 177 tests.
+
+**Tâche 3.** `cart.repository.ts` : lire, ajouter, changer la quantité, retirer, remonter un
+panier local. 19 tests d'intégration.
+
+**Tâche 4.** `order.repository.ts` : valider un panier en commandes, une par boutique, dans
+une transaction verrouillée ; lire et lister côté acheteur et côté vendeur ; faire avancer.
+13 tests d'intégration.
+
+Couche d'intégration complète : 163 tests, verte sur deux exécutions consécutives.
+`lint` et `typecheck` à 15/15.
+
+### Ce qui reste : les tâches 5 à 8
+
+5. Le panier du navigateur, et le bouton qui remplace le `mailto:` de la fiche produit.
+6. Les écrans acheteur : panier, validation, mes commandes.
+7. Les écrans vendeur : liste, détail, avancement.
+8. Les parcours Playwright, l'échauffement des routes, et cette passation.
+
+**Deux manques du plan ont été trouvés par lecture avant d'attaquer la tâche 5, et ils ne
+sont PAS encore corrigés dans le code.** Ils sont à traiter en premier.
+
+`readPublishedProduct` ne rend pas l'identifiant des variantes : `catalog.repository.ts`
+sélectionne `{ combinationKey, priceAmount }` et rien d'autre. Sans `id`, aucun ajout au
+panier n'est possible depuis la fiche. Il faut ajouter `id: true` au select et au type
+`IPublicProduct`.
+
+La fiche produit affiche des produits sans image prête, que le panier refusera. La liste du
+catalogue exige au moins une image `READY`, `eligibleVariantWhere` aussi, mais pas
+`readPublishedProduct`. C'était sans conséquence tant que l'action était un `mailto:`, qui
+marche sans image. Avec un bouton d'ajout, la fiche proposerait un achat que le serveur
+refuse. Aligner les trois, donc rendre 404, après avoir vérifié qu'aucun parcours e2e ne
+s'appuie sur une fiche sans image prête.
+
+### Les décisions prises en route, et ce qu'elles coûtent si elles sont fausses
+
+Elles vivaient dans un journal sous `.superpowers/`, que Git ignore. Les voici.
+
+**`browser.ts` n'exporte pas les transitions de commande.** Ce fichier est le point d'entrée
+sans dépendance serveur. `order-transitions.utils.ts` importe les erreurs du domaine, donc
+`@clemperl/core`, donc nodemailer, donc `node:net`. L'exporter aurait fait échouer
+l'assemblage Turbopack du premier composant client, en tâche 7, avec une erreur ne nommant
+aucun maillon. Vérifié : l'écran vendeur qui construit les boutons est un composant SERVEUR.
+Si un composant client en a besoin un jour, il exportera le fichier de constantes, qui
+n'importe rien.
+
+**`country` est mis en majuscules dans `checkoutSchema`**, comme
+`application-submission.schema.ts` le fait déjà pour le même champ. Sans cela « be » et
+« BE » s'enregistrent comme deux valeurs, et tout regroupement par pays se scinde en
+silence.
+
+**La borne de quantité reste une règle d'appelant.** `mergeLocalCart` ne borne pas lui-même :
+`packages/db` ne peut pas importer `packages/domain`, qui dépend déjà de lui. C'est la
+tâche 6 qui applique `boundQuantity`, et c'est écrit dans son code.
+
+**`addCartItem` rejoue une fois sur collision d'unicité.** Deux ajouts simultanés sur un
+panier inexistant tentent tous deux sa création, et le perdant recevait un `P2002` brut
+jusqu'à l'écran. Un double-clic suffit à le produire : mesuré, 1 échec sur 5 avant la
+reprise, 6 sur 6 au vert après.
+
+**`mergeLocalCart` ne mappe que les deux erreurs qu'il connaît et laisse remonter le reste.**
+Avant, une panne de base était annoncée à l'acheteur comme « cet article n'est plus
+disponible », ce qui est faux et non actionnable. Désormais l'appelant garde le panier local
+intact et la remontée se retentera.
+
+**`placeOrders` refuse une ligne de panier sans libellé fourni** (`ERROR_LINE_MISSING`), au
+lieu de figer une chaîne vide. Le figeage est définitif : une commande qui perd sa
+déclinaison ne peut plus jamais dire ce qui a été acheté. Le refus porte sur l'ABSENCE de
+l'entrée, jamais sur un libellé vide, qui est légitime pour un produit sans axe.
+
+**Le contrôle du total passe AVANT celui des libellés**, et cet ordre compte. Le cas réel
+d'une ligne manquante est un panier qui a grossi dans un autre onglet, lequel a forcément un
+autre total : l'acheteur doit lire « le total a changé », qui est vrai et actionnable.
+
+**`newReference` n'a aucune reprise sur collision.** `CMD-<année>-<six>` sur un alphabet de
+32 caractères donne environ un milliard de tirages. Une collision lève un `P2002` et fait
+échouer la validation. Accepté : une boucle de reprise est du code non testé sur le chemin
+de l'argent, pour un événement négligeable à ce volume.
+
+**Le panier d'un visiteur ne suit pas d'un appareil à l'autre.** Il vit dans son navigateur
+et se perd si celui-ci est nettoyé. C'est le prix de n'avoir aucune table pour qui n'a pas de
+compte, ni panier orphelin à balayer.
+
+**Aucun stock, donc aucune réservation.** Deux acheteurs peuvent commander le dernier
+exemplaire : les deux commandes existent, et c'est le vendeur qui en annule une.
+
+### Deux pièges payés pendant T3, à porter dans `docs/pieges.md`
+
+**`expect(...).rejects.toThrow(CONST)` compare par SOUS-CHAÎNE.** Le message d'une erreur de
+validation Prisma cite la ligne de code fautive, laquelle contient le NOM de la constante.
+L'assertion passe donc pour la mauvaise raison. Mesuré : la condition de devise retirée du
+prédicat d'éligibilité, le test « boutique sans devise » restait VERT. Le remède est
+`rejects.toMatchObject({ message: CONST })`, qui compare par égalité. Toutes les assertions
+de refus de T3 l'emploient.
+
+**Un `upsert` sur une colonne unique n'est pas atomique entre deux transactions.** Deux
+appels concurrents tentent tous deux la création et le perdant reçoit un `P2002`. L'erreur
+ne ressemble pas à une course et remonte telle quelle jusqu'à l'écran.
+
+**Il n'y a AUCUNE configuration Prettier dans ce dépôt.** L'indentation à 4 espaces est tenue
+à la main. Lancer `prettier` applique son défaut de 2 espaces : vérifié, à 4 espaces il
+désapprouve déjà 2 fichiers existants sur 3, donc le lancer reformaterait du code écrit. Ne
+pas le lancer.
+
+### Un test instable, hors T3, à traiter
+
+`apps/api/test/collection.int-spec.ts:582`, « ne change jamais le slug d'une collection qui
+vient d'être publiée ». Il échoue environ une fois sur trois dans la couche complète, et
+jamais lancé seul. Code de T2e, déjà fusionné, non touché par T3.
+
+Le test épingle UNE issue d'une course réelle entre un renommage et une publication. Si le
+renommage gagne, le slug devient le nouveau puis se fige, ce qui est une séquence légitime ;
+le test exige que la publication gagne. C'est donc un test instable, et peut-être une course
+de production à rendre déterministe. Le trancher demande de décider ce que `renameCollection`
+doit garantir, ce qui est une question de conception pour T2e. Il fera rougir la CI par
+intermittence d'ici là.
+
 ## Où en est le travail, au 2026-10-05
 
 **T2d est fusionnée** par la PR #6, en rebase. La CI y est passée du premier coup, puis un

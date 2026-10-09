@@ -16,7 +16,9 @@ export * from "./constants/image-derivatives.constant.js";
 export * from "./constants/image-failure.constant.js";
 export * from "./utils/media-path.utils.js";
 export * from "./utils/media-type.utils.js";
+export * from "./utils/cart.utils.js";
 
 // Le formulaire vendeur construit ses options depuis `PRODUCT_CATEGORIES`. Ce fichier
 // n'importe que zod, donc il ne fait entrer ni le client Prisma ni `@clemperl/core`.
 export * from "./schemas/product.schema.js";
+export * from "./schemas/checkout.schema.js";
