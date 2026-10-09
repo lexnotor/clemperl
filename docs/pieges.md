@@ -1203,3 +1203,11 @@ Ce qui protège maintenant : `await page.waitForLoadState("networkidle")` avant 
 saisie sur une page fraîchement atteinte. Règle : **sur une page qu'on vient d'atteindre,
 attendre qu'elle soit stabilisée avant de taper**, sinon la frappe vit dans un DOM que
 React va remplacer.
+
+**Et c'est un pis-aller, qu'il faut savoir en lisant cette entrée.** Playwright marque
+`networkidle` comme déconseillé dans ses tests, et recommande d'asserter la disponibilité
+plutôt que d'attendre le réseau. Ici il n'y a rien à asserter : le formulaire est rendu par
+le serveur AVANT hydratation, donc toute propriété observable est déjà vraie avant que React
+reprenne la main, y compris la valeur du champ qu'on vient de remplir. Le remplacer demande
+un marqueur d'hydratation que l'application n'expose pas. Le jour où elle en expose un, cette
+attente devient une assertion d'une ligne.
