@@ -87,11 +87,18 @@ test("un visiteur parcourt le catalogue, filtre, et ouvre une fiche", async ({
     await visiteur.getByRole("combobox", { name: "Taille" }).selectOption({ label: "L" });
     await expect(visiteur.getByTestId("prix")).toContainText("180,00");
 
-    const contact = visiteur.getByRole("link", { name: "Contacter la boutique" });
-    const href = decodeURIComponent((await contact.getAttribute("href")) ?? "");
-    expect(href).toContain("mailto:");
-    expect(href).toContain("Taille : L");
-    expect(href).toContain("180,00");
+    // L'ajout au panier est le chemin d'achat de T3. Sans compte, il n'écrit que dans le
+    // navigateur : le visiteur reste sur la fiche et l'ajout est confirmé sur place.
+    await visiteur.getByRole("button", { name: "Ajouter au panier" }).click();
+    await expect(visiteur.getByRole("status")).toContainText("Ajouté à votre panier");
+
+    // Le panier en PREND acte. Il n'affiche pas l'article : ce visiteur n'a pas de compte,
+    // son panier vit dans son navigateur, et la spec ne promet de retrouver les articles
+    // qu'après connexion. Ce que la connexion en fait est prouvé par `order.spec.ts`.
+    await visiteur.goto(`${URL_STOREFRONT}/cart`);
+    await expect(inMain(visiteur, "1 article en attente")).toBeVisible();
+
+    await visiteur.goBack();
 
     // Le nom de la boutique mène à sa vitrine, qui montre le même article.
     await visiteur.getByRole("link", { name: /Atelier|Boutique/ }).first().click();

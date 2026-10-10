@@ -7,7 +7,9 @@
   "navigation": {
     "shop": "Boutique",
     "account": "Mon compte",
-    "catalog": "Le catalogue"
+    "catalog": "Le catalogue",
+    "cart": "Panier",
+    "orders": "Mes commandes"
   },
   "auth": {
     "signUp": {
@@ -143,9 +145,6 @@
     "pageStatus": "Page {page} sur {pages}",
     "resultCount": "{count} articles",
     "shopProducts": "Les articles de cette boutique",
-    "contactShop": "Contacter la boutique",
-    "contactSubject": "Votre article : {title}",
-    "contactBody": "Bonjour,\n\nJe suis intéressé par « {title} » ({variant}), au prix de {price}.\n\nMerci de me dire comment procéder.",
     "noVariantChosen": "Choisissez une déclinaison",
     "productCategory": {
       "APPAREL": "Vêtements",
@@ -154,5 +153,54 @@
     },
     "shopCollections": "Ses collections",
     "collectionEmpty": "Cette collection n'a encore aucun article à montrer."
+  },
+  "cart": {
+    "title": "Mon panier",
+    "add": "Ajouter au panier",
+    "added": "Ajouté à votre panier",
+    "failed": "L'ajout a échoué. Réessayez.",
+    "empty": "Votre panier est vide.",
+    "quantity": "Quantité",
+    "remove": "Retirer",
+    "subtotal": "Sous-total",
+    "total": "Total",
+    "checkout": "Passer commande",
+    "signInToOrder": "Connectez-vous pour commander",
+    "currencyRefused": "Votre panier est dans une autre devise. Videz-le pour commander celui-ci.",
+    "rejected": "Certains articles n'ont pas pu être repris :",
+    "rejection": {
+      "ineligible": "n'est plus disponible",
+      "currency": "est dans une autre devise que votre panier",
+      "quantity": "avait une quantité illisible"
+    },
+    "localOne": "{count} article en attente. Connectez-vous pour le commander.",
+    "localMany": "{count} articles en attente. Connectez-vous pour les commander."
+  },
+  "orders": {
+    "title": "Mes commandes",
+    "empty": "Vous n'avez encore passé aucune commande.",
+    "reference": "Référence",
+    "placedOn": "Passée le",
+    "shop": "Boutique",
+    "shipTo": "Livraison",
+    "total": "Total",
+    "noteToShop": "Un mot pour {shop}",
+    "noteHint": "Une précision de taille, de gravure, d'horaire de livraison.",
+    "status": {
+      "PLACED": "Reçue",
+      "ACCEPTED": "Acceptée",
+      "SHIPPED": "Expédiée",
+      "CANCELLED": "Annulée"
+    },
+    "invalid": "Vérifiez les champs signalés.",
+    "totalChanged": "Les prix ont changé pendant votre commande. Vérifiez votre panier.",
+    "itemUnavailable": "Un article n'est plus disponible. Vérifiez votre panier.",
+    "cartEmpty": "Votre panier est vide.",
+    "shipToName": "Nom du destinataire",
+    "shipToPhone": "Téléphone",
+    "shipToLine": "Adresse",
+    "shipToCity": "Ville",
+    "shipToCountry": "Pays (code à deux lettres)",
+    "confirm": "Confirmer la commande"
   }
 }

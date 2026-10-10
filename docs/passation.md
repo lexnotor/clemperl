@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-05.
+Dernière mise à jour : 2026-10-10.
 
 ## Où en est le projet
 
@@ -22,7 +22,7 @@ plan, exécution, un commit.
 | T2c | Pipeline médias (BullMQ, sharp, worker) | **Livrée** |
 | T2d | Catalogue public : liste, filtres, fiche | **Livrée**, PR #6 |
 | T2e | Collections de produits | **Livrée**, PR #7 |
-| T3 | Panier et commande | non commencée |
+| T3 | Panier et commande | **Livrée** |
 | T4 | Paiement, point d'extension | non commencée |
 | T5 | Abonnements vendeurs | non commencée |
 | T6 | Administration | non commencée |
@@ -98,8 +98,19 @@ porte le modèle qui en découle.
 
 ## Où en est le travail, au 2026-10-09
 
-**T3, panier et commande, est à mi-chemin : quatre tâches sur huit.** Rien n'est commité
-avant ce commit-ci, qui est le point de reprise. La branche est `feat/cart-and-orders`.
+**T3, panier et commande, est complète : les huit tâches.** La branche est
+`feat/cart-and-orders`.
+
+Un visiteur sans compte remplit un panier que son navigateur garde, le retrouve à la
+connexion, valide avec son adresse et un mot par boutique, et le vendeur fait avancer la
+commande jusqu'à l'expédition. Le `mailto:` qui tenait lieu d'achat depuis T2d a disparu,
+ainsi que ses trois libellés de traduction.
+
+**Deux revues par contexte neuf ont tourné sur les tâches 1 à 4**, avant d'écrire les
+écrans. Huit constats corrigés, sept laissés ouverts et consignés plus bas. La seconde
+revue a trouvé que deux des corrections de la première en avaient cassé d'autres : valider
+la quantité APRÈS avoir retiré la ligne serveur détruisait une ligne légitime, et la garde
+n'existait que sur un des deux chemins d'écriture.
 
 La spec est `docs/superpowers/specs/2026-10-09-t3-panier-commande-design.md`, le plan
 `docs/superpowers/plans/2026-10-09-t3-panier-commande.md`. Le plan a été corrigé dix fois
@@ -126,27 +137,23 @@ une transaction verrouillée ; lire et lister côté acheteur et côté vendeur 
 Couche d'intégration complète : 163 tests, verte sur deux exécutions consécutives.
 `lint` et `typecheck` à 15/15.
 
-### Ce qui reste : les tâches 5 à 8
+### Ce que la spec ne promet PAS, et que la page doit dire quand même
 
-5. Le panier du navigateur, et le bouton qui remplace le `mailto:` de la fiche produit.
-6. Les écrans acheteur : panier, validation, mes commandes.
-7. Les écrans vendeur : liste, détail, avancement.
-8. Les parcours Playwright, l'échauffement des routes, et cette passation.
+Le critère 1 dit qu'un visiteur sans compte « retrouve » son panier **après connexion**.
+Voir le contenu avant d'être connecté n'en fait pas partie, et le nommer demanderait de
+résoudre chaque identifiant côté serveur.
 
-**Deux manques du plan ont été trouvés par lecture avant d'attaquer la tâche 5, et ils ne
-sont PAS encore corrigés dans le code.** Ils sont à traiter en premier.
+Mais afficher « Votre panier est vide » à quelqu'un qui vient d'y mettre un article est
+faux. `LocalCartNotice` annonce donc un NOMBRE, lu dans le navigateur, et renvoie vers la
+connexion. Les deux parcours e2e visent ce compte, jamais les titres : un test qui
+chercherait le nom de l'article décrirait une promesse que personne n'a faite.
 
-`readPublishedProduct` ne rend pas l'identifiant des variantes : `catalog.repository.ts`
-sélectionne `{ combinationKey, priceAmount }` et rien d'autre. Sans `id`, aucun ajout au
-panier n'est possible depuis la fiche. Il faut ajouter `id: true` au select et au type
-`IPublicProduct`.
-
-La fiche produit affiche des produits sans image prête, que le panier refusera. La liste du
-catalogue exige au moins une image `READY`, `eligibleVariantWhere` aussi, mais pas
-`readPublishedProduct`. C'était sans conséquence tant que l'action était un `mailto:`, qui
-marche sans image. Avec un bouton d'ajout, la fiche proposerait un achat que le serveur
-refuse. Aligner les trois, donc rendre 404, après avoir vérifié qu'aucun parcours e2e ne
-s'appuie sur une fiche sans image prête.
+**Les deux manques du plan sont corrigés.** `readPublishedProduct` rend l'identifiant des
+variantes, sans quoi la fiche sait afficher un prix mais pas désigner ce qu'elle vend. Et
+elle applique désormais la MÊME éligibilité que la liste et que `eligibleVariantWhere` :
+publié, boutique ouverte avec une devise, au moins une image prête. Sans cet alignement la
+fiche proposerait un achat que le panier refuse, et l'acheteur lirait un refus sans cause
+visible. Un test d'intégration épingle le nouveau comportement.
 
 ### Les décisions prises en route, et ce qu'elles coûtent si elles sont fausses
 
@@ -200,6 +207,39 @@ compte, ni panier orphelin à balayer.
 **Aucun stock, donc aucune réservation.** Deux acheteurs peuvent commander le dernier
 exemplaire : les deux commandes existent, et c'est le vendeur qui en annule une.
 
+### Sept constats de revue laissés ouverts sur T3, et pourquoi
+
+Deux revues par contexte neuf ont tourné le 2026-10-10. Huit constats ont été corrigés,
+sept sont restés ouverts par décision de l'utilisateur : le catalogue n'a ni produit ni
+acheteur, et les écrans de T3 ne sont pas écrits, donc aucun n'a d'effet aujourd'hui. Les
+trois premiers méritent d'être repris avant d'ouvrir la boutique à de vrais acheteurs.
+
+**Le `SELECT ... FOR UPDATE` de `placeOrders` ne couvre que la ligne `carts`, pas
+`cart_items`.** PostgreSQL ne prend qu'un verrou `KEY SHARE` sur le parent, donc un
+`UPDATE cart_items SET quantity = ...` concurrent passe librement pendant la fenêtre de
+validation. La commande part avec l'ancienne quantité et le `cart.delete` emporte la
+nouvelle : l'acheteur est livré d'un article au lieu de trois, sans erreur nulle part. Ce
+n'est pas un scénario d'attaque, deux onglets d'un même acheteur suffisent.
+
+**`orders.total_amount` est un `int4` que rien ne borne.** `MAX_PRICE_AMOUNT` vaut
+2 147 483 647 et `MAX_CART_QUANTITY` vaut 100 : leur produit dépasse la colonne. Un
+article à 30 millions d'unités mineures en franc CFA, quantité 100, donne trois
+milliards. La comparaison avec `expectedTotal` passe, puis PostgreSQL rejette, et le
+panier devient invalidable sans message actionnable. Le plafond par unité a été raisonné,
+le total non.
+
+**L'ordre des lignes est arbitraire.** `orderBy: { id: "asc" }` sur des `cuid(2)`, qui ont
+abandonné la monotonie par conception. Ni `CartItem` ni `OrderItem` ne porte de `createdAt`
+ou de `position`, donc le corriger demande une migration. `placeOrders` lit d'ailleurs
+`cart.items` sans aucun `orderBy`, ce qui rend l'ordre d'écriture d'une commande figée
+dépendant du plan PostgreSQL.
+
+**Quatre constats plus légers :** `order_items` indexe `variant_id` mais pas `order_id`,
+qui est le chemin chaud ; `cart_items.variant_id` n'a pas d'index utilisable pour sa
+cascade ; `newReference` n'a aucune reprise sur collision, contrairement à `addCartItem` ;
+et `placeOrders` fait un N+1 dans la transaction, dont la correction donnerait au passage
+le nom de l'article devenu inéligible, que `ERROR_ITEM_INELIGIBLE` ne dit pas.
+
 ### Deux pièges payés pendant T3, à porter dans `docs/pieges.md`
 
 **`expect(...).rejects.toThrow(CONST)` compare par SOUS-CHAÎNE.** Le message d'une erreur de
@@ -217,6 +257,17 @@ ne ressemble pas à une course et remonte telle quelle jusqu'à l'écran.
 à la main. Lancer `prettier` applique son défaut de 2 espaces : vérifié, à 4 espaces il
 désapprouve déjà 2 fichiers existants sur 3, donc le lancer reformaterait du code écrit. Ne
 pas le lancer.
+
+### La suite e2e n'est pas verte d'un bloc sur cette machine
+
+Mesuré le 2026-10-10 : quatre échecs sur vingt-trois à deux workers, charge à 10,6 sur
+quatre cœurs. Rejoués en série, six des sept repassent. Le septième était un vrai défaut de
+`catalog.spec.ts`, corrigé : il cherchait le titre de l'article dans le panier d'un visiteur
+ANONYME, qui n'affiche qu'un compte.
+
+La leçon tient à la séparation : la charge expliquait trois échecs sur quatre, pas le
+quatrième, et les distinguer demandait de rejouer plutôt que de supposer. La CI, sur un
+runner dédié, est le banc qui tranche.
 
 ### Un test instable, hors T3, à traiter
 

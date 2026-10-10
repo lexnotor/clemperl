@@ -16,11 +16,11 @@ export const MAX_CART_QUANTITY = 100;
 // entrée qui ne l'est pas. `Number` le lit comme un milliard, et c'est alors le PLAFOND
 // qui protège, ce qui est son travail.
 export function boundQuantity(raw: unknown): number {
-    const nombre = Math.trunc(Number(raw));
-    if (!Number.isFinite(nombre) || nombre <= 0) {
+    const parsed = Math.trunc(Number(raw));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
         return 0;
     }
-    return Math.min(nombre, MAX_CART_QUANTITY);
+    return Math.min(parsed, MAX_CART_QUANTITY);
 }
 
 // « Taille : L, Couleur : Noir ». Construit à la validation et FIGÉ sur la ligne de
@@ -37,16 +37,16 @@ export function variantLabel(
 export function groupByShop<T extends { shopSlug: string }>(
     lines: readonly T[],
 ): { shopSlug: string; lines: T[] }[] {
-    const groupes = new Map<string, T[]>();
-    for (const ligne of lines) {
-        const existant = groupes.get(ligne.shopSlug);
-        if (existant) {
-            existant.push(ligne);
+    const groups = new Map<string, T[]>();
+    for (const line of lines) {
+        const existing = groups.get(line.shopSlug);
+        if (existing) {
+            existing.push(line);
         } else {
-            groupes.set(ligne.shopSlug, [ligne]);
+            groups.set(line.shopSlug, [line]);
         }
     }
-    return [...groupes].map(([shopSlug, lignes]) => ({ shopSlug, lines: lignes }));
+    return [...groups].map(([shopSlug, shopLines]) => ({ shopSlug, lines: shopLines }));
 }
 
 // En unité mineure ENTIÈRE, sans jamais diviser : une division introduirait un flottant,
@@ -54,5 +54,5 @@ export function groupByShop<T extends { shopSlug: string }>(
 export function sumLines(
     lines: readonly { unitAmount: number; quantity: number }[],
 ): number {
-    return lines.reduce((total, ligne) => total + ligne.unitAmount * ligne.quantity, 0);
+    return lines.reduce((total, line) => total + line.unitAmount * line.quantity, 0);
 }

@@ -23,6 +23,13 @@ const ROUTES = [
     `${URL_STOREFRONT}/shops/inexistante`,
     `${URL_STOREFRONT}/shops/inexistante/inexistant`,
     `${URL_STOREFRONT}/shops/inexistante/collections/inexistante`,
+    // Le panier et les commandes, arrivés en T3. Le parcours d'achat les traverse tous
+    // dans la foulée d'une création de produit, donc aucun n'a le temps de se compiler
+    // sous le délai d'assertion.
+    `${URL_STOREFRONT}/cart`,
+    `${URL_STOREFRONT}/checkout`,
+    `${URL_STOREFRONT}/orders`,
+    `${URL_STOREFRONT}/orders/inexistante`,
     `${URL_VENDOR}/`,
     `${URL_VENDOR}/shop`,
     `${URL_VENDOR}/products`,
@@ -38,6 +45,8 @@ const ROUTES = [
     `${URL_VENDOR}/collections`,
     `${URL_VENDOR}/collections/new`,
     `${URL_VENDOR}/collections/inexistante`,
+    `${URL_VENDOR}/orders`,
+    `${URL_VENDOR}/orders/inexistante`,
     `${URL_ADMIN}/`,
     `${URL_ADMIN}/setup`,
     `${URL_ADMIN}/applications`,

@@ -7,6 +7,7 @@ export const ERROR_TOTAL_CHANGED = "TOTAL_CHANGED";
 // Deux moments, deux messages à l'écran, donc deux constantes.
 export const ERROR_ITEM_INELIGIBLE = "ORDER_ITEM_INELIGIBLE";
 export const ERROR_ORDER_NOT_FOUND = "ORDER_NOT_FOUND";
+export const ERROR_ORDER_STATUS_STALE = "ORDER_STATUS_STALE";
 
 // Le libellé de déclinaison vient de l'APPELANT, parce qu'il se calcule dans
 // `packages/domain`, que ce package ne peut pas importer sans fermer un cycle. Un appelant
@@ -36,11 +37,20 @@ export interface IPlaceOrders {
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 function newReference(): string {
-    const tirage = Array.from(
+    const draw = Array.from(
         { length: 6 },
         () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)],
     ).join("");
-    return `CMD-${new Date().getFullYear()}-${tirage}`;
+    return `CMD-${new Date().getFullYear()}-${draw}`;
+}
+
+// Lecture SÛRE d'un objet littéral indexé par une chaîne venue des données. Un accès par
+// crochet traverse la chaîne de prototypes : une boutique nommée « Constructor » a pour
+// slug `constructor`, et rendrait `Object.prototype.constructor`, une fonction que le
+// `?? null` ne rattrape pas. Ne pas revenir à un accès direct. `catalog.repository.ts`
+// emploie `Object.hasOwn` pour la même raison, sur sa table de tris.
+function noteFor(notes: Readonly<Record<string, string>>, shopSlug: string): string | null {
+    return Object.hasOwn(notes, shopSlug) ? (notes[shopSlug] ?? null) : null;
 }
 
 export async function placeOrders(
@@ -67,7 +77,7 @@ export async function placeOrders(
 
         // Les prix sont RELUS ici, jamais repris du panier : un vendeur a pu les changer
         // pendant que l'acheteur remplissait son adresse.
-        const lignes = [];
+        const lines = [];
         for (const item of cart.items) {
             const variant = await tx.productVariant.findFirst({
                 where: eligibleVariantWhere(item.variantId),
@@ -95,7 +105,7 @@ export async function placeOrders(
                 throw new Error(ERROR_ITEM_INELIGIBLE);
             }
 
-            lignes.push({
+            lines.push({
                 variantId: variant.id,
                 quantity: item.quantity,
                 unitAmount: variant.priceAmount,
@@ -111,7 +121,7 @@ export async function placeOrders(
         // onglet pendant que l'acheteur remplissait son adresse, et ce panier a donc aussi
         // un autre total. Lui dire « le total a changé » est vrai et actionnable ; lui
         // parler d'un libellé manquant ne lui dirait rien.
-        const total = lignes.reduce((t, l) => t + l.unitAmount * l.quantity, 0);
+        const total = lines.reduce((t, l) => t + l.unitAmount * l.quantity, 0);
         if (total !== input.expectedTotal) {
             throw new Error(ERROR_TOTAL_CHANGED);
         }
@@ -119,26 +129,26 @@ export async function placeOrders(
         // Le refus porte sur l'ABSENCE de l'entrée, et non sur un libellé vide : un produit
         // sans axe a une seule déclinaison, dont le libellé est légitimement vide.
         // Confondre les deux refuserait la moitié du catalogue.
-        const etiquetees = lignes.map((ligne) => {
-            const fourni = input.lines.find((l) => l.variantId === ligne.variantId);
-            if (fourni === undefined) {
+        const labelled = lines.map((line) => {
+            const supplied = input.lines.find((l) => l.variantId === line.variantId);
+            if (supplied === undefined) {
                 throw new Error(ERROR_LINE_MISSING);
             }
-            return { ...ligne, label: fourni.label };
+            return { ...line, label: supplied.label };
         });
 
-        const parBoutique = new Map<string, typeof etiquetees>();
-        for (const ligne of etiquetees) {
-            const existant = parBoutique.get(ligne.vendorId);
-            if (existant) {
-                existant.push(ligne);
+        const byShop = new Map<string, typeof labelled>();
+        for (const line of labelled) {
+            const existing = byShop.get(line.vendorId);
+            if (existing) {
+                existing.push(line);
             } else {
-                parBoutique.set(ligne.vendorId, [ligne]);
+                byShop.set(line.vendorId, [line]);
             }
         }
 
         const references: string[] = [];
-        for (const [vendorId, groupe] of parBoutique) {
+        for (const [vendorId, group] of byShop) {
             const reference = newReference();
             await tx.order.create({
                 data: {
@@ -151,19 +161,20 @@ export async function placeOrders(
                     shipToLine: input.shipTo.line,
                     shipToCity: input.shipTo.city,
                     shipToCountry: input.shipTo.country,
-                    note: input.notes[groupe[0]?.shopSlug ?? ""] ?? null,
-                    totalAmount: groupe.reduce(
+                    // Passe par `noteFor`, qui ferme l'accès à la chaîne de prototypes.
+                    note: noteFor(input.notes, group[0]?.shopSlug ?? ""),
+                    totalAmount: group.reduce(
                         (t, l) => t + l.unitAmount * l.quantity,
                         0,
                     ),
                     items: {
-                        create: groupe.map((ligne) => ({
-                            variantId: ligne.variantId,
-                            productTitle: ligne.productTitle,
-                            variantLabel: ligne.label,
-                            imagePath: ligne.imagePath,
-                            unitAmount: ligne.unitAmount,
-                            quantity: ligne.quantity,
+                        create: group.map((line) => ({
+                            variantId: line.variantId,
+                            productTitle: line.productTitle,
+                            variantLabel: line.label,
+                            imagePath: line.imagePath,
+                            unitAmount: line.unitAmount,
+                            quantity: line.quantity,
                         })),
                     },
                 },
@@ -247,13 +258,29 @@ export async function readOrderForVendor(
 // L'appelant la calcule et passe l'état visé ; ce dépôt vérifie seulement l'appartenance.
 export async function setOrderStatus(
     prisma: PrismaClient,
-    input: { vendorId: string; orderId: string; status: string },
+    input: { vendorId: string; orderId: string; from: string; status: string },
 ): Promise<void> {
+    // `from` dans le `where`, et c'est le cœur de cette fonction. L'appelant a LU un état
+    // puis calculé la transition : sans cette condition, l'écriture écrase une décision
+    // plus récente. Ne pas la retirer.
+    //
+    // Une boutique a plusieurs membres, donc deux écrans peuvent regarder la même commande.
+    // Un collègue qui accepte puis expédie pendant qu'une page reste ouverte sur « commande
+    // passée » : le clic suivant sur « Accepter » ramènerait une commande EXPÉDIÉE à
+    // « acceptée », et un `count === 0` sans condition de statut ne verrait rien.
     const change = await prisma.order.updateMany({
-        where: { id: input.orderId, vendorId: input.vendorId },
+        where: { id: input.orderId, vendorId: input.vendorId, status: input.from as never },
         data: { status: input.status as never },
     });
+
     if (change.count === 0) {
-        throw new Error(ERROR_ORDER_NOT_FOUND);
+        // On distingue les deux refus : une commande d'une autre boutique est introuvable,
+        // une commande qui a bougé demande à l'écran de se recharger. Les confondre ferait
+        // lire « commande introuvable » à un vendeur qui regarde la sienne.
+        const exists = await prisma.order.findFirst({
+            where: { id: input.orderId, vendorId: input.vendorId },
+            select: { id: true },
+        });
+        throw new Error(exists ? ERROR_ORDER_STATUS_STALE : ERROR_ORDER_NOT_FOUND);
     }
 }

@@ -2,6 +2,7 @@ import {
     CART_REJECTION,
     ERROR_CART_CURRENCY_MISMATCH,
     ERROR_CART_ITEM_INELIGIBLE,
+    ERROR_CART_QUANTITY_INVALID,
     addCartItem,
     createProduct,
     mergeLocalCart,
@@ -10,6 +11,21 @@ import {
     setCartItemQuantity,
     setProductStatus,
 } from "@clemperl/db";
+import { MAX_CART_QUANTITY } from "@clemperl/domain";
+
+// Le plafond de quantité vient de l'APPELANT : `packages/db` ne peut pas importer
+// `packages/domain`, qui dépend déjà de lui. Ces enveloppes passent celui du domaine, qui
+// est exactement ce que les écrans passeront.
+const addItem = (input: { userId: string; variantId: string; quantity: number }) =>
+    addCartItem(prisma, { ...input, maxQuantity: MAX_CART_QUANTITY });
+
+const setQuantity = (input: { userId: string; variantId: string; quantity: number }) =>
+    setCartItemQuantity(prisma, { ...input, maxQuantity: MAX_CART_QUANTITY });
+
+const mergeCart = (input: {
+    userId: string;
+    items: readonly { variantId: string; quantity: number }[];
+}) => mergeLocalCart(prisma, { ...input, maxQuantity: MAX_CART_QUANTITY });
 
 const PREFIX = "cart";
 const DESCRIPTION = "Cuir pleine fleur, coutures à la main, doublure en lin.";
@@ -86,7 +102,7 @@ describe("addCartItem", () => {
         const shop = await createShop("EUR");
         const { variantId } = await publishedVariant(shop.id, "EUR", 18000);
 
-        await addCartItem(prisma, { userId, variantId, quantity: 2 });
+        await addItem({ userId, variantId, quantity: 2 });
 
         const panier = await readCart(prisma, userId);
         expect(panier?.currency).toBe("EUR");
@@ -102,8 +118,8 @@ describe("addCartItem", () => {
         const shop = await createShop("EUR");
         const { variantId } = await publishedVariant(shop.id, "EUR", 5000);
 
-        await addCartItem(prisma, { userId, variantId, quantity: 1 });
-        await addCartItem(prisma, { userId, variantId, quantity: 2 });
+        await addItem({ userId, variantId, quantity: 1 });
+        await addItem({ userId, variantId, quantity: 2 });
 
         const panier = await readCart(prisma, userId);
         expect(panier?.lines).toHaveLength(1);
@@ -117,10 +133,10 @@ describe("addCartItem", () => {
         const premier = await publishedVariant(euro.id, "EUR", 5000);
         const second = await publishedVariant(cfa.id, "XOF", 30000);
 
-        await addCartItem(prisma, { userId, variantId: premier.variantId, quantity: 1 });
+        await addItem({ userId, variantId: premier.variantId, quantity: 1 });
 
         await expect(
-            addCartItem(prisma, { userId, variantId: second.variantId, quantity: 1 }),
+            addItem({ userId, variantId: second.variantId, quantity: 1 }),
         ).rejects.toMatchObject({ message: ERROR_CART_CURRENCY_MISMATCH });
     });
 
@@ -140,7 +156,7 @@ describe("addCartItem", () => {
 
             const resultats = await Promise.allSettled(
                 Array.from({ length: 8 }, () =>
-                    addCartItem(prisma, { userId, variantId, quantity: 1 }),
+                    addItem({ userId, variantId, quantity: 1 }),
                 ),
             );
 
@@ -162,11 +178,11 @@ describe("addCartItem", () => {
         // Plusieurs manches, pour la même raison que ci-dessus.
         for (let manche = 0; manche < 10; manche += 1) {
             const userId = await createUser();
-            await addCartItem(prisma, { userId, variantId: deja.variantId, quantity: 1 });
+            await addItem({ userId, variantId: deja.variantId, quantity: 1 });
 
             const resultats = await Promise.allSettled([
-                addCartItem(prisma, { userId, variantId: nouveau.variantId, quantity: 1 }),
-                addCartItem(prisma, { userId, variantId: nouveau.variantId, quantity: 1 }),
+                addItem({ userId, variantId: nouveau.variantId, quantity: 1 }),
+                addItem({ userId, variantId: nouveau.variantId, quantity: 1 }),
             ]);
 
             expect(resultats.filter((r) => r.status === "rejected")).toHaveLength(0);
@@ -198,7 +214,7 @@ describe("addCartItem", () => {
             await setProductStatus(prisma, { productId, vendorId: shop.id, publish: false });
 
             await expect(
-                addCartItem(prisma, { userId, variantId, quantity: 1 }),
+                addItem({ userId, variantId, quantity: 1 }),
             ).rejects.toMatchObject({ message: ERROR_CART_ITEM_INELIGIBLE });
         });
 
@@ -207,7 +223,7 @@ describe("addCartItem", () => {
             await prisma.product.update({ where: { id: productId }, data: { deletedAt: new Date() } });
 
             await expect(
-                addCartItem(prisma, { userId, variantId, quantity: 1 }),
+                addItem({ userId, variantId, quantity: 1 }),
             ).rejects.toMatchObject({ message: ERROR_CART_ITEM_INELIGIBLE });
         });
 
@@ -216,7 +232,7 @@ describe("addCartItem", () => {
             await prisma.vendor.update({ where: { id: shop.id }, data: { deletedAt: new Date() } });
 
             await expect(
-                addCartItem(prisma, { userId, variantId, quantity: 1 }),
+                addItem({ userId, variantId, quantity: 1 }),
             ).rejects.toMatchObject({ message: ERROR_CART_ITEM_INELIGIBLE });
         });
 
@@ -225,7 +241,7 @@ describe("addCartItem", () => {
             await prisma.vendor.update({ where: { id: shop.id }, data: { currency: null } });
 
             await expect(
-                addCartItem(prisma, { userId, variantId, quantity: 1 }),
+                addItem({ userId, variantId, quantity: 1 }),
             ).rejects.toMatchObject({ message: ERROR_CART_ITEM_INELIGIBLE });
         });
 
@@ -237,7 +253,7 @@ describe("addCartItem", () => {
             });
 
             await expect(
-                addCartItem(prisma, { userId, variantId, quantity: 1 }),
+                addItem({ userId, variantId, quantity: 1 }),
             ).rejects.toMatchObject({ message: ERROR_CART_ITEM_INELIGIBLE });
         });
     });
@@ -248,9 +264,9 @@ describe("setCartItemQuantity", () => {
         const userId = await createUser();
         const shop = await createShop("EUR");
         const { variantId } = await publishedVariant(shop.id, "EUR", 5000);
-        await addCartItem(prisma, { userId, variantId, quantity: 2 });
+        await addItem({ userId, variantId, quantity: 2 });
 
-        await setCartItemQuantity(prisma, { userId, variantId, quantity: 0 });
+        await setQuantity({ userId, variantId, quantity: 0 });
 
         // Le panier vidé est supprimé (voir `setCartItemQuantity`), donc la lecture rend
         // `null` et non un panier à zéro ligne.
@@ -266,11 +282,11 @@ describe("setCartItemQuantity", () => {
         const premier = await publishedVariant(euro.id, "EUR", 5000);
         const second = await publishedVariant(cfa.id, "XOF", 30000);
 
-        await addCartItem(prisma, { userId, variantId: premier.variantId, quantity: 1 });
-        await setCartItemQuantity(prisma, { userId, variantId: premier.variantId, quantity: 0 });
+        await addItem({ userId, variantId: premier.variantId, quantity: 1 });
+        await setQuantity({ userId, variantId: premier.variantId, quantity: 0 });
 
         await expect(
-            addCartItem(prisma, { userId, variantId: second.variantId, quantity: 1 }),
+            addItem({ userId, variantId: second.variantId, quantity: 1 }),
         ).resolves.toBeUndefined();
         expect((await readCart(prisma, userId))?.currency).toBe("XOF");
     });
@@ -280,9 +296,9 @@ describe("setCartItemQuantity", () => {
         const autre = await createUser();
         const shop = await createShop("EUR");
         const { variantId } = await publishedVariant(shop.id, "EUR", 5000);
-        await addCartItem(prisma, { userId: autre, variantId, quantity: 2 });
+        await addItem({ userId: autre, variantId, quantity: 2 });
 
-        await setCartItemQuantity(prisma, { userId: mien, variantId, quantity: 0 });
+        await setQuantity({ userId: mien, variantId, quantity: 0 });
 
         expect((await readCart(prisma, autre))?.lines).toHaveLength(1);
         expect(await readCart(prisma, mien)).toBeNull();
@@ -292,9 +308,9 @@ describe("setCartItemQuantity", () => {
         const userId = await createUser();
         const shop = await createShop("EUR");
         const { variantId } = await publishedVariant(shop.id, "EUR", 5000);
-        await addCartItem(prisma, { userId, variantId, quantity: 3 });
+        await addItem({ userId, variantId, quantity: 3 });
 
-        await setCartItemQuantity(prisma, { userId, variantId, quantity: 1 });
+        await setQuantity({ userId, variantId, quantity: 1 });
 
         const panier = await readCart(prisma, userId);
         expect(panier?.lines).toHaveLength(1);
@@ -307,10 +323,10 @@ describe("setCartItemQuantity", () => {
         const shop = await createShop("EUR");
         const premier = await publishedVariant(shop.id, "EUR", 5000);
         const second = await publishedVariant(shop.id, "EUR", 7000);
-        await addCartItem(prisma, { userId, variantId: premier.variantId, quantity: 1 });
-        await addCartItem(prisma, { userId, variantId: second.variantId, quantity: 4 });
+        await addItem({ userId, variantId: premier.variantId, quantity: 1 });
+        await addItem({ userId, variantId: second.variantId, quantity: 4 });
 
-        await setCartItemQuantity(prisma, { userId, variantId: premier.variantId, quantity: 0 });
+        await setQuantity({ userId, variantId: premier.variantId, quantity: 0 });
 
         const panier = await readCart(prisma, userId);
         expect(panier?.lines).toHaveLength(1);
@@ -325,7 +341,7 @@ describe("mergeLocalCart", () => {
         const shop = await createShop("EUR");
         const bon = await publishedVariant(shop.id, "EUR", 5000);
 
-        const { rejected } = await mergeLocalCart(prisma, {
+        const { rejected } = await mergeCart({
             userId,
             items: [
                 { variantId: bon.variantId, quantity: 2 },
@@ -348,7 +364,7 @@ describe("mergeLocalCart", () => {
         const premier = await publishedVariant(euro.id, "EUR", 5000);
         const second = await publishedVariant(cfa.id, "XOF", 30000);
 
-        const { rejected } = await mergeLocalCart(prisma, {
+        const { rejected } = await mergeCart({
             userId,
             items: [
                 { variantId: premier.variantId, quantity: 1 },
@@ -371,10 +387,10 @@ describe("mergeLocalCart", () => {
         // Présent en base SEULEMENT : un panier reconstruit depuis la liste locale seule
         // le perdrait.
         const seulEnBase = await publishedVariant(shop.id, "EUR", 9000);
-        await addCartItem(prisma, { userId, variantId: deja.variantId, quantity: 1 });
-        await addCartItem(prisma, { userId, variantId: seulEnBase.variantId, quantity: 5 });
+        await addItem({ userId, variantId: deja.variantId, quantity: 1 });
+        await addItem({ userId, variantId: seulEnBase.variantId, quantity: 5 });
 
-        await mergeLocalCart(prisma, {
+        await mergeCart({
             userId,
             items: [
                 { variantId: deja.variantId, quantity: 2 },
@@ -394,9 +410,70 @@ describe("mergeLocalCart", () => {
     it("rend un panier vide sans rien écrire pour une liste vide", async () => {
         const userId = await createUser();
 
-        const { rejected } = await mergeLocalCart(prisma, { userId, items: [] });
+        const { rejected } = await mergeCart({ userId, items: [] });
 
         expect(rejected).toHaveLength(0);
         expect(await readCart(prisma, userId)).toBeNull();
     });
 });
+
+describe("les bornes de quantité", () => {
+    // Le plafond porte sur la valeur STOCKÉE, pas sur l'incrément reçu. Sans le test,
+    // retirer l'écriture de plafonnement laisse la suite verte : `packages/db/vitest.config.ts`
+    // exclut les dépôts de la couverture unitaire.
+    it("plafonne la quantité accumulée, pas seulement l'ajout", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR");
+        const { variantId } = await publishedVariant(shop.id, "EUR", 18000);
+
+        await addItem({ userId, variantId, quantity: MAX_CART_QUANTITY });
+        await addItem({ userId, variantId, quantity: MAX_CART_QUANTITY });
+        await addItem({ userId, variantId, quantity: MAX_CART_QUANTITY });
+
+        const cart = await readCart(prisma, userId);
+        expect(cart?.lines[0]?.quantity).toBe(MAX_CART_QUANTITY);
+    });
+
+    it("refuse une quantité nulle, négative ou fractionnaire", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR");
+        const { variantId } = await publishedVariant(shop.id, "EUR", 18000);
+
+        for (const quantity of [0, -5, 2.5, Number.NaN]) {
+            await expect(addItem({ userId, variantId, quantity })).rejects.toMatchObject({
+                message: ERROR_CART_QUANTITY_INVALID,
+            });
+        }
+        expect(await readCart(prisma, userId)).toBeNull();
+    });
+
+    // Le retrait est destructif et l'ajout qui le suit peut être refusé : valider après
+    // retirer ferait disparaître une ligne que le panier serveur portait légitimement.
+    it("ne détruit pas la ligne serveur quand la quantité locale est illisible", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR");
+        const { variantId } = await publishedVariant(shop.id, "EUR", 18000);
+        await addItem({ userId, variantId, quantity: 3 });
+
+        const { rejected } = await mergeCart({ userId, items: [{ variantId, quantity: 0 }] });
+
+        expect(rejected[0]?.reason).toBe(CART_REJECTION.quantity);
+        const cart = await readCart(prisma, userId);
+        expect(cart?.lines[0]?.quantity).toBe(3);
+    });
+
+    // Les DEUX chemins d'écriture portent la même borne : une borne tenue par un seul
+    // d'entre eux se contourne en changeant de fonction.
+    it("plafonne aussi par le chemin de la quantité fixée", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR");
+        const { variantId } = await publishedVariant(shop.id, "EUR", 18000);
+        await addItem({ userId, variantId, quantity: 1 });
+
+        await setQuantity({ userId, variantId, quantity: 1_000_000_000 });
+
+        const cart = await readCart(prisma, userId);
+        expect(cart?.lines[0]?.quantity).toBe(MAX_CART_QUANTITY);
+    });
+});
+

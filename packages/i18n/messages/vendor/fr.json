@@ -5,7 +5,8 @@
   "navigation": {
     "shop": "Ma boutique",
     "products": "Mes produits",
-    "collections": "Mes collections"
+    "collections": "Mes collections",
+    "orders": "Mes commandes"
   },
   "shop": {
     "title": "Ma boutique",
@@ -54,7 +55,9 @@
     "imageNotAnImage": "Ce fichier n'est pas une image.",
     "imageLastPublished": "Dépubliez d'abord ce produit : une fiche en ligne garde au moins une photo.",
     "collectionSlugTaken": "Vous avez déjà une collection portant ce titre. Choisissez-en un autre.",
-    "collectionNotFound": "Cette collection n'existe pas, ou elle n'est pas la vôtre."
+    "collectionNotFound": "Cette collection n'existe pas, ou elle n'est pas la vôtre.",
+    "orderNotFound": "Cette commande n'existe pas, ou elle n'est pas la vôtre.",
+    "orderMoved": "Cette commande n'est plus dans cet état. Rechargez la page."
   },
   "currency": {
     "EUR": "Euro (€)",
@@ -148,5 +151,26 @@
     "slugFollowsHint": "Son adresse publique suivra ce titre tant qu'elle n'a pas été publiée.",
     "slugFrozenHint": "Son adresse publique est figée depuis sa première publication : seul le titre affiché change.",
     "saveChanges": "Enregistrer"
+  },
+  "orders": {
+    "title": "Mes commandes",
+    "empty": "Vous n'avez pas encore de commande.",
+    "back": "Retour aux commandes",
+    "placedOn": "Passée le",
+    "lines": "Les articles",
+    "total": "Total",
+    "shipTo": "Adresse de livraison",
+    "note": "Mot de l'acheteur",
+    "status": {
+      "PLACED": "Reçue",
+      "ACCEPTED": "Acceptée",
+      "SHIPPED": "Expédiée",
+      "CANCELLED": "Annulée"
+    },
+    "action": {
+      "ACCEPT": "Accepter",
+      "SHIP": "Marquer expédiée",
+      "CANCEL": "Annuler"
+    }
   }
 }

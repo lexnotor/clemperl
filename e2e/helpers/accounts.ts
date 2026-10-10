@@ -71,13 +71,28 @@ export async function expectSubjectFor(
 
 // Crée un compte et le vérifie par l'API : le parcours du formulaire a sa propre
 // couverture, et le répéter ici allongerait chaque test sans rien prouver de plus.
+//
+// Le contexte doit être NEUF, ou n'avoir jamais suivi de lien de vérification. Le suivre
+// pose une session, et Better Auth applique dès lors sa protection anti-CSRF aux requêtes
+// qui écrivent : un `APIRequestContext` n'envoie aucun en-tête `Origin`, donc la création
+// suivante est refusée par `403 MISSING_OR_NULL_ORIGIN`. Pour un second compte, demander
+// un contexte à part, ou celui du navigateur de cette personne.
 export async function createVerifiedAccount(
     request: APIRequestContext,
     address: string,
 ): Promise<void> {
-    await request.post(`${URL_STOREFRONT}/api/auth/sign-up/email`, {
+    const created = await request.post(`${URL_STOREFRONT}/api/auth/sign-up/email`, {
         data: { email: address, password: PASSWORD, name: "Essai" },
     });
+
+    // La réponse est VÉRIFIÉE. Sans cela un refus passe inaperçu, et la panne ressurgit
+    // quinze secondes plus tard en « aucun courriel reçu », qui désigne la boîte de
+    // courriels au lieu de l'inscription.
+    expect(
+        created.ok(),
+        `inscription refusée pour ${address} : ${created.status()} ${await created.text()}`,
+    ).toBe(true);
+
     await request.get(await linkFor(request, address, "/api/auth/verify-email"));
 }
 

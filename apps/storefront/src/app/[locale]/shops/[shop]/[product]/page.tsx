@@ -1,6 +1,8 @@
+import { auth } from "@clemperl/auth";
 import { prisma, readPublishedProduct } from "@clemperl/db";
 import { derivativePath, formatPrice } from "@clemperl/domain";
 import { getTranslations } from "next-intl/server";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { JSX } from "react";
@@ -15,6 +17,12 @@ export default async function ProductPage({
 }): Promise<JSX.Element> {
     const { locale, shop, product: productSlug } = await params;
     const t = await getTranslations("catalog");
+    const tCart = await getTranslations("cart");
+
+    // L'ajout va au SERVEUR pour un acheteur connecté, au navigateur sinon. Deux sources
+    // qui se croiraient toutes deux à jour est exactement ce qu'on évite : la session se
+    // lit donc ici, et le bouton sait d'emblée où écrire.
+    const session = await auth.api.getSession({ headers: await headers() });
 
     // Le filtre porte sur la BOUTIQUE autant que sur le produit : le slug produit n'est
     // unique que par boutique, donc `/shops/A/<produit-de-B>` doit rendre 404 et non le
@@ -24,50 +32,21 @@ export default async function ProductPage({
         notFound();
     }
 
-    // Formaté ICI, côté serveur, et UNE ENTRÉE PAR DÉCLINAISON. Le lien de contact était
-    // calculé une seule fois, hors sélection : il annonçait le nom de l'axe au lieu de la
-    // valeur choisie, et le prix plancher au lieu du prix de cette déclinaison. Un visiteur
-    // qui choisissait la plus chère envoyait au vendeur un courriel annonçant la moins
-    // chère, donc un prix faux dans un message qui part chez quelqu'un.
+    // Formaté ICI, côté serveur, et UNE ENTRÉE PAR DÉCLINAISON. Une offre unique pour
+    // toute la fiche annoncerait le prix plancher quelle que soit la sélection, et le
+    // bouton ajouterait au panier un article que l'acheteur n'a pas choisi.
     //
-    // Le composant client ne reçoit que des chaînes prêtes : il ne connaît ni devise, ni
-    // exposant, ni gabarit de message.
-    const libelleParValeur = new Map(
-        product.options.flatMap((option) =>
-            option.values.map((valeur) => [valeur.id, `${option.name} : ${valeur.label}`] as const),
-        ),
-    );
-
-    // Les identifiants de valeur de chaque déclinaison, dans l'ordre où la clé les range,
-    // pour que le libellé lu par le vendeur suive la combinaison et non l'ordre des axes.
-    const valeursParCle = new Map(
+    // Le composant client ne reçoit que des chaînes prêtes : il ne connaît ni devise ni
+    // exposant. `formatPrice` tire `@clemperl/core`, donc nodemailer, donc `node:net`, que
+    // Turbopack refuse d'assembler dans un paquet navigateur.
+    const offers = Object.fromEntries(
         product.variants.map((variant) => [
             variant.combinationKey,
-            variant.combinationKey === "" ? [] : variant.combinationKey.split("|"),
+            {
+                price: formatPrice(variant.priceAmount, product.currency as never, locale),
+                variantId: variant.id,
+            },
         ]),
-    );
-
-    const offers = Object.fromEntries(
-        product.variants.map((variant) => {
-            const prix = formatPrice(variant.priceAmount, product.currency as never, locale);
-            const libelle = (valeursParCle.get(variant.combinationKey) ?? [])
-                .map((id) => libelleParValeur.get(id) ?? id)
-                .join(", ");
-            const sujet = t("contactSubject", { title: product.title });
-            const corps = t("contactBody", {
-                title: product.title,
-                variant: libelle === "" ? product.title : libelle,
-                price: prix,
-            });
-
-            return [
-                variant.combinationKey,
-                {
-                    price: prix,
-                    href: `mailto:${product.shopContactEmail}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`,
-                },
-            ];
-        }),
     );
 
     return (
@@ -98,7 +77,14 @@ export default async function ProductPage({
                     <VariantSelector
                         options={product.options}
                         offers={offers}
-                        contactLabel={t("contactShop")}
+                        currency={product.currency}
+                        signedIn={session?.user !== undefined}
+                        cartLabels={{
+                            add: tCart("add"),
+                            added: tCart("added"),
+                            currencyRefused: tCart("currencyRefused"),
+                            failed: tCart("failed"),
+                        }}
                         emptyLabel={t("noVariantChosen")}
                     />
                 </div>

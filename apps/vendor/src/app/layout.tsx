@@ -41,6 +41,9 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
                             <a href="/collections" className="hover:text-texte">
                                 {messages.navigation.collections}
                             </a>
+                            <a href="/orders" className="hover:text-texte">
+                                {messages.navigation.orders}
+                            </a>
                         </nav>
                     </div>
                 </header>

@@ -1211,3 +1211,45 @@ le serveur AVANT hydratation, donc toute propriété observable est déjà vraie
 reprenne la main, y compris la valeur du champ qu'on vient de remplir. Le remplacer demande
 un marqueur d'hydratation que l'application n'expose pas. Le jour où elle en expose un, cette
 attente devient une assertion d'une ligne.
+
+---
+
+**Un message next-intl qui porte un paramètre ICU ne se lit pas par `t()` sans sa valeur :
+la clé elle-même s'affiche à l'écran, sans qu'aucune erreur soit levée.**
+
+`t("cart.localOne")` sur un message contenant `{count}` rend la chaîne `cart.localOne`.
+Rien ne casse, rien ne compile en rouge, et c'est l'utilisateur final qui lit la clé
+technique. Quand la valeur n'est connue que du client, par exemple parce qu'elle vient de
+`localStorage`, `t.raw()` rend le gabarit intact et le client le complète.
+
+Observé le 2026-10-10 sur la page panier. Ce qui coûte du temps : le réflexe devant
+`cart.localOne` affiché est de chercher une clé absente du catalogue, et la clé y est. Ce
+qui manque est la VALEUR que la clé attend. Deux hypothèses ont été écartées avant la
+bonne, un cache `.next` périmé et un montage de volume, l'une et l'autre vérifiées pour
+rien.
+
+Ce qui protège maintenant : rien d'automatique. Devant une clé de traduction affichée telle
+quelle, regarder d'abord si le message porte un paramètre.
+
+---
+
+**Un `APIRequestContext` de Playwright qui a suivi un lien de vérification ne peut plus
+créer de compte : Better Auth refuse par `403 MISSING_OR_NULL_ORIGIN`.**
+
+Suivre le lien pose une session sur le contexte. Better Auth applique dès lors sa
+protection anti-CSRF aux requêtes qui écrivent, et un `APIRequestContext` n'envoie aucun
+en-tête `Origin`, contrairement à un navigateur. La création suivante est donc rejetée.
+
+Observé le 2026-10-10 en écrivant `e2e/order.spec.ts`, le premier parcours à créer DEUX
+comptes : un vendeur puis un acheteur. Aucun test antérieur n'en créait deux sur un même
+contexte, donc le piège attendait.
+
+Ce qui le rendait coûteux : `createVerifiedAccount` ne vérifiait pas la réponse de
+l'inscription. Le 403 était avalé, et la panne ressurgissait quinze secondes plus tard en
+« aucun courriel reçu », qui désigne la boîte de courriels. Mailpit, la limitation de débit
+de Better Auth et `NODE_ENV` ont tous été soupçonnés avant la vraie cause.
+
+Ce qui protège maintenant : `createVerifiedAccount` vérifie la réponse et rapporte le code
+et le corps du refus. Pour un second compte, prendre un contexte neuf, ou celui du
+navigateur de cette personne, ce qui est de toute façon plus juste : c'est quelqu'un
+d'autre.

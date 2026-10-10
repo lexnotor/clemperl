@@ -36,6 +36,12 @@ function EnTete(): JSX.Element {
                 <Link href="/catalog" className="text-sm text-muet hover:text-texte">
                     {t("catalog")}
                 </Link>
+                <Link href="/cart" className="text-sm text-muet hover:text-texte">
+                    {t("cart")}
+                </Link>
+                <Link href="/orders" className="text-sm text-muet hover:text-texte">
+                    {t("orders")}
+                </Link>
                 <Link href="/become-a-vendor" className="text-sm text-muet hover:text-texte">
                     {t("account")}
                 </Link>

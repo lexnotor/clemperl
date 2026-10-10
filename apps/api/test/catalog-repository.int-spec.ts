@@ -527,6 +527,26 @@ describe("readPublishedProduct", () => {
         expect(product?.images).toHaveLength(1);
     });
 
+    // La fiche applique la MÊME éligibilité que la liste et que `eligibleVariantWhere`.
+    // Un produit publié sans image prête existe : la garde de publication est arrivée en
+    // T2c, et une image prête peut être supprimée après coup. Servir sa fiche proposerait
+    // un achat que le panier refuse, et l'acheteur lirait un refus sans cause visible.
+    it("rend null pour un publié dont plus aucune image n'est prête", async () => {
+        const shop = await createShop("EUR");
+        const { slug, id } = await publishProduct({
+            vendorId: shop.id,
+            title: "Fiche sans vignette",
+            category: "APPAREL",
+            priceAmount: 12000,
+            currency: "EUR",
+        });
+        await prisma.productImage.deleteMany({ where: { productId: id } });
+
+        await expect(
+            readPublishedProduct(prisma, { shopSlug: shop.slug, productSlug: slug }),
+        ).resolves.toBeNull();
+    });
+
     it("rend null pour un brouillon", async () => {
         const shop = await createShop("EUR");
         counter += 1;

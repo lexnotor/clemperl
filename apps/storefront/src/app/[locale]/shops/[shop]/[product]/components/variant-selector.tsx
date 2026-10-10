@@ -2,16 +2,20 @@
 
 import { variantCombinationKey } from "@clemperl/domain/browser";
 import { useState, type JSX } from "react";
+import { AddToCart } from "./add-to-cart";
 
 interface VariantSelectorProps {
     options: { name: string; values: { id: string; label: string }[] }[];
     /**
      * Clé de combinaison vers ce que le serveur a préparé pour ELLE : son prix déjà
-     * formaté, et son lien de contact déjà rédigé. Un seul lien pour toute la fiche
-     * annoncerait le prix de la déclinaison la moins chère quelle que soit la sélection.
+     * formaté et son identifiant. Une seule offre pour toute la fiche annoncerait le prix
+     * de la déclinaison la moins chère quelle que soit la sélection, et le bouton
+     * ajouterait au panier un article que l'acheteur n'a pas choisi.
      */
-    offers: Record<string, { price: string; href: string }>;
-    contactLabel: string;
+    offers: Record<string, { price: string; variantId: string }>;
+    currency: string;
+    signedIn: boolean;
+    cartLabels: { add: string; added: string; currencyRefused: string; failed: string };
     emptyLabel: string;
 }
 
@@ -24,10 +28,10 @@ export function VariantSelector(props: VariantSelectorProps): JSX.Element {
     // de combinaison attend, et c'est ce que la base range.
     const [selection, setSelection] = useState<Record<string, string>>({});
 
-    const complet = props.options.every((option) => (selection[option.name] ?? "") !== "");
-    const cle = variantCombinationKey(Object.values(selection).filter((id) => id !== ""));
-    const offre = props.offers[cle];
-    const pret = complet && offre !== undefined;
+    const complete = props.options.every((option) => (selection[option.name] ?? "") !== "");
+    const key = variantCombinationKey(Object.values(selection).filter((id) => id !== ""));
+    const offer = props.offers[key];
+    const ready = complete && offer !== undefined;
 
     return (
         <div className="mt-8 flex flex-col gap-6">
@@ -38,16 +42,16 @@ export function VariantSelector(props: VariantSelectorProps): JSX.Element {
                         className="border border-bordure bg-transparent px-3 py-2 text-sm"
                         value={selection[option.name] ?? ""}
                         onChange={(event) =>
-                            setSelection((courant) => ({
-                                ...courant,
+                            setSelection((current) => ({
+                                ...current,
                                 [option.name]: event.target.value,
                             }))
                         }
                     >
                         <option value="">{props.emptyLabel}</option>
-                        {option.values.map((valeur) => (
-                            <option key={valeur.id} value={valeur.id}>
-                                {valeur.label}
+                        {option.values.map((value) => (
+                            <option key={value.id} value={value.id}>
+                                {value.label}
                             </option>
                         ))}
                     </select>
@@ -55,16 +59,16 @@ export function VariantSelector(props: VariantSelectorProps): JSX.Element {
             ))}
 
             <p data-testid="prix" className="text-2xl">
-                {pret ? offre.price : props.emptyLabel}
+                {ready ? offer.price : props.emptyLabel}
             </p>
 
-            {pret && (
-                <a
-                    href={offre.href}
-                    className="self-start border border-bordure px-6 py-3 text-sm"
-                >
-                    {props.contactLabel}
-                </a>
+            {ready && (
+                <AddToCart
+                    variantId={offer.variantId}
+                    currency={props.currency}
+                    signedIn={props.signedIn}
+                    labels={props.cartLabels}
+                />
             )}
         </div>
     );
