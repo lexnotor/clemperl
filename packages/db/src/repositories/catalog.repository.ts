@@ -233,7 +233,9 @@ export interface IPublicProduct {
     shopContactEmail: string;
     images: { objectPath: string; altText: string | null }[];
     options: { name: string; values: { id: string; label: string }[] }[];
-    variants: { combinationKey: string; priceAmount: number }[];
+    // L'`id` est ce que le bouton d'ajout au panier envoie. Sans lui, la fiche sait
+    // afficher un prix mais pas désigner ce qu'elle vend.
+    variants: { id: string; combinationKey: string; priceAmount: number }[];
 }
 
 // Déclaratif, contrairement à la liste : aucun agrégat à trier ici, donc aucune raison
@@ -249,7 +251,8 @@ export async function readPublishedProduct(
             slug: input.productSlug,
             status: "PUBLISHED",
             deletedAt: null,
-            vendor: { slug: input.shopSlug, deletedAt: null },
+            vendor: { slug: input.shopSlug, deletedAt: null, currency: { not: null } },
+            images: { some: { status: "READY" } },
         },
         select: {
             id: true,
@@ -262,6 +265,10 @@ export async function readPublishedProduct(
             },
             // Seulement les PRÊTES. Une image ajoutée après publication peut être en cours
             // de traitement, et la servir rendrait une vignette cassée.
+            //
+            // Le `where` ci-dessus exige d'ailleurs qu'il en existe au moins une : la fiche
+            // doit appliquer la MÊME éligibilité que la liste et que `eligibleVariantWhere`,
+            // sans quoi elle propose un achat que le panier refuse.
             images: {
                 where: { status: "READY" },
                 orderBy: { position: "asc" },
@@ -274,7 +281,7 @@ export async function readPublishedProduct(
                     values: { orderBy: { position: "asc" }, select: { id: true, label: true } },
                 },
             },
-            variants: { select: { combinationKey: true, priceAmount: true } },
+            variants: { select: { id: true, combinationKey: true, priceAmount: true } },
         },
     });
 

@@ -11,8 +11,8 @@ export const checkoutFields = {
     // Deux lettres MISES EN MAJUSCULES, exactement comme `Vendor.country` dans
     // `application-submission.schema.ts`. Sans la normalisation, « be » et « BE »
     // s'enregistrent comme deux valeurs distinctes, et tout regroupement par pays se
-    // scinderait en silence le jour où la livraison arrivera. Le motif passe avant, parce
-    // que `.length(2)` laisserait passer « 12 ».
+    // scinderait en silence le jour où la livraison arrivera. Le motif ET la longueur,
+    // parce que `.length(2)` seul laisserait passer « 12 ».
     country: z.string().trim().length(2).regex(/^[A-Za-z]{2}$/u).toUpperCase(),
     note: z.string().trim().max(1000).optional(),
 };

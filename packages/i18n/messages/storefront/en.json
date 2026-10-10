@@ -7,7 +7,9 @@
   "navigation": {
     "shop": "Shop",
     "account": "My account",
-    "catalog": "Catalogue"
+    "catalog": "Catalogue",
+    "cart": "Cart",
+    "orders": "My orders"
   },
   "auth": {
     "signUp": {
@@ -143,9 +145,6 @@
     "pageStatus": "Page {page} of {pages}",
     "resultCount": "{count} items",
     "shopProducts": "This shop's items",
-    "contactShop": "Contact the shop",
-    "contactSubject": "Your item: {title}",
-    "contactBody": "Hello,\n\nI am interested in “{title}” ({variant}), priced at {price}.\n\nPlease let me know how to proceed.",
     "noVariantChosen": "Choose a variant",
     "productCategory": {
       "APPAREL": "Apparel",
@@ -154,5 +153,54 @@
     },
     "shopCollections": "Its collections",
     "collectionEmpty": "This collection has nothing to show yet."
+  },
+  "cart": {
+    "title": "My cart",
+    "add": "Add to cart",
+    "added": "Added to your cart",
+    "failed": "Adding failed. Try again.",
+    "empty": "Your cart is empty.",
+    "quantity": "Quantity",
+    "remove": "Remove",
+    "subtotal": "Subtotal",
+    "total": "Total",
+    "checkout": "Place order",
+    "signInToOrder": "Sign in to order",
+    "currencyRefused": "Your cart is in another currency. Empty it to order this one.",
+    "rejected": "Some items could not be carried over:",
+    "rejection": {
+      "ineligible": "is no longer available",
+      "currency": "is in a different currency from your cart",
+      "quantity": "had an unreadable quantity"
+    },
+    "localOne": "{count} item waiting. Sign in to order it.",
+    "localMany": "{count} items waiting. Sign in to order them."
+  },
+  "orders": {
+    "title": "My orders",
+    "empty": "You have not placed any order yet.",
+    "reference": "Reference",
+    "placedOn": "Placed on",
+    "shop": "Shop",
+    "shipTo": "Delivery",
+    "total": "Total",
+    "noteToShop": "A note for {shop}",
+    "noteHint": "A size, an engraving, a delivery time.",
+    "status": {
+      "PLACED": "Received",
+      "ACCEPTED": "Accepted",
+      "SHIPPED": "Shipped",
+      "CANCELLED": "Cancelled"
+    },
+    "invalid": "Check the highlighted fields.",
+    "totalChanged": "Prices changed while you were ordering. Check your cart.",
+    "itemUnavailable": "An item is no longer available. Check your cart.",
+    "cartEmpty": "Your cart is empty.",
+    "shipToName": "Recipient name",
+    "shipToPhone": "Phone",
+    "shipToLine": "Address",
+    "shipToCity": "City",
+    "shipToCountry": "Country (two-letter code)",
+    "confirm": "Confirm the order"
   }
 }

@@ -11,12 +11,14 @@ import type { PrismaClient } from "../../generated/prisma/client.js";
 
 export const ERROR_CART_CURRENCY_MISMATCH = "CART_CURRENCY_MISMATCH";
 export const ERROR_CART_ITEM_INELIGIBLE = "CART_ITEM_INELIGIBLE";
+export const ERROR_CART_QUANTITY_INVALID = "CART_QUANTITY_INVALID";
 
 // Les raisons d'un refus sont des CLÉS de traduction : la base ne range pas du français,
 // et c'est un acheteur qui les lira.
 export const CART_REJECTION = {
     ineligible: "ineligible",
     currency: "currency",
+    quantity: "quantity",
 } as const;
 
 export interface ICartLine {
@@ -109,11 +111,21 @@ export async function readCart(
     };
 }
 
+export interface IAddCartItem {
+    userId: string;
+    variantId: string;
+    quantity: number;
+    /**
+     * Le PLAFOND de la quantité stockée, passé par l'appelant. `MAX_CART_QUANTITY` vit
+     * dans `@clemperl/domain`, que ce paquet ne peut pas importer sans fermer un cycle :
+     * il voyage donc en paramètre plutôt que d'être recopié ici, ce qui en ferait une
+     * seconde vérité.
+     */
+    maxQuantity: number;
+}
+
 // Une SEULE tentative. L'enveloppe au-dessous rejoue sur collision d'unicité.
-async function addCartItemOnce(
-    prisma: PrismaClient,
-    input: { userId: string; variantId: string; quantity: number },
-): Promise<void> {
+async function addCartItemOnce(prisma: PrismaClient, input: IAddCartItem): Promise<void> {
     await prisma.$transaction(async (tx) => {
         const variant = await tx.productVariant.findFirst({
             where: eligibleVariantWhere(input.variantId),
@@ -122,15 +134,15 @@ async function addCartItemOnce(
         if (!variant) {
             throw new Error(ERROR_CART_ITEM_INELIGIBLE);
         }
-        const devise = variant.product.vendor.currency as string;
+        const shopCurrency = variant.product.vendor.currency as string;
 
         const cart = await tx.cart.upsert({
             where: { userId: input.userId },
-            create: { userId: input.userId, currency: devise as never },
+            create: { userId: input.userId, currency: shopCurrency as never },
             update: {},
             select: { id: true, currency: true },
         });
-        if (cart.currency !== devise) {
+        if (cart.currency !== shopCurrency) {
             throw new Error(ERROR_CART_CURRENCY_MISMATCH);
         }
 
@@ -141,13 +153,37 @@ async function addCartItemOnce(
             create: { cartId: cart.id, variantId: input.variantId, quantity: input.quantity },
             update: { quantity: { increment: input.quantity } },
         });
+
+        // Le plafond s'applique APRÈS l'incrément, et sur la valeur stockée. `boundQuantity`
+        // borne le DELTA que reçoit cette fonction, jamais le total qu'elle accumule : seule
+        // une écriture qui relit la ligne peut tenir le plafond, et aucun appelant ne le
+        // peut à sa place. Un `updateMany` conditionnel plutôt qu'un calcul en mémoire,
+        // parce qu'il est idempotent : deux incréments concurrents qui dépassent sont tous
+        // deux ramenés, quel que soit leur ordre d'arrivée.
+        await tx.cartItem.updateMany({
+            where: {
+                cartId: cart.id,
+                variantId: input.variantId,
+                quantity: { gt: input.maxQuantity },
+            },
+            data: { quantity: input.maxQuantity },
+        });
     });
 }
 
-export async function addCartItem(
-    prisma: PrismaClient,
-    input: { userId: string; variantId: string; quantity: number },
-): Promise<void> {
+export async function addCartItem(prisma: PrismaClient, input: IAddCartItem): Promise<void> {
+    // Le PLANCHER est une invariante de la table, pas une politique : une quantité nulle ou
+    // négative n'a aucun sens stocké. `mergeLocalCart` transmet ce qui vient d'un panier
+    // local, que le commentaire en tête de ce fichier qualifie explicitement de non fiable.
+    // Une quantité négative qui passerait ici traverserait `sumLines` sans bruit, et
+    // `placeOrders` la comparerait à un `expectedTotal` tout aussi négatif.
+    if (!Number.isSafeInteger(input.quantity) || input.quantity <= 0) {
+        throw new Error(ERROR_CART_QUANTITY_INVALID);
+    }
+    if (!Number.isSafeInteger(input.maxQuantity) || input.maxQuantity <= 0) {
+        throw new Error(ERROR_CART_QUANTITY_INVALID);
+    }
+
     try {
         await addCartItemOnce(prisma, input);
     } catch (error) {
@@ -166,10 +202,29 @@ export async function addCartItem(
     }
 }
 
+export interface ISetCartItemQuantity {
+    userId: string;
+    variantId: string;
+    /** Zéro ou moins retire la ligne. Au-delà, la quantité doit être un entier lisible. */
+    quantity: number;
+    /** Voir `IAddCartItem.maxQuantity` : le plafond vient de l'appelant. */
+    maxQuantity: number;
+}
+
 export async function setCartItemQuantity(
     prisma: PrismaClient,
-    input: { userId: string; variantId: string; quantity: number },
+    input: ISetCartItemQuantity,
 ): Promise<void> {
+    // Les deux chemins d'écriture d'une quantité portent la MÊME garde. Une borne tenue
+    // par un seul d'entre eux n'est pas une invariante de la table : c'est une politique
+    // qu'un appelant contourne en changeant de fonction.
+    if (!Number.isSafeInteger(input.quantity)) {
+        throw new Error(ERROR_CART_QUANTITY_INVALID);
+    }
+    if (!Number.isSafeInteger(input.maxQuantity) || input.maxQuantity <= 0) {
+        throw new Error(ERROR_CART_QUANTITY_INVALID);
+    }
+    const quantity = Math.min(input.quantity, input.maxQuantity);
     await prisma.$transaction(async (tx) => {
         const cart = await tx.cart.findUnique({
             where: { userId: input.userId },
@@ -179,21 +234,21 @@ export async function setCartItemQuantity(
             return;
         }
 
-        if (input.quantity <= 0) {
+        if (quantity <= 0) {
             await tx.cartItem.deleteMany({
                 where: { cartId: cart.id, variantId: input.variantId },
             });
         } else {
             await tx.cartItem.updateMany({
                 where: { cartId: cart.id, variantId: input.variantId },
-                data: { quantity: input.quantity },
+                data: { quantity },
             });
         }
 
         // Le panier vide est SUPPRIMÉ, et c'est ce qui libère sa devise. Le garder avec
         // zéro ligne l'enfermerait dans la devise de son premier achat.
-        const restants = await tx.cartItem.count({ where: { cartId: cart.id } });
-        if (restants === 0) {
+        const remaining = await tx.cartItem.count({ where: { cartId: cart.id } });
+        if (remaining === 0) {
             await tx.cart.delete({ where: { id: cart.id } });
         }
     });
@@ -201,7 +256,12 @@ export async function setCartItemQuantity(
 
 export async function mergeLocalCart(
     prisma: PrismaClient,
-    input: { userId: string; items: readonly { variantId: string; quantity: number }[] },
+    input: {
+        userId: string;
+        items: readonly { variantId: string; quantity: number }[];
+        /** Voir `IAddCartItem.maxQuantity` : le plafond vient de l'appelant. */
+        maxQuantity: number;
+    },
 ): Promise<{ rejected: { variantId: string; reason: string }[] }> {
     const rejected: { variantId: string; reason: string }[] = [];
     if (input.items.length === 0) {
@@ -209,17 +269,28 @@ export async function mergeLocalCart(
     }
 
     for (const item of input.items) {
+        // La quantité se valide AVANT le retrait. Le retrait est destructif et l'ajout qui
+        // le suit peut être refusé : une quantité illisible dans le panier local ferait
+        // alors disparaître une ligne que le panier serveur portait légitimement, et
+        // l'acheteur ne lirait qu'un « refusé » sur cette ligne.
+        if (!Number.isSafeInteger(item.quantity) || item.quantity <= 0) {
+            rejected.push({ variantId: item.variantId, reason: CART_REJECTION.quantity });
+            continue;
+        }
+
         try {
             // La quantité du LOCAL gagne : c'est ce que l'acheteur vient de manipuler.
             await setCartItemQuantity(prisma, {
                 userId: input.userId,
                 variantId: item.variantId,
                 quantity: 0,
+                maxQuantity: input.maxQuantity,
             });
             await addCartItem(prisma, {
                 userId: input.userId,
                 variantId: item.variantId,
                 quantity: item.quantity,
+                maxQuantity: input.maxQuantity,
             });
         } catch (error) {
             const message = error instanceof Error ? error.message : "";
@@ -227,6 +298,11 @@ export async function mergeLocalCart(
                 rejected.push({ variantId: item.variantId, reason: CART_REJECTION.currency });
             } else if (message === ERROR_CART_ITEM_INELIGIBLE) {
                 rejected.push({ variantId: item.variantId, reason: CART_REJECTION.ineligible });
+            } else if (message === ERROR_CART_QUANTITY_INVALID) {
+                // Une quantité illisible vient d'un panier local bricolé, pas d'une panne.
+                // La ligne est écartée et nommée, comme un article inéligible, plutôt que
+                // de faire échouer toute la remontée.
+                rejected.push({ variantId: item.variantId, reason: CART_REJECTION.quantity });
             } else {
                 // Une panne n'est pas un refus. La dire « indisponible » mentirait à
                 // l'acheteur sur une situation qui se répare toute seule, et lui ferait

@@ -3,6 +3,7 @@ import {
     ERROR_ITEM_INELIGIBLE,
     ERROR_LINE_MISSING,
     ERROR_ORDER_NOT_FOUND,
+    ERROR_ORDER_STATUS_STALE,
     ERROR_TOTAL_CHANGED,
     addCartItem,
     createProduct,
@@ -16,10 +17,15 @@ import {
     setOrderStatus,
     setProductStatus,
 } from "@clemperl/db";
+import { MAX_CART_QUANTITY } from "@clemperl/domain";
 
 const PREFIX = "order";
 const DESCRIPTION = "Cuir pleine fleur, coutures à la main, doublure en lin.";
 let counter = 0;
+
+// Le plafond vient de l'appelant : voir `IAddCartItem`.
+const addItem = (input: { userId: string; variantId: string; quantity: number }) =>
+    addCartItem(prisma, { ...input, maxQuantity: MAX_CART_QUANTITY });
 
 const SHIP_TO = {
     name: "Awa Traoré",
@@ -108,8 +114,8 @@ describe("placeOrders", () => {
         const seconde = await createShop("EUR");
         const a = await publishedVariant(premiere.id, "EUR", 5000);
         const b = await publishedVariant(seconde.id, "EUR", 3000);
-        await addCartItem(prisma, { userId, variantId: a.variantId, quantity: 2 });
-        await addCartItem(prisma, { userId, variantId: b.variantId, quantity: 1 });
+        await addItem({ userId, variantId: a.variantId, quantity: 2 });
+        await addItem({ userId, variantId: b.variantId, quantity: 1 });
 
         const { references } = await placeOrders(prisma, {
             userId,
@@ -141,7 +147,7 @@ describe("placeOrders", () => {
         const userId = await createUser();
         const shop = await createShop("EUR");
         const a = await publishedVariant(shop.id, "EUR", 5000);
-        await addCartItem(prisma, { userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
 
         await expect(
             placeOrders(prisma, {
@@ -163,8 +169,8 @@ describe("placeOrders", () => {
         const shop = await createShop("EUR");
         const a = await publishedVariant(shop.id, "EUR", 5000);
         const b = await publishedVariant(shop.id, "EUR", 3000);
-        await addCartItem(prisma, { userId, variantId: a.variantId, quantity: 1 });
-        await addCartItem(prisma, { userId, variantId: b.variantId, quantity: 1 });
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: b.variantId, quantity: 1 });
         await setProductStatus(prisma, {
             productId: b.productId,
             vendorId: shop.id,
@@ -207,7 +213,7 @@ describe("placeOrders", () => {
         const userId = await createUser();
         const shop = await createShop("EUR");
         const a = await publishedVariant(shop.id, "EUR", 5000);
-        await addCartItem(prisma, { userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
 
         const commande = {
             userId,
@@ -251,8 +257,8 @@ describe("placeOrders", () => {
         const shop = await createShop("EUR");
         const a = await publishedVariant(shop.id, "EUR", 5000);
         const b = await publishedVariant(shop.id, "EUR", 3000);
-        await addCartItem(prisma, { userId, variantId: a.variantId, quantity: 1 });
-        await addCartItem(prisma, { userId, variantId: b.variantId, quantity: 1 });
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: b.variantId, quantity: 1 });
 
         await expect(
             placeOrders(prisma, {
@@ -278,7 +284,7 @@ describe("placeOrders", () => {
         const userId = await createUser();
         const shop = await createShop("EUR");
         const a = await publishedVariant(shop.id, "EUR", 5000);
-        await addCartItem(prisma, { userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
 
         // L'écran a lu le panier ici : un article, 5000.
         const vuParEcran = {
@@ -291,7 +297,7 @@ describe("placeOrders", () => {
 
         // Puis l'acheteur ajoute un article ailleurs.
         const b = await publishedVariant(shop.id, "EUR", 3000);
-        await addCartItem(prisma, { userId, variantId: b.variantId, quantity: 1 });
+        await addItem({ userId, variantId: b.variantId, quantity: 1 });
 
         await expect(placeOrders(prisma, vuParEcran)).rejects.toMatchObject({
             message: ERROR_TOTAL_CHANGED,
@@ -304,7 +310,7 @@ describe("placeOrders", () => {
         const userId = await createUser();
         const shop = await createShop("EUR");
         const a = await publishedVariant(shop.id, "EUR", 5000);
-        await addCartItem(prisma, { userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
         const { references } = await placeOrders(prisma, {
             userId,
             expectedTotal: 5000,
@@ -343,7 +349,7 @@ describe("placeOrders", () => {
         const userId = await createUser();
         const shop = await createShop("EUR");
         const a = await publishedVariant(shop.id, "EUR", 5000);
-        await addCartItem(prisma, { userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
 
         const { references } = await placeOrders(prisma, {
             userId,
@@ -371,12 +377,12 @@ describe("l'isolement des commandes", () => {
         const voisine = await createShop("EUR");
         const a = await publishedVariant(mienne.id, "EUR", 5000);
         const b = await publishedVariant(voisine.id, "EUR", 3000);
-        await addCartItem(prisma, {
+        await addItem({
             userId: mien,
             variantId: a.variantId,
             quantity: 1,
         });
-        await addCartItem(prisma, {
+        await addItem({
             userId: autre,
             variantId: b.variantId,
             quantity: 1,
@@ -408,7 +414,7 @@ describe("l'isolement des commandes", () => {
         const autre = await createUser();
         const shop = await createShop("EUR");
         const a = await publishedVariant(shop.id, "EUR", 5000);
-        await addCartItem(prisma, {
+        await addItem({
             userId: autre,
             variantId: a.variantId,
             quantity: 1,
@@ -434,7 +440,7 @@ describe("l'isolement des commandes", () => {
         const mienne = await createShop("EUR");
         const autre = await createShop("EUR");
         const a = await publishedVariant(autre.id, "EUR", 5000);
-        await addCartItem(prisma, { userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
         await placeOrders(prisma, {
             userId,
             expectedTotal: 5000,
@@ -451,12 +457,91 @@ describe("l'isolement des commandes", () => {
         ).resolves.toBeNull();
     });
 
+    // L'ÉCRITURE elle-même, et pas seulement son refus. `packages/db/vitest.config.ts`
+    // exclut les dépôts de la couverture unitaire : sans ce test, remplacer le corps de
+    // `setOrderStatus` par un no-op laisse toute la suite verte.
+    it("le vendeur fait avancer sa commande, un état après l'autre", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR");
+        const a = await publishedVariant(shop.id, "EUR", 5000);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+        await placeOrders(prisma, {
+            userId,
+            expectedTotal: 5000,
+            shipTo: SHIP_TO,
+            notes: {},
+            lines: [{ variantId: a.variantId, label: "" }],
+        });
+        const order = await prisma.order.findFirstOrThrow({ where: { vendorId: shop.id } });
+
+        await setOrderStatus(prisma, {
+            vendorId: shop.id,
+            orderId: order.id,
+            from: "PLACED",
+            status: "ACCEPTED",
+        });
+        await setOrderStatus(prisma, {
+            vendorId: shop.id,
+            orderId: order.id,
+            from: "ACCEPTED",
+            status: "SHIPPED",
+        });
+
+        const relue = await prisma.order.findFirstOrThrow({ where: { id: order.id } });
+        expect(relue.status).toBe("SHIPPED");
+    });
+
+    // Une boutique a plusieurs membres, donc deux écrans peuvent regarder la même commande.
+    // Ce test épingle la condition de statut : sans elle, un clic depuis une page périmée
+    // ramène une commande EXPÉDIÉE à « acceptée », et un `count === 0` ne le voit pas.
+    it("un écran périmé n'écrase pas une décision plus récente", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR");
+        const a = await publishedVariant(shop.id, "EUR", 5000);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+        await placeOrders(prisma, {
+            userId,
+            expectedTotal: 5000,
+            shipTo: SHIP_TO,
+            notes: {},
+            lines: [{ variantId: a.variantId, label: "" }],
+        });
+        const order = await prisma.order.findFirstOrThrow({ where: { vendorId: shop.id } });
+
+        // Un collègue accepte puis expédie.
+        await setOrderStatus(prisma, {
+            vendorId: shop.id,
+            orderId: order.id,
+            from: "PLACED",
+            status: "ACCEPTED",
+        });
+        await setOrderStatus(prisma, {
+            vendorId: shop.id,
+            orderId: order.id,
+            from: "ACCEPTED",
+            status: "SHIPPED",
+        });
+
+        // L'autre page, restée sur « commande passée », clique sur « Accepter ».
+        await expect(
+            setOrderStatus(prisma, {
+                vendorId: shop.id,
+                orderId: order.id,
+                from: "PLACED",
+                status: "ACCEPTED",
+            }),
+        ).rejects.toMatchObject({ message: ERROR_ORDER_STATUS_STALE });
+
+        const relue = await prisma.order.findFirstOrThrow({ where: { id: order.id } });
+        expect(relue.status).toBe("SHIPPED");
+    });
+
     it("un vendeur ne fait pas avancer la commande d'une autre boutique", async () => {
         const userId = await createUser();
         const mienne = await createShop("EUR");
         const autre = await createShop("EUR");
         const a = await publishedVariant(autre.id, "EUR", 5000);
-        await addCartItem(prisma, { userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
         await placeOrders(prisma, {
             userId,
             expectedTotal: 5000,
@@ -472,6 +557,7 @@ describe("l'isolement des commandes", () => {
             setOrderStatus(prisma, {
                 vendorId: mienne.id,
                 orderId: commande.id,
+                from: "PLACED",
                 status: "ACCEPTED",
             }),
         ).rejects.toMatchObject({ message: ERROR_ORDER_NOT_FOUND });
