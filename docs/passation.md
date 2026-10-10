@@ -134,7 +134,7 @@ panier local. 19 tests d'intégration.
 une transaction verrouillée ; lire et lister côté acheteur et côté vendeur ; faire avancer.
 13 tests d'intégration.
 
-Couche d'intégration complète : 163 tests, verte sur deux exécutions consécutives.
+Couche d'intégration complète : 165 tests, verte.
 `lint` et `typecheck` à 15/15.
 
 ### Ce que la spec ne promet PAS, et que la page doit dire quand même
@@ -210,9 +210,12 @@ exemplaire : les deux commandes existent, et c'est le vendeur qui en annule une.
 ### Sept constats de revue laissés ouverts sur T3, et pourquoi
 
 Deux revues par contexte neuf ont tourné le 2026-10-10. Huit constats ont été corrigés,
-sept sont restés ouverts par décision de l'utilisateur : le catalogue n'a ni produit ni
-acheteur, et les écrans de T3 ne sont pas écrits, donc aucun n'a d'effet aujourd'hui. Les
-trois premiers méritent d'être repris avant d'ouvrir la boutique à de vrais acheteurs.
+sept sont restés ouverts par décision de l'utilisateur.
+
+**La raison tient à ce qu'il n'y a encore NI produit NI acheteur réel**, et non à l'absence
+d'écrans : ceux-ci sont livrés par cette même tranche, donc les chemins décrits ci-dessous
+sont désormais atteignables par un parcours ordinaire. Les trois premiers méritent d'être
+repris avant d'ouvrir la boutique à de vrais acheteurs.
 
 **Le `SELECT ... FOR UPDATE` de `placeOrders` ne couvre que la ligne `carts`, pas
 `cart_items`.** PostgreSQL ne prend qu'un verrou `KEY SHARE` sur le parent, donc un

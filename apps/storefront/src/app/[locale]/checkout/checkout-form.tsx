@@ -19,6 +19,12 @@ const INITIAL: ICheckoutState = {};
 export function CheckoutForm(props: CheckoutFormProps): JSX.Element {
     const [state, action, pending] = useActionState(submitCheckout, INITIAL);
 
+    // React 19 vide les champs non contrôlés d'un formulaire dès qu'une action rend la
+    // main sans lever, et tous les refus de `submitCheckout` en rendent une. L'action
+    // renvoie donc ce qui avait été saisi, et chaque champ le reprend : sans cela
+    // l'adresse entière est à retaper après le moindre message d'erreur.
+    const kept = (field: string): string => state.values?.[field] ?? "";
+
     return (
         <form action={action} className="mt-12 flex flex-col gap-12">
             {/* Le total affiché voyage avec la commande. Le dépôt le compare à ce qu'il
@@ -27,16 +33,41 @@ export function CheckoutForm(props: CheckoutFormProps): JSX.Element {
             <input type="hidden" name="expectedTotal" value={props.expectedTotal} />
 
             <FormSection title={props.labels["shipTo"] ?? ""}>
-                <Field label={props.labels["shipToName"] ?? ""} name="name" required minLength={2} />
-                <Field label={props.labels["shipToPhone"] ?? ""} name="phone" required minLength={6} />
-                <Field label={props.labels["shipToLine"] ?? ""} name="line" required minLength={4} />
-                <Field label={props.labels["shipToCity"] ?? ""} name="city" required minLength={2} />
+                <Field
+                    label={props.labels["shipToName"] ?? ""}
+                    name="name"
+                    required
+                    minLength={2}
+                    defaultValue={kept("name")}
+                />
+                <Field
+                    label={props.labels["shipToPhone"] ?? ""}
+                    name="phone"
+                    required
+                    minLength={6}
+                    defaultValue={kept("phone")}
+                />
+                <Field
+                    label={props.labels["shipToLine"] ?? ""}
+                    name="line"
+                    required
+                    minLength={4}
+                    defaultValue={kept("line")}
+                />
+                <Field
+                    label={props.labels["shipToCity"] ?? ""}
+                    name="city"
+                    required
+                    minLength={2}
+                    defaultValue={kept("city")}
+                />
                 <Field
                     label={props.labels["shipToCountry"] ?? ""}
                     name="country"
                     required
                     minLength={2}
                     maxLength={2}
+                    defaultValue={kept("country")}
                 />
             </FormSection>
 
@@ -50,6 +81,7 @@ export function CheckoutForm(props: CheckoutFormProps): JSX.Element {
                     maxLength={1000}
                     rows={2}
                     hint={props.labels["noteHint"] ?? ""}
+                    defaultValue={kept(`note:${shop.slug}`)}
                 />
             ))}
 
