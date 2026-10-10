@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTransition, type JSX } from "react";
 import { changeQuantity, removeLine } from "../actions";
 
@@ -36,7 +37,28 @@ interface CartLinesProps {
 // Un sous-total PAR BOUTIQUE, parce que chaque groupe deviendra une commande distincte :
 // l'acheteur doit voir à l'avance ce que chaque vendeur recevra.
 export function CartLines(props: CartLinesProps): JSX.Element {
+    const router = useRouter();
     const [pending, startTransition] = useTransition();
+
+    // La quantité se valide à la SORTIE du champ ou sur Entrée, jamais à chaque frappe.
+    // Vider « 2 » pour taper « 5 » passe par une chaîne vide, que `Number` lit comme zéro
+    // et que le dépôt traite comme un retrait : l'article disparaîtrait avant le « 5 ».
+    // Un champ vide ne vaut donc rien, et retirer une ligne reste le travail du bouton.
+    //
+    // Le champ n'est pas contrôlé : `revalidatePath` rafraîchit le rendu serveur, mais
+    // c'est `router.refresh()` qui fait relire le prix de ligne, le sous-total et le
+    // total par le client.
+    function commit(variantId: string, raw: string): void {
+        const next = Number(raw);
+        if (!Number.isFinite(next) || next <= 0) {
+            return;
+        }
+        startTransition(() => {
+            void changeQuantity(variantId, next).then(() => {
+                router.refresh();
+            });
+        });
+    }
 
     return (
         <div className="mt-8 flex flex-col gap-10">
@@ -72,11 +94,14 @@ export function CartLines(props: CartLinesProps): JSX.Element {
                                         defaultValue={line.quantity}
                                         disabled={pending}
                                         className="w-16 border border-bordure bg-transparent px-2 py-1 text-sm"
-                                        onChange={(event) => {
-                                            const next = Number(event.target.value);
-                                            startTransition(() => {
-                                                void changeQuantity(line.variantId, next);
-                                            });
+                                        onBlur={(event) =>
+                                            commit(line.variantId, event.target.value)
+                                        }
+                                        onKeyDown={(event) => {
+                                            if (event.key === "Enter") {
+                                                event.preventDefault();
+                                                commit(line.variantId, event.currentTarget.value);
+                                            }
                                         }}
                                     />
                                 </label>
@@ -89,7 +114,9 @@ export function CartLines(props: CartLinesProps): JSX.Element {
                                     className="text-xs text-muet underline"
                                     onClick={() =>
                                         startTransition(() => {
-                                            void removeLine(line.variantId);
+                                            void removeLine(line.variantId).then(() => {
+                                                router.refresh();
+                                            });
                                         })
                                     }
                                 >

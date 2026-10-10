@@ -159,7 +159,12 @@ test("un article dépublié entre le panier et la validation est refusé", async
     // Le vendeur dépublie PENDANT que l'acheteur remplit son adresse.
     await buyer.goto(`${URL_STOREFRONT}/checkout`);
     await page.getByRole("button", { name: "Repasser en brouillon" }).click();
-    await expect(page.getByText("Brouillon")).toBeVisible();
+
+    // On attend ce que l'action a PRODUIT, et non un mot que l'écran portait peut-être
+    // déjà : le bouton ne redevient « Publier » qu'une fois l'écriture faite et la page
+    // re-rendue. Sans cette attente, l'acheteur valide avant la dépublication, la commande
+    // réussit, et le test échoue en cherchant une alerte qui n'a aucune raison d'exister.
+    await expect(page.getByRole("button", { name: "Publier", exact: true })).toBeVisible();
 
     await buyer.getByLabel("Nom du destinataire").fill("Awa Diop");
     await buyer.getByLabel("Téléphone").fill("+32470000000");
