@@ -10,7 +10,7 @@ export interface IRegistryOptions {
     publicUrl: string;
 }
 
-// Les méthodes que le simulateur sert. Les trois autres se règlent hors ligne quoi qu'il
+// Les méthodes que le simulateur sert. Les autres se règlent hors ligne quoi qu'il
 // arrive : un virement n'a pas de redirection à offrir.
 const SIMULATED_METHODS = [E_PAYMENT_METHOD.CARD, E_PAYMENT_METHOD.MOBILE_MONEY];
 

@@ -1,8 +1,9 @@
+import { E_PAYMENT_METHOD } from "@clemperl/db/enums";
 import { adapterFor, buildRegistry, isOnline, offlineMethods } from "./registry";
 
 describe("le registre des adapters", () => {
-    // La règle centrale de la tranche : il n'y a AUCUN booléen `isOnline` à tenir à jour
-    // à côté du registre, donc aucune manière d'être incohérent.
+    // La règle centrale : il n'y a AUCUN booléen `isOnline` à tenir à jour à côté du
+    // registre, donc aucune manière d'être incohérent.
     it("dit en ligne ce qui a un adapter, hors ligne ce qui n'en a pas", () => {
         const registry = buildRegistry({ simulator: true, secret: "s", publicUrl: "http://a" });
         expect(isOnline(registry, "CARD")).toBe(true);
@@ -29,7 +30,7 @@ describe("le registre des adapters", () => {
         expect(registry.size).toBe(0);
         expect(isOnline(registry, "CARD")).toBe(false);
         expect(adapterFor(registry, "CARD")).toBeNull();
-        expect(offlineMethods(registry)).toHaveLength(5);
+        expect(offlineMethods(registry)).toHaveLength(Object.values(E_PAYMENT_METHOD).length);
     });
 
     it("rend l'adapter d'une méthode servie, et null sinon", () => {
