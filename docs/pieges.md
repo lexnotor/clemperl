@@ -1314,10 +1314,14 @@ La preuve que la ligne est à jour est la comparaison de ces deux valeurs, pas
 `migrate status`.
 
 Ne pas confondre avec l'entrée « Les tables sont au PLURIEL depuis le 2026-09-19 », qui
-annonce l'inverse sur le même geste et prescrit un `down -v`, lequel détruit les volumes.
-Elle a été écrite le 2026-09-19, sur la MÊME version de Prisma que celle-ci, et sans mesure
-consignée ; les deux n'ont jamais été rejouées l'une contre l'autre, donc la version
-n'arbitre rien. Ce qui tranche est l'OBSERVATION : si `migrate deploy` échoue sur une somme
+annonce l'inverse et prescrit un `down -v`, lequel détruit les volumes. Elle a été écrite sur
+la MÊME version de Prisma que celle-ci, et sans mesure consignée ; les deux n'ont jamais été
+rejouées l'une contre l'autre, donc la version n'arbitre rien.
+
+Il n'est même pas établi qu'elles décrivent le MÊME geste. Le commit qu'elle accompagne est
+un écrasement qui a supprimé deux migrations et en a créé une sous un autre nom, et non
+l'édition d'une migration déjà appliquée. Les deux entrées pourraient donc décrire deux
+déclencheurs distincts plutôt que deux résultats contraires. Ce qui tranche est l'OBSERVATION : si `migrate deploy` échoue sur une somme
 divergente, c'est l'autre entrée qui décrit la situation ; s'il sort en 0 et que
 `migrate status` répond « up to date » alors que le fichier a changé, c'est celle-ci.
 Commencer par là coûte une commande et évite de détruire une base pour rien.

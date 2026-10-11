@@ -552,7 +552,9 @@ réessayant.
    méthode.
 5. Une méthode en ligne mène à une redirection, un retour, et un paiement réglé par le
    webhook, sans qu'aucun écran ne mente entre les deux.
-6. Le même webhook rejoué ne crée rien et ne change rien.
+6. Le même webhook rejoué ne crée jamais de seconde ligne, et ne change plus rien dès que
+   la tentative est tranchée. Voir la section 6 pour ce qu'un événement en attente rejoué
+   réécrit.
 7. Le payload brut est en base, chiffré, et un payload altéré refuse de se déchiffrer.
 8. Un vendeur pointe un encaissement hors ligne, et ne peut pas pointer un paiement en ligne.
 9. Les boutons d'avancement restent ouverts quel que soit l'état du paiement.

@@ -266,10 +266,15 @@ développement de Next qui sert l'ancienne page serveur, et `raceBehindLock` qui
 connexions au pool. Une seule y était déjà et s'est reposée : le filtrage des variables
 d'environnement par Turborepo, qui exige que chaque variable nouvelle entre dans `globalEnv`.
 
-L'entrée sur le sha256 **contredit** celle de T1b sur les tables au pluriel, qui annonce un
-`migrate deploy` en échec là où T4 l'a mesuré silencieux, et prescrit un `down -v` qui détruit
-les volumes. Personne n'a tranché : les deux entrées se citent désormais l'une l'autre et
-disent comment distinguer les deux situations par l'observation.
+L'entrée sur le sha256 **semble contredire** celle de T1b sur les tables au pluriel, qui
+annonce un `migrate deploy` en échec là où T4 l'a mesuré silencieux, et prescrit un `down -v`
+qui détruit les volumes.
+
+Personne n'a tranché, et il n'est pas même établi que les deux décrivent le même geste : le
+commit de T1b est un écrasement qui a supprimé deux migrations et en a créé une sous un autre
+nom, là où T4 a édité le commentaire d'une migration déjà appliquée. Les deux entrées se
+citent désormais l'une l'autre et disent comment reconnaître sa situation par l'observation,
+ce qui suffit pour ne pas détruire une base par erreur.
 
 ## Où en est le travail, au 2026-10-09
 
