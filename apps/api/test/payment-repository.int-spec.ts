@@ -141,31 +141,50 @@ async function raceBehindLock<T>(
     const isLocked = new Promise<void>((resolve) => {
         locked = resolve;
     });
-    const holder = prisma.$transaction(async (tx) => {
-        // Les identifiants viennent de l'union ci-dessus, jamais d'une entrée.
-        await tx.$executeRawUnsafe(
-            `SELECT id FROM ${lock.table} WHERE ${lock.column} = $1 FOR UPDATE`,
-            lock.value,
-        );
-        locked();
-        await gate;
-    });
+    // Le délai par défaut d'une transaction interactive (5 s) vaut celui du sondage plus bas :
+    // le détenteur expirerait avant que le sondage n'échoue, et son erreur masquerait celle
+    // qui dit pourquoi la course n'a pas eu lieu.
+    const holder = prisma.$transaction(
+        async (tx) => {
+            // Les identifiants viennent de l'union ci-dessus, jamais d'une entrée.
+            await tx.$executeRawUnsafe(
+                `SELECT id FROM ${lock.table} WHERE ${lock.column} = $1 FOR UPDATE`,
+                lock.value,
+            );
+            locked();
+            await gate;
+        },
+        { timeout: 30_000 },
+    );
     await isLocked;
 
     const running = Promise.allSettled(calls.map((call) => call()));
+    let waiting = 0;
     try {
         for (let poll = 0; poll < 100; poll += 1) {
             const [row] = await prisma.$queryRaw<{ waiting: number }[]>`
                 SELECT count(*)::int AS waiting FROM pg_stat_activity
                 WHERE datname = current_database() AND wait_event_type = 'Lock'`;
-            if ((row?.waiting ?? 0) >= calls.length) break;
+            waiting = row?.waiting ?? 0;
+            if (waiting >= calls.length) break;
             await new Promise((resolve) => setTimeout(resolve, 50));
         }
     } finally {
         release();
         await holder;
     }
-    return running;
+    const results = await running;
+
+    // Un délai épuisé ne doit PAS passer pour une course gagnée : sans l'entrelacement, la
+    // garde que le test vise n'a pas été exercée, et il certifierait une garantie que
+    // personne n'a vérifiée. Le verrou est déjà relâché, rien ne reste suspendu.
+    if (waiting < calls.length) {
+        throw new Error(
+            `Course non forcée : ${calls.length} appels devaient buter sur le verrou, ` +
+                `${waiting} y butaient quand le délai a expiré. Le test ne prouve rien.`,
+        );
+    }
+    return results;
 }
 
 afterAll(async () => {
@@ -359,6 +378,48 @@ describe("applyProviderEvent", () => {
         expect(after?.paymentStatus).toBe("SETTLED");
     });
 
+    // Le pendant côté argent : la tentative abandonnée finit par ABOUTIR chez le fournisseur,
+    // et l'acheteur a payé deux fois. La plateforme ne peut pas l'empêcher, mais elle doit
+    // le TRACER : la ligne garde son règlement et son payload, c'est ce qu'ouvrira le
+    // remboursement, et la commande, déjà réglée, ne bouge pas.
+    it("garde le règlement tardif d'une tentative abandonnée, la commande restant réglée", async () => {
+        const order = await placedOrder({ method: "CARD" });
+        for (const providerRef of ["sim_g1", "sim_g2"]) {
+            await recordAttempt(prisma, {
+                orderId: order.id,
+                method: "CARD",
+                amount: order.totalAmount,
+                currency: order.currency,
+                provider: "SIMULATED",
+                providerRef,
+            });
+        }
+        await applyProviderEvent(prisma, {
+            provider: "SIMULATED",
+            providerRef: "sim_g2",
+            status: "SETTLED",
+            rawPayload: Buffer.from("premier paiement"),
+        });
+
+        const late = await applyProviderEvent(prisma, {
+            provider: "SIMULATED",
+            providerRef: "sim_g1",
+            status: "SETTLED",
+            rawPayload: Buffer.from("second paiement"),
+        });
+
+        expect(late.changed).toBe(true);
+        const abandoned = await prisma.orderPayment.findFirstOrThrow({
+            where: { providerRef: "sim_g1" },
+        });
+        expect(abandoned.status).toBe("SETTLED");
+        expect(abandoned.settledAt).not.toBeNull();
+        expect(Buffer.from(abandoned.rawPayload ?? []).toString()).toBe("second paiement");
+        expect(await prisma.orderPayment.count({ where: { orderId: order.id } })).toBe(2);
+        const after = await prisma.order.findUnique({ where: { id: order.id } });
+        expect(after?.paymentStatus).toBe("SETTLED");
+    });
+
     // Un paiement dont la plateforme n'a aucune trace de démarrage n'est pas le sien : rien
     // ne s'écrit, et le refus est nommé.
     it("refuse une référence inconnue sans rien écrire", async () => {
@@ -487,9 +548,42 @@ describe("settleOffline", () => {
 
         const after = await prisma.order.findUnique({ where: { id: order.id } });
         expect(after?.paymentStatus).toBe("SETTLED");
-        const attempt = await prisma.orderPayment.findFirst({ where: { orderId: order.id } });
-        expect(attempt?.settledById).toBe(order.memberId);
-        expect(attempt?.provider).toBeNull();
+        const attempts = await prisma.orderPayment.findMany({ where: { orderId: order.id } });
+        expect(attempts).toHaveLength(1);
+        // La ligne dit tout ce qu'une enquête cherchera : combien, par quelle méthode, qui
+        // l'a pointée, et qu'elle est bien réglée. Une tentative laissée `PENDING` ou au
+        // mauvais montant rendrait la trace fausse avec une commande pourtant `SETTLED`.
+        expect(attempts[0]).toMatchObject({
+            status: "SETTLED",
+            method: "CASH_ON_DELIVERY",
+            amount: order.totalAmount,
+            currency: order.currency,
+            settledById: order.memberId,
+            provider: null,
+            providerRef: null,
+        });
+        expect(attempts[0]?.settledAt).not.toBeNull();
+    });
+
+    // Un pointage est tout ou rien. Si la tentative ne peut pas s'écrire (ici l'utilisateur
+    // n'existe pas, la clé étrangère de `settledById` refuse), la commande ne doit pas
+    // rester réglée : une commande `SETTLED` sans aucune ligne qui le prouve est un
+    // encaissement sans trace ni pointeur.
+    it("ne règle pas la commande quand la tentative ne peut pas s'écrire", async () => {
+        const order = await placedOrder({ method: "CASH_ON_DELIVERY" });
+
+        await expect(
+            settleOffline(prisma, {
+                vendorId: order.vendorId,
+                orderId: order.id,
+                userId: "utilisateur-inconnu",
+                offlineMethods: OFFLINE,
+            }),
+        ).rejects.toMatchObject({ code: "P2003" });
+
+        const after = await prisma.order.findUnique({ where: { id: order.id } });
+        expect(after?.paymentStatus).toBe("PENDING");
+        expect(await prisma.orderPayment.count({ where: { orderId: order.id } })).toBe(0);
     });
 
     // Ce refus ferme un mensonge : seul le fournisseur dit ce qui s'est passé sur un
