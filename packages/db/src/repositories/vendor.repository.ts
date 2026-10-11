@@ -71,3 +71,16 @@ export async function setShopCurrency(
         });
     });
 }
+
+// Pas de verrou ni de comptage, contrairement à la devise : les méthodes se corrigent
+// librement, y compris après la première vente. Une commande garde la sienne, qui est
+// figée dessus.
+export async function setShopPaymentMethods(
+    prisma: PrismaClient,
+    input: { vendorId: string; paymentMethods: readonly string[] },
+): Promise<void> {
+    await prisma.vendor.update({
+        where: { id: input.vendorId },
+        data: { paymentMethods: input.paymentMethods as never },
+    });
+}

@@ -42,6 +42,7 @@ export default async function ShopPage(): Promise<JSX.Element> {
                 categories={vendor.categories}
                 currency={vendor.currency}
                 currencyLocked={productCount > 0}
+                paymentMethods={vendor.paymentMethods}
             />
 
             <div className="mt-12">

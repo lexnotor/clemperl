@@ -1,10 +1,10 @@
 "use client";
 
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
-import { E_CURRENCY } from "@clemperl/db/enums";
+import { E_CURRENCY, E_PAYMENT_METHOD } from "@clemperl/db/enums";
 import { Button, CheckboxField, Field, FormSection, SelectField, TextAreaField } from "@clemperl/ui";
 import { useActionState, type JSX } from "react";
-import { saveShopCurrency, saveShopProfile } from "./actions";
+import { saveShopCurrency, saveShopPaymentMethods, saveShopProfile } from "./actions";
 import { INITIAL_STATE } from "./types/shop-form-state.interface";
 
 const CATEGORIES = ["APPAREL", "JEWELLERY", "LEATHER_GOODS"] as const;
@@ -17,6 +17,7 @@ interface ShopFormProps {
     categories: readonly string[];
     currency: string | null;
     currencyLocked: boolean;
+    paymentMethods: readonly string[];
 }
 
 export function ShopForm(shop: ShopFormProps): JSX.Element {
@@ -26,6 +27,10 @@ export function ShopForm(shop: ShopFormProps): JSX.Element {
     const [state, action, pending] = useActionState(saveShopProfile, INITIAL_STATE);
     const [currencyState, currencyAction, currencyPending] = useActionState(
         saveShopCurrency,
+        INITIAL_STATE,
+    );
+    const [paymentState, paymentAction, paymentPending] = useActionState(
+        saveShopPaymentMethods,
         INITIAL_STATE,
     );
 
@@ -120,6 +125,37 @@ export function ShopForm(shop: ShopFormProps): JSX.Element {
 
             <Button type="submit" disabled={currencyPending || shop.currencyLocked}>
                 {t.saveCurrency}
+            </Button>
+        </form>
+
+        {/* Une form SÉPARÉE pour la même raison : les méthodes ont leur propre action serveur. */}
+        <form action={paymentAction} className="mt-12 flex flex-col gap-6">
+            <FormSection title={t.payment.legend}>
+                <div className="flex flex-wrap gap-4">
+                    {Object.values(E_PAYMENT_METHOD).map((method) => (
+                        <CheckboxField
+                            key={method}
+                            label={t.payment.method[method]}
+                            name="paymentMethods"
+                            value={method}
+                            defaultChecked={shop.paymentMethods.includes(method)}
+                        />
+                    ))}
+                </div>
+                {/* Phrase PERMANENTE : une alerte qui n'apparaîtrait qu'une fois la dernière
+                    case décochée arriverait après la décision qu'elle devait éclairer. */}
+                <p className="text-sm text-muet">{t.payment.lastOneWarning}</p>
+            </FormSection>
+
+            {paymentState.message.length > 0 && (
+                <p role="alert" className="text-sm text-accent">
+                    {paymentState.message.join(" ")}
+                </p>
+            )}
+            {paymentState.saved && <p className="text-sm text-muet">{t.saved}</p>}
+
+            <Button type="submit" disabled={paymentPending}>
+                {t.payment.save}
             </Button>
         </form>
         </>

@@ -1,4 +1,4 @@
-import { E_CURRENCY, E_VENDOR_CATEGORY } from "@clemperl/db/enums";
+import { E_CURRENCY, E_PAYMENT_METHOD, E_VENDOR_CATEGORY } from "@clemperl/db/enums";
 import { z } from "zod";
 
 // Les champs COMMERCIAUX d'une boutique, ceux qu'un vendeur corrige lui-même. Partagés
@@ -36,3 +36,16 @@ export type TShopProfile = z.infer<typeof shopProfileSchema>;
 export const shopCurrencySchema = z.object({ currency: z.enum(E_CURRENCY) });
 
 export type TShopCurrency = z.infer<typeof shopCurrencySchema>;
+
+// Les méthodes vivent à part des champs commerciaux et de la devise, pour la même raison
+// qui sépare déjà ces deux-là : chaque signature dit une règle. Celle-ci dit qu'une
+// boutique doit accepter au moins une méthode, sans quoi elle ne peut rien vendre et quitte
+// le catalogue.
+export const shopPaymentMethodsSchema = z.object({
+    paymentMethods: z
+        .array(z.enum(E_PAYMENT_METHOD))
+        .min(1)
+        .transform((methods) => [...new Set(methods)]),
+});
+
+export type TShopPaymentMethods = z.infer<typeof shopPaymentMethodsSchema>;
