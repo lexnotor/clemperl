@@ -17,6 +17,7 @@ import {
     readOrderForVendor,
     setOrderStatus,
     setProductStatus,
+    settleOffline,
 } from "@clemperl/db";
 import { MAX_CART_QUANTITY } from "@clemperl/domain";
 
@@ -659,6 +660,60 @@ describe("la méthode de paiement", () => {
             });
             expect(view?.payments[0]).not.toHaveProperty("rawPayload");
         }
+    });
+
+    // Le nom d'un membre de la boutique n'a rien à faire du côté de l'acheteur : le
+    // vendeur lit qui a pointé l'encaissement, l'acheteur lit la même tentative sans ce
+    // nom. Les deux lectures ont chacune leur sélection, et les unifier enverrait le nom
+    // du pointeur à l'acheteur sans qu'aucun autre test ne s'en aperçoive.
+    it("le vendeur lit qui a pointé l'encaissement, l'acheteur ne le lit pas", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR", ["BANK_TRANSFER"]);
+        const a = await publishedVariant(shop.id, "EUR", PRICE);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+        const { references } = await placeOrders(prisma, {
+            userId,
+            expectedTotal: PRICE,
+            shipTo: SHIP_TO,
+            notes: {},
+            methods: { [shop.slug]: "BANK_TRANSFER" },
+            lines: [{ variantId: a.variantId, label: "" }],
+        });
+        const order = await prisma.order.findFirstOrThrow({
+            where: { reference: references[0] },
+        });
+        counter += 1;
+        const settler = await prisma.user.create({
+            data: {
+                email: `${PREFIX}-${counter}@vendeur.test`,
+                name: "Marie Pointeuse",
+                emailVerified: true,
+            },
+        });
+        await settleOffline(prisma, {
+            vendorId: shop.id,
+            orderId: order.id,
+            userId: settler.id,
+            offlineMethods: ["BANK_TRANSFER"],
+        });
+
+        const vendorView = await readOrderForVendor(prisma, {
+            vendorId: shop.id,
+            orderId: order.id,
+        });
+        const buyerView = await readOrderForBuyer(prisma, {
+            buyerId: userId,
+            reference: references[0] ?? "",
+        });
+
+        expect(vendorView?.payments).toHaveLength(1);
+        expect(vendorView?.payments[0]?.settledBy).toEqual({ name: "Marie Pointeuse" });
+
+        expect(buyerView?.payments).toHaveLength(1);
+        expect(buyerView?.payments[0]).not.toHaveProperty("settledBy");
+        // Le nom ne passe pas non plus sous une autre clé : la lecture entière de
+        // l'acheteur ne le contient nulle part.
+        expect(JSON.stringify(buyerView)).not.toContain("Marie Pointeuse");
     });
 });
 
