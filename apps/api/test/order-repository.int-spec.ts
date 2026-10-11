@@ -550,8 +550,10 @@ describe("la méthode de paiement", () => {
     });
 
     // Le refus d'UNE boutique emporte TOUTE la validation : aucune commande n'est écrite et
-    // le panier reste intact. L'ordre dans lequel les boutiques sont visitées n'est pas
-    // fixé, et le test tient dans les deux cas.
+    // le panier reste intact. Une validation à moitié écrite laisserait l'acheteur avec une
+    // commande chez une boutique, et un panier qui croit encore contenir les deux. L'ordre
+    // dans lequel les boutiques sont visitées n'est pas fixé, et le test tient dans les
+    // deux cas.
     it("refuse tout quand une seule des boutiques n'a pas de méthode valide", async () => {
         const userId = await createUser();
         const first = await createShop("EUR", ["CASH_ON_DELIVERY"]);
