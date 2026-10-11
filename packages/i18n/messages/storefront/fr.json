@@ -203,7 +203,7 @@
     "payment": "Paiement",
     "paymentStatus": {
       "PENDING": "En attente",
-      "SETTLED": "Reçu",
+      "SETTLED": "Payé",
       "FAILED": "Refusé"
     },
     "methodHint": {

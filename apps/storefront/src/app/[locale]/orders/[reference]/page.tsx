@@ -50,9 +50,9 @@ export default async function OrderPage({
     // On n'interroge que pour une tentative EN LIGNE sans réponse, donc portant un
     // fournisseur : un paiement hors ligne attend des jours, et la page se rafraîchirait
     // toutes les cinq secondes pour rien. Une tentative restée en attente derrière une
-    // commande réglée est morte, elle n'attend plus rien.
+    // commande réglée ou annulée est morte, elle n'attend plus rien.
     const awaiting =
-        order.paymentStatus !== E_PAYMENT_STATUS.SETTLED &&
+        owed &&
         order.payments.some(
             (attempt) =>
                 attempt.provider !== null && attempt.status === E_PAYMENT_STATUS.PENDING,
@@ -138,7 +138,11 @@ export default async function OrderPage({
                         <h3 className="text-muet">{t("attempts")}</h3>
                         <ul className="mt-2 divide-y divide-bordure">
                             {order.payments.map((attempt) => (
-                                <li key={attempt.id} className="flex justify-between gap-6 py-2">
+                                <li
+                                    key={attempt.id}
+                                    data-testid="tentative"
+                                    className="flex justify-between gap-6 py-2"
+                                >
                                     <span>{format.dateTime(attempt.createdAt, "complet")}</span>
                                     <span>{t(`paymentStatus.${attempt.status}`)}</span>
                                 </li>

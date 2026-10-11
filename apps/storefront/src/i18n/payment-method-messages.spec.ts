@@ -47,23 +47,46 @@ describe.each([
         expect(hints[method]?.trim()).not.toBe("");
     });
 
-    it("n'a aucune phrase d'erreur de paiement blanche", () => {
+    // `/payments/start` rend ces CODES et jamais une phrase ; `UNAUTHORIZED` est celui que le
+    // bouton forge pour une session absente, dont le message de l'API est une phrase. Ils
+    // vivent dans l'API et ne s'importent pas ici : la liste est donc ÉCRITE, et c'est
+    // voulu. Supprimer ou renommer une clé dans le catalogue fait échouer ce test, ce
+    // qu'un simple « aucune phrase blanche » ne verrait pas si les deux langues dérivent
+    // ensemble. Un code ajouté à l'API s'ajoute ici ET dans les catalogues.
+    it("traduit exactement les codes de refus de /payments/start", () => {
         const errors: Record<string, string> = catalogue.orders.payErrors;
 
-        expect(Object.keys(errors).length).toBeGreaterThan(0);
+        expect(Object.keys(errors).sort()).toEqual(
+            [
+                "PAYMENT_ALREADY_SETTLED",
+                "PAYMENT_NO_ADAPTER",
+                "PAYMENT_ORDER_CANCELLED",
+                "PAYMENT_ORDER_NOT_FOUND",
+                "PAYMENT_ORIGIN_REFUSED",
+                "UNAUTHORIZED",
+            ].sort(),
+        );
         for (const sentence of Object.values(errors)) {
             expect(sentence.trim()).not.toBe("");
         }
     });
 });
 
-// Les codes que `/payments/start` rend vivent dans l'API et ne s'importent pas ici : on ne
-// peut donc pas les déduire. On vérifie au moins que les deux langues en traduisent les
-// mêmes, pour qu'un code ajouté dans l'une ne tombe pas sur le message générique dans l'autre.
-describe("les phrases d'erreur de paiement", () => {
-    it("couvrent les mêmes codes en français et en anglais", () => {
-        expect(Object.keys(en.orders.payErrors).sort()).toEqual(
-            Object.keys(fr.orders.payErrors).sort(),
-        );
+// Une clé présente dans une langue et absente de l'autre ne casse rien au build : next-intl
+// rend le chemin de la clé à l'exécution, sur la seule page qui l'emploie. La comparaison
+// porte sur TOUT le catalogue, récursivement, et non sur un bloc : elle voit la clé qu'on
+// ajoute demain sans qu'il faille penser à la lister ici.
+function keyPaths(node: unknown, prefix = ""): string[] {
+    if (typeof node !== "object" || node === null) {
+        return [prefix];
+    }
+    return Object.entries(node).flatMap(([key, child]) =>
+        keyPaths(child, prefix === "" ? key : `${prefix}.${key}`),
+    );
+}
+
+describe("les catalogues du storefront", () => {
+    it("portent les mêmes clés en français et en anglais", () => {
+        expect(keyPaths(en).sort()).toEqual(keyPaths(fr).sort());
     });
 });
