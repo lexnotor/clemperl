@@ -1,4 +1,4 @@
-import { prisma, readOrderForVendor } from "@clemperl/db";
+import { ERROR_PAYMENT_ALREADY_SETTLED, prisma, readOrderForVendor } from "@clemperl/db";
 import { E_PAYMENT_METHOD, E_PAYMENT_STATUS } from "@clemperl/db/enums";
 import { allowedOrderActions, formatPrice } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
@@ -46,27 +46,26 @@ export default async function OrderPage({
     // est appelée dans un `map`.
     const currency = order.currency;
 
-    // Le nom de qui a pointé ne fait PAS partie de la trace de paiement lue plus haut : cette
-    // trace est partagée avec l'acheteur, à qui le nom d'un membre de la boutique ne
-    // regarde pas. Il se lit ici, borné à la boutique, et seulement pour ce vendeur.
-    const settlers = await prisma.orderPayment.findMany({
-        where: { orderId: order.id, order: { vendorId: vendor.id }, settledById: { not: null } },
-        select: { id: true, settledBy: { select: { name: true } } },
-    });
-    const settlerNames = new Map(
-        settlers.map((attempt) => [attempt.id, attempt.settledBy?.name ?? null]),
-    );
-
     // Un encaissement porte la date où l'argent est arrivé, les autres celle où la tentative
     // a commencé. Le texte part tout fait : ni libellé ni nom ne se composent dans le JSX.
     const attempts = order.payments.map((attempt) => {
-        const settler = settlerNames.get(attempt.id) ?? null;
+        // Une tentative sans fournisseur, réglée, est un pointage à la main. Son auteur peut
+        // être anonyme : `name` est facultatif, et un compte supprimé laisse `settledBy`
+        // vide. La ligne reste, avec un repli : la trace existe pour dire QUI a pointé, et
+        // la taire rendrait le pointage anonyme.
+        let settledBy: string | null = null;
+        if (attempt.provider === null && attempt.status === E_PAYMENT_STATUS.SETTLED) {
+            const name = attempt.settledBy?.name ?? null;
+            settledBy =
+                name === null
+                    ? t.payment.settledByMember
+                    : t.payment.settledBy.replace("{name}", () => name);
+        }
         return {
             id: attempt.id,
             label: `${METHODS[attempt.method]} · ${t.payment.status[attempt.status]}`,
             date: DATE.format(attempt.settledAt ?? attempt.createdAt),
-            settledBy:
-                settler === null ? null : t.payment.settledBy.replace("{name}", () => settler),
+            settledBy,
         };
     });
 
@@ -152,6 +151,7 @@ export default async function OrderPage({
                         <SettleButton
                             orderId={order.id}
                             apiUrl={API_URL}
+                            alreadySettledCode={ERROR_PAYMENT_ALREADY_SETTLED}
                             labels={{ settle: t.payment.settle, failed: t.payment.settleFailed }}
                         />
                     </div>

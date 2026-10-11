@@ -4,13 +4,14 @@ import { Button } from "@clemperl/ui";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type JSX } from "react";
 
-// Le code que l'API rend quand le paiement est déjà pointé. Il est écrit ICI et non
-// importé : `@clemperl/db` entraînerait le client Prisma dans le paquet du navigateur.
-const ALREADY_SETTLED = "PAYMENT_ALREADY_SETTLED";
-
 interface SettleButtonProps {
     orderId: string;
     apiUrl: string;
+    // Le code que l'API rend quand le paiement est déjà pointé. La page le passe en prop :
+    // ce composant ne peut pas importer `@clemperl/db`, qui entraînerait le client Prisma
+    // dans le paquet du navigateur, et un littéral recopié ici ne suivrait pas un
+    // renommage côté API.
+    alreadySettledCode: string;
     labels: { settle: string; failed: string };
 }
 
@@ -36,7 +37,12 @@ async function readRefusalCode(response: Response): Promise<string | null> {
 // Le vendeur pointe lui-même un encaissement qui s'est fait hors de la plateforme. L'appel
 // part du NAVIGATEUR vers l'API, sur une autre origine : le cookie de session ne voyage que
 // par `credentials: "include"`, et sans lui l'API répond 401 sans rien qui l'explique.
-export function SettleButton({ orderId, apiUrl, labels }: SettleButtonProps): JSX.Element {
+export function SettleButton({
+    orderId,
+    apiUrl,
+    alreadySettledCode,
+    labels,
+}: SettleButtonProps): JSX.Element {
     const router = useRouter();
     const [busy, setBusy] = useState(false);
     const [failed, setFailed] = useState(false);
@@ -56,7 +62,7 @@ export function SettleButton({ orderId, apiUrl, labels }: SettleButtonProps): JS
             // commande est dans l'état voulu, et c'est la page qui est périmée. Elle se relit
             // comme après un succès, et montre qui a pointé.
             const alreadySettled =
-                response.status === 409 && (await readRefusalCode(response)) === ALREADY_SETTLED;
+                response.status === 409 && (await readRefusalCode(response)) === alreadySettledCode;
             if (!response.ok && !alreadySettled) {
                 setFailed(true);
                 return;

@@ -74,6 +74,14 @@ const PAYMENT_TRACE = {
     },
 } as const;
 
+// La trace telle que le VENDEUR la lit : celle de l'acheteur, plus le nom de qui a pointé
+// un encaissement hors ligne. Ce nom ne doit JAMAIS rejoindre `PAYMENT_TRACE`, que lit
+// aussi l'acheteur : le nom d'un membre de la boutique ne le regarde pas.
+const VENDOR_PAYMENT_TRACE = {
+    ...PAYMENT_TRACE,
+    select: { ...PAYMENT_TRACE.select, settledBy: { select: { name: true } } },
+} as const;
+
 export async function placeOrders(
     prisma: PrismaClient,
     input: IPlaceOrders,
@@ -291,7 +299,7 @@ export async function readOrderForVendor(
         where: { id: input.orderId, vendorId: input.vendorId },
         include: {
             items: { orderBy: { id: "asc" } },
-            payments: PAYMENT_TRACE,
+            payments: VENDOR_PAYMENT_TRACE,
         },
     });
 }

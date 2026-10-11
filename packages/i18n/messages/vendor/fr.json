@@ -195,6 +195,7 @@
       "settle": "Paiement reçu",
       "settleFailed": "Le pointage a échoué. Rechargez la page.",
       "settledBy": "Pointé par {name}",
+      "settledByMember": "Pointé par un membre de la boutique",
       "attempts": "Les tentatives",
       "unpaidNotice": "Le paiement de cette commande n'est pas arrivé. À vous de juger si vous l'engagez.",
       "onlineOnly": "Un paiement en ligne se règle chez le fournisseur : il ne se pointe pas à la main."
