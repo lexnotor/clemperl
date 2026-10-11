@@ -1275,9 +1275,8 @@ sont celles qu'on lance par réflexe. Une base neuve (CI, Testcontainers, poste 
 applique le fichier courant et enregistre la bonne somme, donc rien ne casse nulle part
 d'autre, et l'écart ne vit que sur la machine qui avait déjà appliqué l'ancienne version.
 C'est `prisma migrate dev` qui compare les sommes : il signalera la migration comme
-modifiée et proposera de réinitialiser la base, ce qui détruit les comptes d'essai et
-refait tourner le pipeline de médias. Ce dernier comportement est celui que documente
-Prisma, il n'a pas été rejoué ici.
+modifiée et proposera de réinitialiser la base, ce qui détruit les comptes d'essai. Ce
+comportement est celui que documente Prisma, il n'a pas été rejoué ici.
 
 Ce qui protège maintenant : rien d'automatique. Deux remèdes. Le premier est de corriger les
 commentaires AVANT que la migration soit appliquée quelque part, y compris sur sa propre
@@ -1285,7 +1284,13 @@ machine. Le second, quand elle l'est déjà, est de mettre la ligne à jour plut
 réinitialiser la base :
 
     sha256sum packages/db/prisma/migrations/<nom>/migration.sql
-    UPDATE _prisma_migrations SET checksum = '<sha256>' WHERE migration_name = '<nom>';
+    SELECT checksum FROM _prisma_migrations WHERE migration_name = '<nom>';
+    UPDATE _prisma_migrations SET checksum = '<nouveau sha256>'
+      WHERE migration_name = '<nom>' AND checksum = '<ancien sha256>';
+
+La garde sur l'ancienne somme empêche de toucher plus d'une ligne, ou la mauvaise : la
+commande doit répondre `UPDATE 1`. `UPDATE 0` veut dire que l'ancienne somme recopiée n'est
+pas celle de la base, et rien n'a été modifié.
 
 La preuve que la ligne est à jour est la comparaison de ces deux valeurs, pas
 `migrate status`.
