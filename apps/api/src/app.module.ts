@@ -4,6 +4,7 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "./modules/auth/auth.module";
 import { HealthModule } from "./modules/health/health.module";
 import { MediaModule } from "./modules/media/media.module";
+import { PaymentsModule } from "./modules/payments/payments.module";
 
 // L'URL est lue ICI et non dans le module : une seule lecture, et le démarrage échoue
 // avec le NOM de la variable plutôt qu'avec un refus de connexion sans contexte.
@@ -24,6 +25,7 @@ function redisConnection(): IRedisConnection {
         HealthModule,
         AuthModule,
         MediaModule,
+        PaymentsModule,
     ],
 })
 export class AppModule {}

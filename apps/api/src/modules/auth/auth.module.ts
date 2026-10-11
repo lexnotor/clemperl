@@ -9,5 +9,8 @@ import { AUTH_TOKEN, SessionGuard } from "./guards";
 @Module({
     controllers: [MeController],
     providers: [{ provide: AUTH_TOKEN, useValue: auth }, SessionGuard],
+    // Un module qui pose `@UseGuards(SessionGuard)` a besoin du garde ET de son jeton : Nest
+    // construit le garde dans le module de la route, et y cherche `AUTH_TOKEN`.
+    exports: [AUTH_TOKEN, SessionGuard],
 })
 export class AuthModule {}
