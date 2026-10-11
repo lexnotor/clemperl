@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-10.
+Dernière mise à jour : 2026-10-11.
 
 ## Où en est le projet
 
@@ -23,7 +23,7 @@ plan, exécution, un commit.
 | T2d | Catalogue public : liste, filtres, fiche | **Livrée**, PR #6 |
 | T2e | Collections de produits | **Livrée**, PR #7 |
 | T3 | Panier et commande | **Livrée** |
-| T4 | Paiement, point d'extension | non commencée |
+| T4 | Paiement, point d'extension | **Livrée** |
 | T5 | Abonnements vendeurs | non commencée |
 | T6 | Administration | non commencée |
 | T7 | Temps réel | non commencée |
@@ -95,6 +95,149 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 (`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
+
+## Où en est le travail, au 2026-10-11
+
+**T4, paiement, est complète : les dix tâches.** La branche est `feat/payments`.
+
+Un vendeur coche les paiements que sa boutique accepte. Un acheteur en choisit un par boutique
+à la validation, et la commande le porte figé, avec un état de paiement à elle, séparé de
+celui de l'expédition. Hors ligne, le vendeur pointe lui-même l'encaissement. En ligne,
+l'acheteur est redirigé chez un fournisseur, et un webhook signé règle la commande ; un
+simulateur de développement joue ce fournisseur. Chaque tentative laisse une ligne dans la
+trace, y compris l'échec, qui n'est pas une fin : l'acheteur réessaie.
+
+La spec est `docs/superpowers/specs/2026-10-11-t4-paiement-design.md`, le plan
+`docs/superpowers/plans/2026-10-11-t4-paiement.md`.
+
+### Ce qui a été vérifié, et ce que ça vaut
+
+Relevé le 2026-10-11, sans cache, sur la branche entière :
+
+- `lint` : 15 tâches sur 15, plus `eslint e2e playwright.config.ts`, sans reproche.
+- `typecheck` : 15 tâches sur 15, plus `tsc --noEmit -p tsconfig.e2e.json`, sans erreur.
+- `build` : 9 tâches sur 9.
+- Tests unitaires, 454 au total : `domain` 183, `api` 152 (15 suites Jest), `core` 39, `ui` 32,
+  `storefront` 29, `db` 8, `auth` 7, `i18n` 4. `admin` et `vendor` n'en ont aucun.
+- Intégration : **204 tests en 16 suites, tous verts, dans le conteneur de l'API**, comme la CI
+  les lance. Depuis l'hôte, `pnpm --filter @clemperl/api test:integration` en passe 185 sur 13
+  suites et en échoue 19 sur 3 (`product-image-worker`, `media-route`, `document-storage`) :
+  elles ont besoin du réseau Docker : `STORAGE_URL` ne parvient pas à la commande lancée depuis
+  l'hôte, ou un nom de conteneur ne s'y résout pas (`getaddrinfo ENOTFOUND storefront`). Ce n'est pas
+  une régression, mais la commande de l'hôte n'est pas verte.
+- API, couche supertest (`jest.config.e2e.ts`) : 3 tests, verts.
+- Bout en bout : **29 tests en 11 fichiers, tous verts, en série (`--workers=1`)**, contre la
+  pile de développement que la CI exerce. À deux workers, deux tests ont échoué, chacun sur un
+  délai de cinq secondes (`collection.spec.ts`, le renommage ; `vendor-product-images.spec.ts`, le
+  refus de publier sans photo), la charge étant à plus de 8 sur quatre cœurs. Rejoués en série,
+  ils passent. La charge expliquait ces deux échecs, pas un défaut du code.
+
+**Le banc de production ne tient toujours pas la suite entière, et ce n'est pas T4.**
+`pnpm e2e:up` puis `pnpm test:e2e` : 16 verts, 8 rouges, 5 non joués. Les rouges butent sur la
+connexion, qui répond `429` : Better Auth limite `/sign-in/email` à trois requêtes par fenêtre
+et le banc de production en crée davantage qu'aucun humain (mesuré : `401 401 401 429 429 429`
+sur six essais d'affilée). C'est la limitation déjà consignée dans « Ce qui reste ouvert ».
+Les deux parcours de paiement y passent, chacun rejoué seul : 16 s pour le parcours hors
+ligne, 15 s pour le parcours en ligne. Le build de production exerce donc bien le CORS, le
+cookie envoyé à l'API, `NEXT_PUBLIC_API_URL` lue par le serveur puis passée au bouton, et le
+webhook signé.
+
+**Dans la surcharge de production, le `NODE_ENV` du conteneur de l'API vaut `development`.** L'image fixe
+`ENV NODE_ENV=production`, mais `env_file: ../.env` porte `NODE_ENV=development`, et le fichier
+l'emporte : `docker exec clemperl_dev_api printenv NODE_ENV` rend `development`, avec
+`PAYMENT_SIMULATOR=1`. Le démarrage n'échoue donc pas, et la garde qui refuse le simulateur en
+production n'est exercée par aucune suite qui démarre l'API : seul son test unitaire la
+couvre.
+
+Les parcours e2e lisent l'état du paiement dans un PARAGRAPHE, texte entier. Côté acheteur, le
+mot « Payé » se lit deux fois dès qu'une tentative existe, dans le paragraphe et dans la ligne de
+la trace, et « Reçu » est une sous-chaîne de « Reçue », le statut de la commande ; côté vendeur,
+« Reçu » est aussi une sous-chaîne du bouton « Paiement reçu ». Chaque ligne de la trace de
+l'acheteur porte `data-testid="tentative"`.
+
+### Les décisions prises en route, et ce qu'elles coûtent si elles sont fausses
+
+**Rien n'empêche d'expédier un impayé, par décision du propriétaire du dépôt.** L'écran
+prévient, et les boutons d'avancement restent ouverts quel que soit l'état du paiement : le
+vendeur connaît peut-être son client, ou a reçu les fonds par un chemin que la plateforme
+ignore. ClemPerl orchestre et trace, elle ne détient jamais les fonds d'un tiers. Le coût est
+nommé : la plateforme ne pourra pas dire qu'elle avait empêché, seulement qu'elle avait prévenu.
+Le parcours hors ligne épingle que « Accepter » reste actif sur une commande impayée.
+
+**Une seule chose est fermée : un paiement en ligne ne se pointe pas à la main.** Là, seul le
+fournisseur dit ce qui s'est passé, et un pointage manuel rendrait la trace fausse à l'endroit
+précis où elle sert de preuve. L'écran n'offre pas le bouton, et l'API refuse même si l'écran
+dérive : le registre des adapters décide ce qui est en ligne, il n'y a aucun booléen à tenir à
+jour à côté. Le parcours en ligne épingle l'absence du bouton.
+
+**Une boutique sans méthode sort du catalogue.** Même prédicat que la devise, écrit une fois :
+la liste, le décompte des devises, la fiche produit, la vitrine et l'éligibilité du panier
+l'appliquent ensemble. Une boutique sans méthode n'a donc ni vitrine, ni page de collection :
+elles répondent 404. La phrase qui le dit, sur l'écran du vendeur, est PERMANENTE et non une
+alerte à la dernière case décochée, qui arriverait après la décision qu'elle devait éclairer ;
+le parcours hors ligne l'épingle visible avant de cocher, et toujours là après.
+
+**L'API est désormais joignable depuis un navigateur.** Trois surfaces neuves le même jour :
+CORS avec des origines NOMMÉES et `credentials`, parce qu'un joker est incompatible avec l'envoi
+d'un cookie ; `Origin` vérifié sur les écritures ; et un webhook sans session, dont la preuve
+est sa signature, calculée sur les octets reçus, ce qui exige `{ rawBody: true }` à la création
+de l'application. C'est le risque principal de la tranche, et la raison pour laquelle le
+webhook ne fait rien avant d'avoir vérifié la signature.
+
+**L'adapter simulé prouve la FORME, pas l'intégration.** Il passe par son propre webhook plutôt
+que par un raccourci, donc la signature, la normalisation et l'idempotence sont exercées. Mais
+un vrai fournisseur apportera ses propres codes d'état, ses rejeux, ses délais et son format
+de signature : le premier branchement réel écrira un second adapter, et le port est fait pour
+cela. Rien dans cette tranche ne dit que le port suffira tel quel.
+
+**Le simulateur refuse de démarrer en production, et la garde a une limite.** `readPaymentsEnv`
+lève, en nommant `PAYMENT_SIMULATOR`, quand il est allumé alors que `NODE_ENV` vaut
+`production`. Mais `.env.example` livre `NODE_ENV=development`, le simulateur allumé, un secret
+et une clé publics : un déploiement qui expédierait ce fichier tel quel passerait la garde. Le
+simulateur règle une commande sans aucun paiement, sans demander ni session, ni origine, ni
+signature, et la référence est remise à l'acheteur dans sa propre URL de redirection. La vérité
+plus large est que `.env.example` est un gabarit de développement et non une configuration de
+production, et cela vaut aussi pour le secret d'authentification, la clé de payload et le mot de
+passe de la base. Sa première ligne le dit.
+
+**Le temps réel est une interrogation, et T7 la remplacera.** Un composant relit la page de
+commande toutes les cinq secondes, soixante fois au plus, et seulement tant qu'une tentative
+EN LIGNE n'a pas de réponse. T7 passera à Socket.IO, une fois, pour les commandes, la
+messagerie et les notifications ensemble : ne pas y brancher un autre mécanisme d'ici là.
+
+**Le pointage hors ligne n'a aucune preuve.** La plateforme ne détient pas les fonds et ne
+peut rien vérifier. La trace dit qui a pointé et quand, ce qui est tout ce qu'elle peut dire
+honnêtement ; côté acheteur, la lecture ne porte jamais le nom de celui qui a pointé, un test
+l'épingle.
+
+**Un panier à deux boutiques payées en ligne demande deux redirections.** Conséquence directe
+d'une méthode par boutique, plutôt que d'une méthode unique que deux boutiques sans point
+commun rendraient impossible à choisir.
+
+### Trois suites existantes réparées
+
+Une boutique n'accepte aucune méthode à sa naissance, donc elle est hors du catalogue tant
+qu'on n'en a pas coché une. Trois suites créaient une boutique et attendaient de la voir :
+
+- `order.spec.ts` validait un panier sans choisir de méthode, et sa boutique n'en avait aucune :
+  ses produits n'étaient plus éligibles du tout. Les deux tests cochent maintenant « Paiement à
+  la livraison » et choisissent ce bouton radio à la validation.
+- `catalog.spec.ts` : le visiteur ne voyait plus le produit, ni la vitrine.
+- `collection.spec.ts` : les trois tests visitent la vitrine ou la page publique d'une
+  collection, qui répondent 404 sans méthode.
+
+Les deux aides sont dans `e2e/helpers/accounts.ts` : `acceptPaymentMethods`, qui attend la
+confirmation de l'ACTION puis recharge pour prouver que la base porte le choix, et
+`publishProduct`, qui existait en deux exemplaires et en aurait eu trois.
+
+### Pièges payés pendant T4
+
+Quatre entrées de `docs/pieges.md` sont nées de cette tranche : `packages/db/dist` que Jest
+importe et que Git ignore, le motif `*.spec.ts` qui ne reconnaît pas `*.int-spec.ts`, le
+serveur de développement de Next qui sert l'ancienne page serveur, et `raceBehindLock` qui exige
+quatre connexions au pool. Deux autres y étaient déjà et se sont reposées : le sha256 d'une
+migration appliquée que décale la moindre retouche de commentaire, et le filtrage des variables
+d'environnement par Turborepo, qui exige que chaque variable nouvelle entre dans `globalEnv`.
 
 ## Où en est le travail, au 2026-10-09
 

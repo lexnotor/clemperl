@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { URL_STOREFRONT, URL_VENDOR } from "../playwright.config";
-import { createApprovedVendorShop } from "./helpers/accounts";
+import { acceptPaymentMethods, createApprovedVendorShop } from "./helpers/accounts";
 
 // L'annonceur de route de Next (`#__next-route-announcer__`, `role="alert"`) porte le
 // titre de la page après chaque navigation, et le titre d'une fiche EST le nom du
@@ -37,6 +37,8 @@ test("un visiteur parcourt le catalogue, filtre, et ouvre une fiche", async ({
     await page.getByRole("combobox", { name: "Devise des prix" }).selectOption("EUR");
     await page.getByRole("button", { name: "Enregistrer la devise" }).click();
     await expect(page.getByText("Votre devise est enregistrée.")).toBeVisible();
+    // Une boutique sans méthode acceptée est hors du catalogue : le visiteur ne verrait rien.
+    await acceptPaymentMethods(page, ["Paiement à la livraison"]);
 
     await page.goto(`${URL_VENDOR}/products/new`);
     await page.getByRole("textbox", { name: "Titre" }).fill(titre);

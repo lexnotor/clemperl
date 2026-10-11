@@ -1,6 +1,12 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { URL_STOREFRONT, URL_VENDOR } from "../playwright.config";
-import { createApprovedVendorShop, createVerifiedAccount, signInFromPage } from "./helpers/accounts";
+import {
+    acceptPaymentMethods,
+    createApprovedVendorShop,
+    createVerifiedAccount,
+    publishProduct,
+    signInFromPage,
+} from "./helpers/accounts";
 
 // L'annonceur de route de Next porte le titre de la page hors de `main`, et le titre d'une
 // fiche EST le nom du produit. Un `getByText` non restreint en trouve donc deux. Piège
@@ -15,25 +21,6 @@ test.describe.configure({ mode: "serial" });
 // Ce parcours traverse trois applications, crée un produit avec photo qui passe par le
 // worker d'images, et va jusqu'à l'expédition.
 test.setTimeout(240_000);
-
-// Publie un produit complet depuis l'espace vendeur. Le catalogue, donc le panier, n'a rien
-// à montrer sans image prête : c'est une condition de `conditions()`, pas un rappel.
-async function publishProduct(page: Page, title: string, price: string): Promise<void> {
-    await page.goto(`${URL_VENDOR}/products/new`);
-    await page.getByRole("textbox", { name: "Titre" }).fill(title);
-    await page
-        .getByRole("textbox", { name: "Description" })
-        .fill("Cuir pleine fleur tanné végétal, coutures à la main, doublure en lin.");
-    await page.getByRole("combobox", { name: "Catégorie" }).selectOption("LEATHER_GOODS");
-    await page.getByRole("textbox", { name: "Prix", exact: true }).fill(price);
-    await page.getByRole("button", { name: "Créer le produit" }).click();
-    await page.waitForURL(/\/products\/[^/]+$/);
-
-    await page.getByLabel("Ajouter des photos").setInputFiles("e2e/fixtures/product.jpg");
-    await expect(page.getByTestId("vignette")).toBeVisible({ timeout: 60_000 });
-    await page.getByRole("button", { name: "Publier" }).click();
-    await expect(page.getByText("Publié")).toBeVisible();
-}
 
 test("un visiteur remplit son panier, se connecte, commande, et le vendeur expédie", async ({
     page,
@@ -50,6 +37,9 @@ test("un visiteur remplit son panier, se connecte, commande, et le vendeur expé
     await page.getByRole("combobox", { name: "Devise des prix" }).selectOption("EUR");
     await page.getByRole("button", { name: "Enregistrer la devise" }).click();
     await expect(page.getByText("Votre devise est enregistrée.")).toBeVisible();
+    // Sans méthode acceptée, la boutique est hors du catalogue : le produit ne serait ni
+    // trouvé, ni commandable.
+    await acceptPaymentMethods(page, ["Paiement à la livraison"]);
 
     await publishProduct(page, title, "180,00");
 
@@ -92,6 +82,8 @@ test("un visiteur remplit son panier, se connecte, commande, et le vendeur expé
     await buyer.getByLabel("Ville").fill("Bruxelles");
     await buyer.getByLabel("Pays (code à deux lettres)").fill("BE");
     await buyer.getByRole("textbox", { name: /Un mot pour/ }).fill("Livrer en matinée.");
+    // Aucune méthode n'est présélectionnée : la valider sans choisir est refusé.
+    await buyer.getByRole("radio", { name: "Paiement à la livraison" }).check();
     await buyer.getByRole("button", { name: "Confirmer la commande" }).click();
 
     // La commande existe et porte sa référence, que l'URL reprend.
@@ -141,6 +133,7 @@ test("un article dépublié entre le panier et la validation est refusé", async
     await page.getByRole("combobox", { name: "Devise des prix" }).selectOption("EUR");
     await page.getByRole("button", { name: "Enregistrer la devise" }).click();
     await expect(page.getByText("Votre devise est enregistrée.")).toBeVisible();
+    await acceptPaymentMethods(page, ["Paiement à la livraison"]);
 
     await publishProduct(page, title, "90,00");
 
@@ -171,6 +164,9 @@ test("un article dépublié entre le panier et la validation est refusé", async
     await buyer.getByLabel("Adresse").fill("12 rue des Artisans");
     await buyer.getByLabel("Ville").fill("Bruxelles");
     await buyer.getByLabel("Pays (code à deux lettres)").fill("BE");
+    // Le choix est fait : c'est l'ARTICLE retiré qui doit motiver le refus, et non une
+    // méthode oubliée.
+    await buyer.getByRole("radio", { name: "Paiement à la livraison" }).check();
     await buyer.getByRole("button", { name: "Confirmer la commande" }).click();
 
     // Refusé, nommé, et SANS commande créée.

@@ -1294,3 +1294,102 @@ pas celle de la base, et rien n'a été modifié.
 
 La preuve que la ligne est à jour est la comparaison de ces deux valeurs, pas
 `migrate status`.
+
+---
+
+**`packages/db/dist` est ignoré par Git, et Jest importe `@clemperl/db` depuis lui : après une
+édition de `packages/db/src`, une suite d'intégration lancée sans reconstruction éprouve
+l'ancien code, et son vert ne dit rien.**
+
+Le champ `exports` de `packages/db/package.json` désigne `./dist/src/index.js`, `.gitignore`
+exclut `dist/`, et `jest.config.integration.ts` n'a aucun `moduleNameMapper` vers `src`. Les
+dépôts que les tests appellent sont donc ceux du DERNIER build, pas ceux du fichier qu'on vient
+d'éditer.
+
+Constaté à trois reprises pendant T4 : une édition de `packages/db/src`, la couche
+d'intégration relancée aussitôt, et des résultats qui décrivaient le code d'avant.
+
+Ce qui rend le piège difficile à voir : rien n'échoue. Un export ajouté se remarque, parce que
+le typecheck de l'API lit lui aussi `dist` et ne trouve pas le nom. Un comportement modifié ne
+se remarque pas : le test passe ou échoue selon l'ancien code, et on conclut sur le nouveau.
+Un test vert n'a pas forcément vu l'édition, et un correctif juste peut rester rouge.
+
+Ce qui protège maintenant : rien d'automatique. Reconstruire avant la couche d'intégration,
+`pnpm --filter @clemperl/db build`. La commande `dev` du package est `tsc --watch` : tant
+qu'elle tourne, `dist` suit les sources ; un lancement ponctuel depuis l'hôte ne la lance pas.
+
+---
+
+**Le motif `*.spec.ts` ne reconnaît pas `*.int-spec.ts` : le séparateur est un tiret, et une
+recherche qui ne rend rien ressemble à une absence de test, pas à une erreur de motif.**
+
+Dans ce dépôt, les tests unitaires s'appellent `*.spec.ts`, ceux d'intégration `*.int-spec.ts`
+et ceux de bout en bout de l'API `*.e2e-spec.ts`. `*.spec.ts` exige un point avant `spec` ; dans
+`int-spec.ts`, c'est un tiret.
+
+Mesuré le 2026-10-11 : `find apps packages -name '*.spec.ts'` rend 49 fichiers et aucun des 16
+fichiers `*.int-spec.ts`, alors que `-name '*spec.ts'` les rend tous, 66 avec le fichier de bout
+en bout. Constaté pendant T4 : une recherche des tests de deux fonctions par `*.spec.ts` n'en a
+trouvé aucun, et a fait conclure que ces fonctions n'avaient pas de test d'intégration. Elles en
+avaient.
+
+Ce qui rend le piège difficile à voir : le motif est JUSTE là où il est écrit. La configuration
+unitaire de Jest cherche `*.spec.ts` à dessein (voir l'entrée sur `collectCoverageFrom`), et c'est
+son recopiage dans une recherche qui trompe. Une liste vide dit « rien », jamais « mauvais motif ».
+
+Ce qui protège maintenant : chercher par le NOM de la fonction plutôt que par celui du fichier,
+`grep -rl <nom> apps packages --include='*spec.ts'`. Le motif sans point couvre les trois
+suffixes.
+
+---
+
+**Le serveur de développement de Next peut continuer de servir l'ANCIENNE page serveur après une
+édition, alors que le nouveau chunk client est déjà compilé : le mélange ressemble à un défaut
+du code qu'on vient d'écrire.**
+
+Ce qui est mesuré est l'asymétrie : le chunk du composant client édité est compilé sur disque et
+arrive au navigateur, mais le rendu serveur de la page qui l'embarque reste celui d'avant
+l'édition. La cause interne n'a pas été isolée.
+
+Observé pendant T4 : une page serveur ancienne rendue avec un composant
+client nouveau.
+
+Ce qui rend le piège difficile à voir : le résultat est exactement celui d'une erreur de câblage
+entre la page et son composant. On cherche donc dans le code, qui est juste, au lieu de chercher
+dans le serveur.
+
+Ce qui protège maintenant : rien d'automatique. `docker restart clemperl_dev_<application>` sur
+ce seul conteneur repart d'un rendu serveur à jour. Ne pas le confondre avec l'entrée « Un cache
+`.next` corrompu survit à `docker restart` » : là, les routes répondent 500 sur une résolution de
+module et seul `--force-recreate` répare ; ici, elles répondent 200 avec un rendu périmé, et un
+simple redémarrage suffit. Devant un écran qui contredit le code qu'on vient d'écrire,
+redémarrer le conteneur est la vérification la moins chère.
+
+---
+
+**`raceBehindLock` exige QUATRE connexions simultanées au pool : avec trois, le sondage attend
+une connexion que personne ne rendra, et l'échec ne parle jamais de course.**
+
+Le helper de `payment-repository.int-spec.ts` tient une transaction qui verrouille la ligne
+(une connexion), lance deux appels qui butent dessus (deux de plus), puis sonde
+`pg_stat_activity` pour compter combien attendent (la quatrième). Le verrou ne tombe qu'une fois
+les deux appels comptés : si le sondage ne trouve pas de connexion, les appels attendent le
+détenteur, et le détenteur attend le sondage.
+
+Mesuré le 2026-10-11 sur une base jetable, avec la forme exacte du helper et un client
+`PrismaPg` dont on borne le pool : à `max: 10` et à `max: 4`, les deux appels aboutissent et le
+sondage en compte deux ; à `max: 3`, rien ne bouge jusqu'au délai de la transaction du détenteur,
+30 s, puis `P2028 : A commit cannot be executed on an expired transaction`. Rencontré pendant T4
+sous la forme d'un échec de pool, et non du message du helper (« Course non forcée »), ce qui a
+fait chercher une course là où il n'y avait qu'un pool trop étroit.
+
+Ce qui rend le piège difficile à voir : le client du dépôt est construit avec la seule chaîne de
+connexion, donc le pool est celui de `pg`, 10 connexions, qui ne dépend pas du nombre de cœurs.
+Mesuré le même jour : la suite `payment-repository` passe en 7 s, 20 tests sur 20, sous
+`taskset -c 0` (`os.availableParallelism()` rend 1). Le helper ne casse donc que si quelque chose
+borne le pool sous quatre, par exemple un `max` posé sur l'adaptateur ou un hébergeur qui limite
+les connexions. Un échec pareil se lit comme une panne d'infrastructure ou une course, jamais
+comme une configuration du pool.
+
+Ce qui protège maintenant : rien d'automatique. Devant un délai de pool ou un `P2028` dans un
+test qui utilise `raceBehindLock`, vérifier le plafond du pool avant de chercher la course.
