@@ -252,7 +252,11 @@ export async function readOrderForBuyer(
         where: { reference: input.reference, buyerId: input.buyerId },
         include: {
             items: { orderBy: { id: "asc" } },
-            vendor: { select: { shopName: true, slug: true } },
+            // Les coordonnées vont à l'acheteur : une commande payée hors ligne n'a que
+            // la boutique pour la régler, et le vendeur ne renseigne aucune instruction.
+            vendor: {
+                select: { shopName: true, slug: true, contactEmail: true, contactPhone: true },
+            },
             payments: PAYMENT_TRACE,
         },
     });
