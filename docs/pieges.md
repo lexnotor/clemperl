@@ -1253,3 +1253,39 @@ Ce qui protège maintenant : `createVerifiedAccount` vérifie la réponse et rap
 et le corps du refus. Pour un second compte, prendre un contexte neuf, ou celui du
 navigateur de cette personne, ce qui est de toute façon plus juste : c'est quelqu'un
 d'autre.
+
+---
+
+**Corriger un commentaire dans une migration déjà appliquée décale son sha256 sans que
+`migrate status` ni `migrate deploy` le signalent : seule une comparaison directe le montre.**
+
+Prisma enregistre dans `_prisma_migrations.checksum` le sha256 du fichier au moment où il
+l'applique. Éditer ce fichier ensuite, même pour un seul commentaire, change son empreinte,
+et la ligne garde l'ancienne.
+
+Observé le 2026-10-11, pendant T4, en réécrivant deux commentaires de
+`20261010233701_payments` après son application sur la base de développement. Mesuré sur
+cette base : empreinte stockée `7bd87e2f…6ea5`, empreinte du fichier `73a867cd…56ac`, et
+`prisma migrate status` répond « Database schema is up to date! » avant comme après
+l'édition. Le service `migrate` du compose, qui joue `migrate deploy` à chaque
+`pnpm docker:up`, sort en 0 sur « No pending migrations to apply ».
+
+Ce qui rend le piège difficile à voir : toutes les commandes qui répondent « tout va bien »
+sont celles qu'on lance par réflexe. Une base neuve (CI, Testcontainers, poste qui démarre)
+applique le fichier courant et enregistre la bonne somme, donc rien ne casse nulle part
+d'autre, et l'écart ne vit que sur la machine qui avait déjà appliqué l'ancienne version.
+C'est `prisma migrate dev` qui compare les sommes : il signalera la migration comme
+modifiée et proposera de réinitialiser la base, ce qui détruit les comptes d'essai et
+refait tourner le pipeline de médias. Ce dernier comportement est celui que documente
+Prisma, il n'a pas été rejoué ici.
+
+Ce qui protège maintenant : rien d'automatique. Deux remèdes. Le premier est de corriger les
+commentaires AVANT que la migration soit appliquée quelque part, y compris sur sa propre
+machine. Le second, quand elle l'est déjà, est de mettre la ligne à jour plutôt que de
+réinitialiser la base :
+
+    sha256sum packages/db/prisma/migrations/<nom>/migration.sql
+    UPDATE _prisma_migrations SET checksum = '<sha256>' WHERE migration_name = '<nom>';
+
+La preuve que la ligne est à jour est la comparaison de ces deux valeurs, pas
+`migrate status`.
