@@ -56,6 +56,7 @@ model User {
   vendorMemberships  VendorMember[]
   cart               Cart?
   orders             Order[]
+  settledPayments    OrderPayment[]
 
   @@map("users")
 }
@@ -298,6 +299,11 @@ model Vendor {
   contactPhone    String              @map("contact_phone")
   categories      E_VENDOR_CATEGORY[]
 
+  // Un tableau d'enum, comme `categories` : le vendeur ne renseigne qu'une activation,
+  // donc une table de jointure dont toutes les colonnes sauf deux seraient vides mentirait
+  // sur ce qu'elle porte. Une liste vide sort la boutique du catalogue.
+  paymentMethods E_PAYMENT_METHOD[] @default([]) @map("payment_methods")
+
   legalForm          String  @map("legal_form")
   legalName          String  @map("legal_name")
   registrationNumber String  @map("registration_number")
@@ -498,6 +504,24 @@ enum E_ORDER_STATUS {
   @@map("order_status")
 }
 
+enum E_PAYMENT_METHOD {
+  CARD
+  MOBILE_MONEY
+  CASH_ON_DELIVERY
+  BANK_TRANSFER
+  OFF_PLATFORM
+
+  @@map("payment_method")
+}
+
+enum E_PAYMENT_STATUS {
+  PENDING
+  SETTLED
+  FAILED
+
+  @@map("payment_status")
+}
+
 // Une collection range des articles d'UNE boutique sous une intention d'achat que la
 // catégorie ne capte pas : la catégorie dit ce qu'est un article, la collection dit
 // pourquoi on le met en avant maintenant.
@@ -588,6 +612,14 @@ model Order {
   status    E_ORDER_STATUS @default(PLACED)
   currency  E_CURRENCY
 
+  // FIGÉE, comme le reste de la commande. Relire les méthodes de la boutique ferait dire
+  // à une commande ce que le vendeur accepte aujourd'hui, pas ce qui a été choisi.
+  paymentMethod E_PAYMENT_METHOD @map("payment_method")
+
+  // Le statut NORMALISÉ, seule chose que le domaine connaît de l'argent. Il ne contraint
+  // pas `status`, qui dit où en est l'expédition : les deux axes sont indépendants.
+  paymentStatus E_PAYMENT_STATUS @default(PENDING) @map("payment_status")
+
   // FIGÉ, comme les lignes : l'acheteur peut déménager, et la commande doit dire où elle
   // a été envoyée, pas où il habite aujourd'hui.
   shipToName    String  @map("ship_to_name")
@@ -603,13 +635,51 @@ model Order {
 
   // `Restrict` et non `Cascade` : fermer une boutique ne doit pas effacer l'historique
   // d'achat de ses clients. C'est l'inverse du catalogue, qui n'a aucun sens sans elle.
-  buyer  User        @relation(fields: [buyerId], references: [id], onDelete: Restrict)
-  vendor Vendor      @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  items  OrderItem[]
+  buyer    User           @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  vendor   Vendor         @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  items    OrderItem[]
+  payments OrderPayment[]
 
   @@index([vendorId, status])
   @@index([buyerId, createdAt])
+  @@index([vendorId, paymentStatus])
   @@map("orders")
+}
+
+model OrderPayment {
+  id       String           @id @default(cuid(2))
+  orderId  String           @map("order_id")
+  method   E_PAYMENT_METHOD
+  status   E_PAYMENT_STATUS @default(PENDING)
+  amount   Int
+  currency E_CURRENCY
+
+  // Nuls pour une méthode hors ligne, qui n'a aucun fournisseur. PostgreSQL traite les
+  // NULL comme distincts dans un index unique, donc ces lignes ne se heurtent jamais à
+  // la contrainte ci-dessous.
+  provider    String?
+  providerRef String? @map("provider_ref")
+
+  // Le payload brut du fournisseur, chiffré, tel qu'il a été reçu.
+  rawPayload Bytes? @map("raw_payload")
+
+  // Qui a pointé l'encaissement, pour une méthode hors ligne. `SetNull` : supprimer un
+  // compte ne doit pas emporter la preuve d'un encaissement.
+  settledById String?   @map("settled_by_id")
+  settledAt   DateTime? @map("settled_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  settledBy User? @relation(fields: [settledById], references: [id], onDelete: SetNull)
+
+  // Ce qui rend le webhook idempotent. Un fournisseur rejoue ses webhooks : c'est le cas
+  // normal, pas l'exception. Sans cette contrainte un rejeu créerait une seconde ligne,
+  // et le payload de la première deviendrait introuvable.
+  @@unique([provider, providerRef])
+  @@index([orderId, createdAt])
+  @@map("payments")
 }
 
 model OrderItem {
