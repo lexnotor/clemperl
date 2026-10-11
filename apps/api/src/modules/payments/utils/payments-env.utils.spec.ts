@@ -78,6 +78,57 @@ describe("readPaymentsEnv", () => {
         expect(() => readPaymentsEnv(env)).toThrow(/NEXT_PUBLIC_API_URL/);
     });
 
+    // `.env.example` livre le simulateur allumé, avec un secret public : en production, il
+    // laisserait un acheteur régler sa commande sans payer, et quiconque connaît le secret
+    // par défaut forgerait des webhooks. Le secret de `complete()` est rempli : seul le
+    // simulateur en production peut faire refuser cet environnement.
+    it("refuse de démarrer avec le simulateur allumé en production, en le nommant", () => {
+        expect(() => readPaymentsEnv({ ...complete(), NODE_ENV: "production" })).toThrow(
+            /PAYMENT_SIMULATOR est allumé/,
+        );
+    });
+
+    it("accepte la production quand le simulateur est éteint", () => {
+        const env = readPaymentsEnv({
+            ...complete(),
+            NODE_ENV: "production",
+            PAYMENT_SIMULATOR: "0",
+        });
+
+        expect(env.simulator).toBe(false);
+    });
+
+    it("accepte le simulateur allumé en développement", () => {
+        expect(readPaymentsEnv({ ...complete(), NODE_ENV: "development" }).simulator).toBe(true);
+    });
+
+    // Une barre finale ne se retrouverait dans aucun `Origin`, et ferait refuser tout retour
+    // d'acheteur (`//` ne commence pas par `/`) sans dire pourquoi.
+    it("réduit les adresses à leur origine", () => {
+        const env = readPaymentsEnv({
+            ...complete(),
+            NEXT_PUBLIC_API_URL: "http://localhost:3003/",
+            NEXT_PUBLIC_STOREFRONT_URL: "https://clemperl.test:443/fr?x=1",
+        });
+
+        expect(env.apiPublicUrl).toBe("http://localhost:3003");
+        expect(env.storefrontUrl).toBe("https://clemperl.test");
+    });
+
+    it("refuse une adresse qui n'est pas une URL, en nommant la variable", () => {
+        expect(() =>
+            readPaymentsEnv({ ...complete(), NEXT_PUBLIC_STOREFRONT_URL: "pas une url" }),
+        ).toThrow(/NEXT_PUBLIC_STOREFRONT_URL/);
+    });
+
+    // `new URL("localhost:3000")` réussit, avec `localhost:` pour schéma : l'oubli du
+    // `http://` ne doit pas passer pour une adresse.
+    it("refuse une adresse sans schéma http ou https", () => {
+        expect(() =>
+            readPaymentsEnv({ ...complete(), NEXT_PUBLIC_API_URL: "localhost:3003" }),
+        ).toThrow(/NEXT_PUBLIC_API_URL doit commencer par http/);
+    });
+
     it("refuse de démarrer sans l'adresse de la vitrine", () => {
         const env = complete();
         delete env["NEXT_PUBLIC_STOREFRONT_URL"];
@@ -97,8 +148,30 @@ describe("allowedOrigins", () => {
         ).toEqual(["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"]);
     });
 
-    // Une chaîne vide dans la liste ne se comparerait jamais à un `Origin`, mais elle
-    // passerait dans la configuration CORS comme une origine valide.
+    it("réduit chaque origine : sans barre finale, sans port par défaut, sans chemin", () => {
+        expect(
+            allowedOrigins({
+                NEXT_PUBLIC_STOREFRONT_URL: "http://localhost:3000/",
+                NEXT_PUBLIC_VENDOR_URL: "https://vendor.clemperl.test:443",
+                NEXT_PUBLIC_ADMIN_URL: "https://admin.clemperl.test/tableau",
+            }),
+        ).toEqual([
+            "http://localhost:3000",
+            "https://vendor.clemperl.test",
+            "https://admin.clemperl.test",
+        ]);
+    });
+
+    it("refuse une origine mal écrite, en nommant la variable", () => {
+        expect(() => allowedOrigins({ NEXT_PUBLIC_VENDOR_URL: "localhost:3001" })).toThrow(
+            /NEXT_PUBLIC_VENDOR_URL/,
+        );
+        expect(() => allowedOrigins({ NEXT_PUBLIC_ADMIN_URL: "n'importe quoi" })).toThrow(
+            /NEXT_PUBLIC_ADMIN_URL/,
+        );
+    });
+
+    // Une variable vide ne désigne aucune origine : elle n'a pas à figurer dans la liste.
     it("écarte les variables vides ou absentes", () => {
         expect(
             allowedOrigins({

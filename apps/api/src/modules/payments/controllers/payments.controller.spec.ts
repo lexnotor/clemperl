@@ -58,17 +58,15 @@ describe("PaymentsController", () => {
         });
 
         // Express 5 laisse `body` indéfini sans corps : sans cette tolérance, la lecture de
-        // `body.orderId` lèverait une `TypeError` et la requête sortirait en 500.
-        it("traite un corps absent ou mal typé comme une commande introuvable", async () => {
+        // `body.orderId` lèverait une `TypeError` et la requête sortirait en 500. Le service,
+        // lui, ne reçoit jamais autre chose qu'une chaîne, et la refuse comme introuvable.
+        it("transmet une commande vide quand le corps est absent ou mal typé", async () => {
             const { controller, service } = build();
-            service.start.mockRejectedValue(new Error(ERROR_PAYMENT_ORDER_NOT_FOUND));
+            service.start.mockResolvedValue("url");
 
-            await expect(controller.start(request, undefined)).rejects.toBeInstanceOf(
-                NotFoundException,
-            );
-            await expect(controller.start(request, { orderId: 42 })).rejects.toBeInstanceOf(
-                NotFoundException,
-            );
+            await controller.start(request, undefined);
+            await controller.start(request, { orderId: 42 });
+
             expect(service.start).toHaveBeenCalledTimes(2);
             for (const [call] of service.start.mock.calls) {
                 expect(call).toMatchObject({ orderId: "" });

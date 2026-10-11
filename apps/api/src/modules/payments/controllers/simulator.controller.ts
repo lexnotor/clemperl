@@ -13,6 +13,7 @@ import {
     Query,
     Redirect,
 } from "@nestjs/common";
+import { API_PORT } from "../../../constants";
 import { SIGNATURE_HEADER, SIMULATED_PROVIDER, signSimulatedPayload } from "../adapters";
 import {
     ERROR_RETURN_URL_REFUSED,
@@ -26,8 +27,8 @@ import { escapeHtml } from "../utils";
 
 // L'API s'appelle par son port INTERNE et par 127.0.0.1 : en conteneur, l'adresse publique
 // n'existe pas de l'intérieur, et `localhost` y résout vers ::1 alors que le serveur écoute
-// en IPv4 seulement.
-const WEBHOOK_URL = `http://127.0.0.1:3003/payments/webhook/${SIMULATED_PROVIDER}`;
+// en IPv4 seulement. Le port est celui sur lequel `main.ts` écoute : une seule constante.
+const WEBHOOK_URL = `http://127.0.0.1:${API_PORT}/payments/webhook/${SIMULATED_PROVIDER}`;
 
 const OUTCOMES = ["SETTLED", "FAILED"] as const;
 

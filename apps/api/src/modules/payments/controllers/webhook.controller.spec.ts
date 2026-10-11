@@ -1,6 +1,6 @@
 import { ERROR_PAYMENT_REF_UNKNOWN } from "@clemperl/db";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { GUARDS_METADATA } from "@nestjs/common/constants";
+import { GUARDS_METADATA, HTTP_CODE_METADATA } from "@nestjs/common/constants";
 import { ERROR_SIGNATURE_REFUSED } from "../constants";
 import type { PaymentsService } from "../services";
 import { WebhookController } from "./webhook.controller";
@@ -21,6 +21,13 @@ describe("WebhookController", () => {
         expect(
             Reflect.getMetadata(GUARDS_METADATA, WebhookController.prototype.receive),
         ).toBeUndefined();
+    });
+
+    // Un `@Post` répond 201 par défaut : le fournisseur attend 200 pour cesser de rejouer.
+    it("répond 200", () => {
+        expect(
+            Reflect.getMetadata(HTTP_CODE_METADATA, WebhookController.prototype.receive),
+        ).toBe(200);
     });
 
     // `createHmac.update(undefined)` lève : l'adapter doit recevoir une CHAÎNE, et la

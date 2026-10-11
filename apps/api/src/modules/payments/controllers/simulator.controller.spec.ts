@@ -1,5 +1,6 @@
 import { BadGatewayException, BadRequestException, NotFoundException } from "@nestjs/common";
-import { HEADERS_METADATA } from "@nestjs/common/constants";
+import { HEADERS_METADATA, REDIRECT_METADATA } from "@nestjs/common/constants";
+import { API_PORT } from "../../../constants";
 import { SIGNATURE_HEADER, SimulatedAdapter } from "../adapters";
 import {
     ERROR_RETURN_URL_REFUSED,
@@ -127,6 +128,14 @@ describe("SimulatorController.page", () => {
 describe("SimulatorController.decide", () => {
     const body = { outcome: "SETTLED", returnUrl: RETURN_URL };
 
+    // Sans `@Redirect()`, la route répondrait 201 avec l'objet en JSON au lieu de renvoyer
+    // l'acheteur : la valeur rendue ne dit rien de ce que Nest en fait.
+    it("répond par une redirection", () => {
+        expect(
+            Reflect.getMetadata(REDIRECT_METADATA, SimulatorController.prototype.decide),
+        ).toBeDefined();
+    });
+
     it("n'existe pas quand le simulateur est éteint", async () => {
         const controller = new SimulatorController(env(false));
 
@@ -184,7 +193,7 @@ describe("SimulatorController.decide", () => {
 
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const [url, init] = fetchMock.mock.calls[0] ?? [];
-        expect(url).toBe("http://127.0.0.1:3003/payments/webhook/SIMULATED");
+        expect(url).toBe(`http://127.0.0.1:${API_PORT}/payments/webhook/SIMULATED`);
         expect(init?.method).toBe("POST");
 
         const raw = init?.body as string;
