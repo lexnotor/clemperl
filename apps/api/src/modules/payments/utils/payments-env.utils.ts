@@ -1,3 +1,4 @@
+import { paymentSimulatorEnabled } from "@clemperl/domain";
 import type { IPaymentsEnv } from "../interfaces";
 import { readPayloadKey } from "./payload-cipher.utils";
 
@@ -29,7 +30,10 @@ function toOrigin(name: string, value: string): string {
 // Lu au DÉMARRAGE, comme `redisConnection()` de `app.module.ts` : une variable manquante
 // arrête le processus avec son NOM, et non au premier webhook, des heures plus tard.
 export function readPaymentsEnv(env: NodeJS.ProcessEnv): IPaymentsEnv {
-    const simulator = env["PAYMENT_SIMULATOR"] === "1";
+    // Le prédicat vient du DOMAINE, celui-là même que les écrans interrogent : l'API et eux
+    // doivent monter ou ne pas monter le même fournisseur, et deux lectures de la variable
+    // finiraient par ne plus dire la même chose.
+    const simulator = paymentSimulatorEnabled(env);
     // `.env.example` livre le simulateur allumé, avec un secret et une clé publics. Allumé en
     // production, `POST /payments/simulator/:ref` ne demande ni session, ni origine, ni
     // signature à l'appelant, et la référence est remise à l'acheteur dans sa propre URL de

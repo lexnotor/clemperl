@@ -26,8 +26,9 @@ describe("FormSection", () => {
         expect(screen.getByRole("group", { name: "Pièces justificatives" })).toBeInTheDocument();
     });
 
-    // Le titre nomme le groupe, la règle le DÉCRIT : un lecteur d'écran dit l'un puis
-    // l'autre, et la règle ne se perd pas dans le nom.
+    // Le titre NOMME le groupe, la règle le DÉCRIT. Ce que ce test prouve est le lien,
+    // pas sa restitution : jsdom ne fait parler aucun lecteur d'écran, et aucun navigateur
+    // n'est en jeu ici.
     it("relie le groupe à la phrase qui en dit la règle", () => {
         render(
             <FormSection title="Paiements" describedBy="rule">

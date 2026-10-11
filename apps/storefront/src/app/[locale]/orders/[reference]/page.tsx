@@ -1,6 +1,6 @@
 import { prisma, readOrderForBuyer } from "@clemperl/db";
-import { E_ORDER_STATUS, E_PAYMENT_METHOD, E_PAYMENT_STATUS } from "@clemperl/db/enums";
-import { formatPrice } from "@clemperl/domain";
+import { E_ORDER_STATUS, E_PAYMENT_STATUS } from "@clemperl/db/enums";
+import { formatPrice, isOnlinePaymentMethod } from "@clemperl/domain";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import type { JSX } from "react";
@@ -13,11 +13,6 @@ export const dynamic = "force-dynamic";
 // Lu par le serveur et passé au bouton en prop : en notation crochets, un composant client
 // n'aurait pas la valeur, `process` n'existant pas dans le navigateur.
 const API = process.env["NEXT_PUBLIC_API_URL"] ?? "";
-
-// Les méthodes que l'API sert par un fournisseur. L'écran ne peut pas interroger le registre
-// de l'API : cette liste doit rester celle de `SIMULATED_METHODS` dans `registry.ts`, et une
-// méthode absente d'ici n'offrirait jamais le bouton « Payer ».
-const ONLINE_METHODS: readonly string[] = [E_PAYMENT_METHOD.CARD, E_PAYMENT_METHOD.MOBILE_MONEY];
 
 export default async function OrderPage({
     params,
@@ -46,7 +41,12 @@ export default async function OrderPage({
     const owed =
         order.paymentStatus !== E_PAYMENT_STATUS.SETTLED &&
         order.status !== E_ORDER_STATUS.CANCELLED;
-    const online = ONLINE_METHODS.includes(order.paymentMethod);
+    // Une méthode est EN LIGNE quand un adapter la sert, et c'est le domaine qui le dit, à
+    // partir de l'environnement que l'API lit aussi : sans adapter, aucun bouton « Payer »
+    // n'apparaît, parce que `/payments/start` n'aurait rien à qui s'adresser. La lecture se
+    // fait ICI, à l'exécution et côté serveur : la variable n'est pas publique, et le
+    // navigateur ne la verrait pas.
+    const online = isOnlinePaymentMethod(process.env, order.paymentMethod);
     // On n'interroge que pour une tentative EN LIGNE sans réponse, donc portant un
     // fournisseur : un paiement hors ligne attend des jours, et la page se rafraîchirait
     // toutes les cinq secondes pour rien. Une tentative restée en attente derrière une

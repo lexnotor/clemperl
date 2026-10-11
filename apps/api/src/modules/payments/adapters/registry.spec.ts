@@ -1,4 +1,5 @@
 import { E_PAYMENT_METHOD } from "@clemperl/db/enums";
+import { onlinePaymentMethods, paymentSimulatorEnabled } from "@clemperl/domain";
 import { adapterFor, buildRegistry, isOnline, offlineMethods } from "./registry";
 
 describe("le registre des adapters", () => {
@@ -31,6 +32,29 @@ describe("le registre des adapters", () => {
         expect(isOnline(registry, "CARD")).toBe(false);
         expect(adapterFor(registry, "CARD")).toBeNull();
         expect(offlineMethods(registry)).toHaveLength(Object.values(E_PAYMENT_METHOD).length);
+    });
+
+    // LE test de cette suite. Le registre dit ce que l'API sert, le domaine dit ce que les
+    // écrans promettent, et les deux se construisent séparément : s'ils divergent, l'acheteur
+    // voit un bouton « Payer » que `/payments/start` refuse, ou se voit renvoyer vers la
+    // boutique pour une méthode que l'API aurait su servir. La comparaison porte sur les DEUX
+    // environnements, pour qu'un adapter branché d'un seul côté se voie ici.
+    it.each([
+        ["allumé", { PAYMENT_SIMULATOR: "1" }],
+        ["éteint", { PAYMENT_SIMULATOR: "0" }],
+    ])("sert exactement ce que le domaine dit en ligne, simulateur %s", (_cas, env) => {
+        const registry = buildRegistry({
+            simulator: paymentSimulatorEnabled(env),
+            secret: "s",
+            publicUrl: "http://a",
+        });
+
+        expect([...registry.keys()].sort()).toEqual([...onlinePaymentMethods(env)].sort());
+        expect(offlineMethods(registry).sort()).toEqual(
+            Object.values(E_PAYMENT_METHOD)
+                .filter((method) => !onlinePaymentMethods(env).includes(method))
+                .sort(),
+        );
     });
 
     it("rend l'adapter d'une méthode servie, et null sinon", () => {

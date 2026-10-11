@@ -117,7 +117,7 @@ Relevé le 2026-10-11, sans cache, sur la branche entière :
 - `lint` : 15 tâches sur 15, plus `eslint e2e playwright.config.ts`, sans reproche.
 - `typecheck` : 15 tâches sur 15, plus `tsc --noEmit -p tsconfig.e2e.json`, sans erreur.
 - `build` : 9 tâches sur 9.
-- Tests unitaires, 454 au total : `domain` 183, `api` 152 (15 suites Jest), `core` 39, `ui` 32,
+- Tests unitaires, 464 au total : `domain` 191, `api` 154 (15 suites Jest), `core` 39, `ui` 32,
   `storefront` 29, `db` 8, `auth` 7, `i18n` 4. `admin` et `vendor` n'en ont aucun.
 - Intégration : **204 tests en 16 suites, tous verts, dans le conteneur de l'API**, comme la CI
   les lance. Depuis l'hôte, `pnpm --filter @clemperl/api test:integration` en passe 185 sur 13
@@ -170,6 +170,26 @@ précis où elle sert de preuve. L'écran n'offre pas le bouton, et l'API refuse
 dérive : le registre des adapters décide ce qui est en ligne, il n'y a aucun booléen à tenir à
 jour à côté. Le parcours en ligne épingle l'absence du bouton.
 
+**Ce qui est EN LIGNE se déclare à un seul endroit, `packages/domain`.** Deux listes y
+partitionnent l'enum des méthodes : celles qui ne redirigent jamais, et celles qui ont besoin
+d'un fournisseur. `onlinePaymentMethods` répond à partir de `PAYMENT_SIMULATOR`, le registre
+de l'API bâtit ses adapters sur la même liste, et les trois écrans du paiement l'interrogent
+depuis leurs composants serveur. Aucun front ne recopie de liste, et `registry.spec.ts`
+compare le registre au domaine dans les deux environnements : ils ne peuvent plus diverger
+sans qu'un test tombe. Le coût est nommé : l'API et les fronts doivent recevoir le MÊME
+`PAYMENT_SIMULATOR`, ce que le compose garantit par un `env_file` commun. S'ils le recevaient
+différent, les écrans n'offriraient pas une redirection que l'API sait servir, ce qui est
+l'échec le moins cher des deux.
+
+**Une boutique qui accepte une méthode que plus aucun adapter ne sert la GARDE.** Le
+formulaire du vendeur continue de la montrer, cochée : la faire disparaître la retirerait de
+la base au premier enregistrement, sans que personne ne l'ait décidé. Le vendeur la décoche
+s'il le veut, et elle ne revient pas. Partout ailleurs elle se lit comme une méthode hors
+ligne, ce que l'API en fait déjà faute d'adapter : l'acheteur voit les coordonnées de la
+boutique au lieu d'un bouton « Payer » qui finirait en 409, et le vendeur voit « Paiement
+reçu », que `settleOffline` accepte. Le coût est une phrase d'explication inexacte côté
+acheteur, « Réglez en ligne », sur une méthode réglée hors ligne.
+
 **Une boutique sans méthode sort du catalogue.** Même prédicat que la devise, écrit une fois :
 la liste, le décompte des devises, la fiche produit, la vitrine et l'éligibilité du panier
 l'appliquent ensemble. Une boutique sans méthode n'a donc ni vitrine, ni page de collection :
@@ -210,6 +230,13 @@ peut rien vérifier. La trace dit qui a pointé et quand, ce qui est tout ce qu'
 honnêtement ; côté acheteur, la lecture ne porte jamais le nom de celui qui a pointé, un test
 l'épingle.
 
+**Et il se pointe sur une commande ANNULÉE, là où le paiement en ligne est refusé.**
+`readOrderToPay` refuse une commande annulée, `settleOffline` ne la regarde pas : le vendeur
+peut donc cocher « Paiement reçu » après l'annulation, et l'acheteur lit alors « Annulée »
+au-dessus de « Payé ». C'est conforme à la spec, et défendable, puisque l'argent a pu changer
+de mains avant l'annulation. L'asymétrie est nommée ici parce qu'aucun autre document ne la
+nommait.
+
 **Un panier à deux boutiques payées en ligne demande deux redirections.** Conséquence directe
 d'une méthode par boutique, plutôt que d'une méthode unique que deux boutiques sans point
 commun rendraient impossible à choisir.
@@ -232,12 +259,17 @@ confirmation de l'ACTION puis recharge pour prouver que la base porte le choix, 
 
 ### Pièges payés pendant T4
 
-Quatre entrées de `docs/pieges.md` sont nées de cette tranche : `packages/db/dist` que Jest
-importe et que Git ignore, le motif `*.spec.ts` qui ne reconnaît pas `*.int-spec.ts`, le
-serveur de développement de Next qui sert l'ancienne page serveur, et `raceBehindLock` qui exige
-quatre connexions au pool. Deux autres y étaient déjà et se sont reposées : le sha256 d'une
-migration appliquée que décale la moindre retouche de commentaire, et le filtrage des variables
+Cinq entrées de `docs/pieges.md` sont nées de cette tranche : le sha256 d'une migration
+appliquée que décale la moindre retouche de commentaire, `packages/db/dist` que Jest importe
+et que Git ignore, le motif `*.spec.ts` qui ne reconnaît pas `*.int-spec.ts`, le serveur de
+développement de Next qui sert l'ancienne page serveur, et `raceBehindLock` qui exige quatre
+connexions au pool. Une seule y était déjà et s'est reposée : le filtrage des variables
 d'environnement par Turborepo, qui exige que chaque variable nouvelle entre dans `globalEnv`.
+
+L'entrée sur le sha256 **contredit** celle de T1b sur les tables au pluriel, qui annonce un
+`migrate deploy` en échec là où T4 l'a mesuré silencieux, et prescrit un `down -v` qui détruit
+les volumes. Personne n'a tranché : les deux entrées se citent désormais l'une l'autre et
+disent comment distinguer les deux situations par l'observation.
 
 ## Où en est le travail, au 2026-10-09
 

@@ -1,7 +1,8 @@
 "use client";
 
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
-import { E_CURRENCY, E_PAYMENT_METHOD } from "@clemperl/db/enums";
+import { E_CURRENCY } from "@clemperl/db/enums";
+import type { TPaymentMethod } from "@clemperl/domain";
 import { Button, CheckboxField, Field, FormSection, SelectField, TextAreaField } from "@clemperl/ui";
 import { useActionState, useId, type JSX } from "react";
 import { saveShopCurrency, saveShopPaymentMethods, saveShopProfile } from "./actions";
@@ -18,6 +19,9 @@ interface ShopFormProps {
     currency: string | null;
     currencyLocked: boolean;
     paymentMethods: readonly string[];
+    // Ce que l'écran a le droit d'offrir, calculé par le serveur : une méthode en ligne
+    // n'existe que si un adapter la sert, et ce composant ne lit pas l'environnement.
+    paymentChoices: readonly TPaymentMethod[];
 }
 
 export function ShopForm(shop: ShopFormProps): JSX.Element {
@@ -133,7 +137,7 @@ export function ShopForm(shop: ShopFormProps): JSX.Element {
         <form action={paymentAction} className="mt-12 flex flex-col gap-6">
             <FormSection title={t.payment.legend} describedBy={paymentRuleId}>
                 <div className="flex flex-wrap gap-4">
-                    {Object.values(E_PAYMENT_METHOD).map((method) => (
+                    {shop.paymentChoices.map((method) => (
                         <CheckboxField
                             key={method}
                             label={t.payment.method[method]}
@@ -145,7 +149,8 @@ export function ShopForm(shop: ShopFormProps): JSX.Element {
                 </div>
                 {/* Phrase PERMANENTE : une alerte qui n'apparaîtrait qu'une fois la dernière
                     case décochée arriverait après la décision qu'elle devait éclairer. Le groupe
-                    la porte en `aria-describedby`, donc un lecteur d'écran la lit dès l'entrée. */}
+                    la porte en `aria-describedby`, qu'un lecteur d'écran peut annoncer à
+                    l'entrée ; elle reste visible, car tous ne l'annoncent pas. */}
                 <p id={paymentRuleId} className="text-sm text-muet">
                     {t.payment.lastOneWarning}
                 </p>

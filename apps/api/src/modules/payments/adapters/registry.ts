@@ -1,4 +1,5 @@
 import { E_PAYMENT_METHOD } from "@clemperl/db/enums";
+import { PROVIDER_PAYMENT_METHODS } from "@clemperl/domain";
 import type { IPaymentAdapter } from "../interfaces";
 import { SimulatedAdapter } from "./simulated.adapter";
 
@@ -10,15 +11,15 @@ export interface IRegistryOptions {
     publicUrl: string;
 }
 
-// Les méthodes que le simulateur sert. Les autres se règlent hors ligne quoi qu'il
-// arrive : un virement n'a pas de redirection à offrir.
-const SIMULATED_METHODS = [E_PAYMENT_METHOD.CARD, E_PAYMENT_METHOD.MOBILE_MONEY];
-
 export function buildRegistry(options: IRegistryOptions): TPaymentRegistry {
     const registry = new Map<string, IPaymentAdapter>();
     if (options.simulator) {
         const adapter = new SimulatedAdapter(options.secret, options.publicUrl);
-        for (const method of SIMULATED_METHODS) {
+        // L'adapter simulé sert toutes les méthodes à fournisseur. La liste vient du
+        // domaine, d'où les écrans tirent la leur : recopier ici les deux valeurs ferait
+        // du registre une seconde vérité, et c'est l'écart entre ces deux-là qui promet un
+        // bouton « Payer » que l'API refuse ensuite.
+        for (const method of PROVIDER_PAYMENT_METHODS) {
             registry.set(method, adapter);
         }
     }

@@ -78,6 +78,13 @@ export async function recordAttempt(
 // `changed` à `false` dit un REJEU, et non un échec : le fournisseur rejoue ses webhooks,
 // et l'appelant doit lui répondre 200 pour qu'il cesse. `changed` à `true` dit que la
 // TENTATIVE a bougé, pas forcément la commande : un événement en attente ne touche qu'elle.
+//
+// L'idempotence est garantie pour un événement TERMINAL : une tentative tranchée ne se
+// rouvre pas. Le rejeu d'un événement `PENDING`, lui, retrouve une tentative encore
+// `PENDING` et la réécrit, donc `updatedAt` bouge et `rawPayload` est remplacé par un
+// payload identique. Aucun statut ne bouge, et c'est pourquoi le cas est toléré : le
+// fermer demanderait un identifiant d'ÉVÉNEMENT distinct de `providerRef`, que le port ne
+// porte pas tant qu'aucun vrai fournisseur n'en a dicté la forme.
 export async function applyProviderEvent(
     prisma: PrismaClient,
     input: {

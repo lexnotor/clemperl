@@ -1,6 +1,6 @@
 import { ERROR_PAYMENT_ALREADY_SETTLED, prisma, readOrderForVendor } from "@clemperl/db";
-import { E_PAYMENT_METHOD, E_PAYMENT_STATUS } from "@clemperl/db/enums";
-import { allowedOrderActions, formatPrice } from "@clemperl/domain";
+import { E_PAYMENT_STATUS } from "@clemperl/db/enums";
+import { allowedOrderActions, formatPrice, isOnlinePaymentMethod } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -20,11 +20,6 @@ const DATE = new Intl.DateTimeFormat("fr", { dateStyle: "long", timeStyle: "shor
 // en prop : dans un composant client, Next remplacerait la variable à la construction du
 // paquet, et l'adresse resterait celle de la machine qui l'a construit.
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "";
-
-// Les méthodes qui se règlent chez un fournisseur : l'API n'en accepte aucun pointage à la
-// main, et l'écran n'offre donc pas le bouton. L'API reste l'autorité, elle refuse même si
-// cette liste dérive.
-const ONLINE_METHODS: readonly string[] = [E_PAYMENT_METHOD.CARD, E_PAYMENT_METHOD.MOBILE_MONEY];
 
 export default async function OrderPage({
     params,
@@ -70,7 +65,12 @@ export default async function OrderPage({
     });
 
     const unsettled = order.paymentStatus !== E_PAYMENT_STATUS.SETTLED;
-    const online = ONLINE_METHODS.includes(order.paymentMethod);
+    // Une méthode qui se règle chez un fournisseur ne se pointe pas à la main, et l'API le
+    // refuse. Ce qu'elle sert vient du domaine, à partir de l'environnement qu'elle lit
+    // aussi : sans adapter, la méthode se règle hors ligne, et le bouton « Paiement reçu »
+    // doit être là, car l'API l'accepterait. La lecture se fait ICI, à l'exécution et côté
+    // serveur : la variable n'est pas publique, et le navigateur ne la verrait pas.
+    const online = isOnlinePaymentMethod(process.env, order.paymentMethod);
 
     // Les boutons viennent de CETTE liste, et de rien d'autre. Une action impossible ne
     // s'affiche pas grisée, elle ne s'affiche pas : un bouton qu'on ne peut pas presser

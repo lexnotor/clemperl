@@ -458,6 +458,16 @@ Le piège n'est pas le renommage : c'est que **modifier une migration déjà app
 `pnpm docker:down` ne supprime PAS les volumes. La commande est
 `docker compose --env-file .env -f docker/docker-compose.dev.yml down -v`.
 
+**Écrit le 2026-09-19, pendant T1b, sur Prisma 7.10**, et sans qu'aucune mesure de l'échec
+annoncé ne soit consignée ici. Le remède, lui, DÉTRUIT les volumes : les comptes d'essai et
+les images déposées partent avec. Ne pas le jouer avant d'avoir lu l'entrée « Corriger un
+commentaire dans une migration déjà appliquée décale son sha256 », mesurée le 2026-10-11 sur
+la même version de Prisma, et qui observe l'inverse : `migrate deploy` ne dit rien et sort
+en 0. Les deux n'ont jamais été rejouées l'une contre l'autre, et laquelle décrit la
+situation courante n'est pas établie. Ce qui tranche est l'OBSERVATION, pas la version : si
+le service `migrate` du compose ÉCHOUE sur une somme de contrôle, c'est ce qui est décrit
+ici ; s'il sort en 0, c'est l'autre entrée, dont le remède d'une ligne ne détruit rien.
+
 Bénéfice collatéral, à ne pas défaire : `user` est un mot réservé SQL, `users` ne l'est
 pas. Les requêtes écrites à la main n'ont plus à le quoter.
 
@@ -1263,7 +1273,7 @@ Prisma enregistre dans `_prisma_migrations.checksum` le sha256 du fichier au mom
 l'applique. Éditer ce fichier ensuite, même pour un seul commentaire, change son empreinte,
 et la ligne garde l'ancienne.
 
-Observé le 2026-10-11, pendant T4, en réécrivant deux commentaires de
+Observé le 2026-10-11, pendant T4, **sur Prisma 7.10**, en réécrivant deux commentaires de
 `20261010233701_payments` après son application sur la base de développement. Mesuré sur
 cette base : empreinte stockée `7bd87e2f…6ea5`, empreinte du fichier `73a867cd…56ac`, et
 `prisma migrate status` répond « Database schema is up to date! » avant comme après
@@ -1281,19 +1291,36 @@ comportement est celui que documente Prisma, il n'a pas été rejoué ici.
 Ce qui protège maintenant : rien d'automatique. Deux remèdes. Le premier est de corriger les
 commentaires AVANT que la migration soit appliquée quelque part, y compris sur sa propre
 machine. Le second, quand elle l'est déjà, est de mettre la ligne à jour plutôt que de
-réinitialiser la base :
+réinitialiser la base. Le service `postgres` ne publie aucun port, donc le SQL se joue
+DEPUIS le conteneur :
 
     sha256sum packages/db/prisma/migrations/<nom>/migration.sql
-    SELECT checksum FROM _prisma_migrations WHERE migration_name = '<nom>';
-    UPDATE _prisma_migrations SET checksum = '<nouveau sha256>'
-      WHERE migration_name = '<nom>' AND checksum = '<ancien sha256>';
+
+    docker exec clemperl_dev_postgres psql -U clemperl -d clemperl \
+      -c "SELECT checksum FROM _prisma_migrations WHERE migration_name = '<nom>';"
+
+    docker exec clemperl_dev_postgres psql -U clemperl -d clemperl \
+      -c "UPDATE _prisma_migrations SET checksum = '<nouveau sha256>'
+            WHERE migration_name = '<nom>' AND checksum = '<ancien sha256>';"
 
 La garde sur l'ancienne somme empêche de toucher plus d'une ligne, ou la mauvaise : la
-commande doit répondre `UPDATE 1`. `UPDATE 0` veut dire que l'ancienne somme recopiée n'est
-pas celle de la base, et rien n'a été modifié.
+commande doit répondre `UPDATE 1`. `UPDATE 0` dit qu'aucune ligne ne satisfait les deux
+conditions, et il y a DEUX raisons de l'obtenir : l'ancienne somme recopiée n'est pas celle
+de la base, ou `migration_name` est mal saisi, auquel cas le `SELECT` ci-dessus ne rend
+aucune ligne non plus. Le jouer d'abord écarte la seconde. Dans les deux cas, rien n'a été
+modifié.
 
 La preuve que la ligne est à jour est la comparaison de ces deux valeurs, pas
 `migrate status`.
+
+Ne pas confondre avec l'entrée « Les tables sont au PLURIEL depuis le 2026-09-19 », qui
+annonce l'inverse sur le même geste et prescrit un `down -v`, lequel détruit les volumes.
+Elle a été écrite le 2026-09-19, sur la MÊME version de Prisma que celle-ci, et sans mesure
+consignée ; les deux n'ont jamais été rejouées l'une contre l'autre, donc la version
+n'arbitre rien. Ce qui tranche est l'OBSERVATION : si `migrate deploy` échoue sur une somme
+divergente, c'est l'autre entrée qui décrit la situation ; s'il sort en 0 et que
+`migrate status` répond « up to date » alors que le fichier a changé, c'est celle-ci.
+Commencer par là coûte une commande et évite de détruire une base pour rien.
 
 ---
 

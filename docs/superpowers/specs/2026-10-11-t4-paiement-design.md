@@ -332,8 +332,16 @@ fournisseur vérifie la signature et normalise ; `null` donne un `400` sans rien
 la tentative désignée par `providerRef` prend le statut normalisé, son payload chiffré est
 stocké, et `Order.paymentStatus` suit, le tout dans une transaction. Un événement `PENDING`
 stocke son payload et ne change aucun statut : il dit où en est le fournisseur, pas où en est
-l'argent. Un rejeu ne crée
-rien et ne change rien, grâce à la contrainte d'unicité.
+l'argent.
+
+La contrainte d'unicité fait qu'un rejeu ne crée jamais de seconde ligne. Il ne change rien
+non plus **à partir du moment où la tentative est tranchée** : `SETTLED` ou `FAILED` ne se
+rouvre pas. Avant cela, deux livraisons d'un même événement `PENDING` retrouvent une
+tentative encore `PENDING` et la réécrivent : `updatedAt` bouge et `rawPayload` est remplacé
+par un payload identique. Aucun statut ne bouge, ni celui de la tentative ni celui de la
+commande, donc le dégât est borné à la trace. Fermer ce dernier cas demanderait que le port
+porte un identifiant d'ÉVÉNEMENT distinct de `providerRef` ; l'ajouter avant de connaître ce
+qu'un vrai fournisseur émet reviendrait à inventer sa forme.
 
 **`POST /payments/:orderId/settle`**, session obligatoire, l'appelant doit être membre de la
 boutique de la commande. Refuse si la méthode est en ligne, refuse si le paiement est déjà

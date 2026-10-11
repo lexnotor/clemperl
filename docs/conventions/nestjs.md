@@ -25,7 +25,15 @@ Les sous-modules éventuels vont dans un sous-dossier `modules/` du module paren
             ├── interfaces/
             ├── types/
             ├── enums/
-            └── constants/
+            ├── constants/
+            ├── utils/
+            ├── adapters/
+            └── processors/
+
+Les trois derniers ne sont pas des cas particuliers : `utils/` porte les fonctions pures
+du module, celles qu'un service appelle et qu'on veut tester sans NestJS ; `adapters/`
+porte les implémentations d'un port du module, une par fournisseur ; `processors/` porte
+les consommateurs de file. Un module qui n'en a pas besoin n'en crée pas.
 
 ## Barrels : un par sous-dossier, jamais à la racine du module
 

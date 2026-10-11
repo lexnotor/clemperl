@@ -47,6 +47,12 @@ export class PaymentsService {
         // La tentative est écrite AVANT de rendre l'URL. Dans l'autre ordre, un webhook
         // rapide arriverait sur une référence que la base ne connaît pas encore, et serait
         // refusé alors que le paiement a bien eu lieu.
+        //
+        // La fenêtre n'est pas close pour autant, et elle ne peut pas l'être ici : chez un
+        // vrai fournisseur, `start` a déjà créé le paiement chez lui, donc un webhook émis
+        // entre ce retour et la validation de cette écriture tombe sur une référence
+        // inconnue et reçoit un 404. Ce qui le rattrape est le RÉESSAI du fournisseur, pas
+        // ce code.
         await recordAttempt(prisma, {
             orderId: order.id,
             method: order.method,

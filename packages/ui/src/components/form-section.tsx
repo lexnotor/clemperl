@@ -2,8 +2,10 @@ import type { JSX, ReactNode } from "react";
 
 interface FormSectionProps {
     title: string;
-    // Identifiant de l'élément qui dit la règle du groupe : un lecteur d'écran l'annonce
-    // après le titre, à l'entrée dans le `fieldset`, avant la première case.
+    // Identifiant de l'élément qui dit la règle du groupe. Il devient la DESCRIPTION
+    // accessible du `fieldset`, qu'un lecteur d'écran peut annoncer après le nom, à
+    // l'entrée dans le groupe : les couples lecteur-navigateur ne la restituent pas tous,
+    // donc la phrase reste visible à l'écran et ne vit jamais de cette seule annonce.
     describedBy?: string;
     children: ReactNode;
 }
