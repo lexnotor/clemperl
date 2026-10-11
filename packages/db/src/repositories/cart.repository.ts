@@ -35,16 +35,20 @@ export interface ICartLine {
 }
 
 // L'ÉLIGIBILITÉ, écrite une fois. Les mêmes conditions que la liste du catalogue : le
-// produit est publié et non supprimé, sa boutique est ouverte et a une devise, et il a au
-// moins une image prête. Les recopier ailleurs créerait une seconde vérité, ce que la
-// revue de T2d a déjà coûté une fois.
+// produit est publié et non supprimé, sa boutique est ouverte, a une devise et accepte au
+// moins une méthode de paiement, et il a au moins une image prête. Les recopier ailleurs
+// créerait une seconde vérité, ce que la revue de T2d a déjà coûté une fois.
 export function eligibleVariantWhere(variantId: string) {
     return {
         id: variantId,
         product: {
             status: "PUBLISHED" as const,
             deletedAt: null,
-            vendor: { deletedAt: null, currency: { not: null } },
+            vendor: {
+                deletedAt: null,
+                currency: { not: null },
+                paymentMethods: { isEmpty: false },
+            },
             images: { some: { status: "READY" as const } },
         },
     };

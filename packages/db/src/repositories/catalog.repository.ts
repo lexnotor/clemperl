@@ -114,6 +114,10 @@ function conditions(input: ICatalogQuery): Prisma.Sql[] {
         Prisma.sql`p.deleted_at IS NULL`,
         Prisma.sql`s.deleted_at IS NULL`,
         Prisma.sql`s.currency = ${input.currency}::"currency"`,
+        // Une boutique qui n'accepte aucune méthode ne peut rien vendre. La condition vit
+        // ICI, dans la liste partagée, et non dans la seule requête des lignes : le
+        // décompte compterait sinon des produits que la liste ne montre pas.
+        Prisma.sql`cardinality(s.payment_methods) > 0`,
         // Une carte sans vignette n'a pas de sens, donc cette condition est la garantie,
         // pas un rappel d'une garantie prise ailleurs. Des produits publiés SANS image
         // prête existent : ceux d'avant T2c, et ceux dont la dernière image prête a été
@@ -215,7 +219,8 @@ export async function listCatalogCurrencies(
         JOIN product_variants v ON v.product_id = p.id
         ${IMAGE_JOIN}
         WHERE p.status = 'PUBLISHED' AND p.deleted_at IS NULL AND s.deleted_at IS NULL
-              AND s.currency IS NOT NULL AND i.object_path IS NOT NULL
+              AND s.currency IS NOT NULL AND cardinality(s.payment_methods) > 0
+              AND i.object_path IS NOT NULL
         GROUP BY s.currency
         ORDER BY "productCount" DESC, "currency" ASC
     `;
@@ -251,7 +256,12 @@ export async function readPublishedProduct(
             slug: input.productSlug,
             status: "PUBLISHED",
             deletedAt: null,
-            vendor: { slug: input.shopSlug, deletedAt: null, currency: { not: null } },
+            vendor: {
+                slug: input.shopSlug,
+                deletedAt: null,
+                currency: { not: null },
+                paymentMethods: { isEmpty: false },
+            },
             images: { some: { status: "READY" } },
         },
         select: {
@@ -318,7 +328,7 @@ export async function readPublishedShop(
     input: { shopSlug: string },
 ): Promise<IPublicShop | null> {
     const shop = await prisma.vendor.findFirst({
-        where: { slug: input.shopSlug, deletedAt: null },
+        where: { slug: input.shopSlug, deletedAt: null, paymentMethods: { isEmpty: false } },
         select: {
             slug: true,
             shopName: true,

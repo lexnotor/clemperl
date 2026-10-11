@@ -36,6 +36,7 @@ async function createShop() {
             registrationNumber: "0123456789",
             country: "BE",
             currency: "EUR" as never,
+            paymentMethods: ["OFF_PLATFORM"],
         },
     });
 }
