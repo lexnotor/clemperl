@@ -1,5 +1,6 @@
+import { E_PAYMENT_METHOD } from "@clemperl/db/enums";
 import { describe, expect, it } from "vitest";
-import { checkoutSchema } from "./checkout.schema.js";
+import { checkoutSchema, paymentMethodSchema } from "./checkout.schema.js";
 
 const valide = {
     name: "Awa Traoré",
@@ -50,5 +51,21 @@ describe("checkoutSchema", () => {
         expect(
             checkoutSchema.safeParse({ ...valide, note: "a".repeat(1001) }).success,
         ).toBe(false);
+    });
+});
+
+describe("paymentMethodSchema", () => {
+    it("accepte chaque valeur de l'enum", () => {
+        for (const method of Object.values(E_PAYMENT_METHOD)) {
+            expect(paymentMethodSchema.safeParse(method).success).toBe(true);
+        }
+    });
+
+    // Une valeur de formulaire est du texte libre : le schéma ferme l'enum, et la chaîne
+    // vide d'un bouton radio non coché ne passe pas pour une méthode.
+    it("refuse ce qui n'est pas une méthode", () => {
+        expect(paymentMethodSchema.safeParse("BITCOIN").success).toBe(false);
+        expect(paymentMethodSchema.safeParse("").success).toBe(false);
+        expect(paymentMethodSchema.safeParse("card").success).toBe(false);
     });
 });

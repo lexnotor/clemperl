@@ -186,6 +186,14 @@
     "total": "Total",
     "noteToShop": "A note for {shop}",
     "noteHint": "A size, an engraving, a delivery time.",
+    "paymentMethod": "How to pay {shop}",
+    "method": {
+      "CARD": "Bank card",
+      "MOBILE_MONEY": "Mobile money",
+      "CASH_ON_DELIVERY": "Cash on delivery",
+      "BANK_TRANSFER": "Bank transfer",
+      "OFF_PLATFORM": "Arrangement with the shop"
+    },
     "status": {
       "PLACED": "Received",
       "ACCEPTED": "Accepted",
@@ -195,6 +203,7 @@
     "invalid": "Check the highlighted fields.",
     "totalChanged": "Prices changed while you were ordering. Check your cart.",
     "itemUnavailable": "An item is no longer available. Check your cart.",
+    "methodUnavailable": "Choose a payment method for each shop.",
     "cartEmpty": "Your cart is empty.",
     "shipToName": "Recipient name",
     "shipToPhone": "Phone",

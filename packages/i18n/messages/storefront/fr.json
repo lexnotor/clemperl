@@ -186,6 +186,14 @@
     "total": "Total",
     "noteToShop": "Un mot pour {shop}",
     "noteHint": "Une précision de taille, de gravure, d'horaire de livraison.",
+    "paymentMethod": "Comment payer {shop}",
+    "method": {
+      "CARD": "Carte bancaire",
+      "MOBILE_MONEY": "Mobile money",
+      "CASH_ON_DELIVERY": "Paiement à la livraison",
+      "BANK_TRANSFER": "Virement bancaire",
+      "OFF_PLATFORM": "Arrangement avec la boutique"
+    },
     "status": {
       "PLACED": "Reçue",
       "ACCEPTED": "Acceptée",
@@ -195,6 +203,7 @@
     "invalid": "Vérifiez les champs signalés.",
     "totalChanged": "Les prix ont changé pendant votre commande. Vérifiez votre panier.",
     "itemUnavailable": "Un article n'est plus disponible. Vérifiez votre panier.",
+    "methodUnavailable": "Choisissez un paiement pour chaque boutique.",
     "cartEmpty": "Votre panier est vide.",
     "shipToName": "Nom du destinataire",
     "shipToPhone": "Téléphone",

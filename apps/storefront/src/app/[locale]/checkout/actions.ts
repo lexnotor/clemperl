@@ -3,12 +3,13 @@
 import {
     ERROR_CART_EMPTY,
     ERROR_ITEM_INELIGIBLE,
+    ERROR_METHOD_UNAVAILABLE,
     ERROR_TOTAL_CHANGED,
     placeOrders,
     prisma,
     readCart,
 } from "@clemperl/db";
-import { checkoutSchema, variantLabel } from "@clemperl/domain";
+import { checkoutSchema, paymentMethodSchema, variantLabel } from "@clemperl/domain";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireVerifiedSession } from "../../../lib/session";
@@ -37,7 +38,7 @@ export async function submitCheckout(
         submitted[field] = String(form.get(field) ?? "");
     }
     for (const [key, value] of form.entries()) {
-        if (key.startsWith("note:") && typeof value === "string") {
+        if ((key.startsWith("note:") || key.startsWith("method:")) && typeof value === "string") {
             submitted[key] = value;
         }
     }
@@ -73,6 +74,20 @@ export async function submitCheckout(
         }
     }
 
+    // Une méthode par boutique, validée contre l'enum ici et contre ce que la boutique
+    // accepte dans `placeOrders`. Une valeur hors enum est écartée : la boutique se
+    // retrouve alors sans méthode, et `placeOrders` refuse avec sa raison.
+    const methods: Record<string, string> = {};
+    for (const [key, value] of Object.entries(submitted)) {
+        if (!key.startsWith("method:")) {
+            continue;
+        }
+        const parsed = paymentMethodSchema.safeParse(value);
+        if (parsed.success) {
+            methods[key.slice("method:".length)] = parsed.data;
+        }
+    }
+
     // L'adresse est recomposée CHAMP PAR CHAMP. Elle dit ce qu'est une adresse de
     // livraison, là où une destructuration laisserait traîner le champ `note` du schéma,
     // qui n'en fait pas partie.
@@ -91,6 +106,7 @@ export async function submitCheckout(
             expectedTotal: Number(form.get("expectedTotal") ?? -1),
             shipTo,
             notes,
+            methods,
             lines,
         });
         references = result.references;
@@ -109,6 +125,9 @@ export async function submitCheckout(
         if (message === ERROR_ITEM_INELIGIBLE) {
             return { error: "itemUnavailable", values: submitted };
         }
+        if (message === ERROR_METHOD_UNAVAILABLE) {
+            return { error: "methodUnavailable", values: submitted };
+        }
         if (message === ERROR_CART_EMPTY) {
             return { error: "cartEmpty", values: submitted };
         }
@@ -117,5 +136,8 @@ export async function submitCheckout(
 
     // HORS du `try`. `redirect` lève pour fonctionner : à l'intérieur, le `catch`
     // avalerait la redirection et l'acheteur lirait « échec » sur une commande réussie.
-    redirect(`/orders/${references[0] ?? ""}`);
+    //
+    // Une seule commande mène à sa page. Plusieurs mènent à la liste : montrer la première
+    // et taire la seconde cacherait un paiement à faire.
+    redirect(references.length === 1 ? `/orders/${references[0]}` : "/orders");
 }

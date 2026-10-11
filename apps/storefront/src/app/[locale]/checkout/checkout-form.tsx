@@ -8,8 +8,11 @@ interface CheckoutFormProps {
     /** Le total AFFICHÉ, qui part en champ caché : le dépôt refuse s'il a bougé. */
     expectedTotal: number;
     total: string;
-    shops: { slug: string; name: string }[];
+    /** `methods` : ce que CETTE boutique accepte, lu avec les prix. */
+    shops: { slug: string; name: string; methods: string[] }[];
     labels: Record<string, string>;
+    /** Le libellé traduit de chaque méthode proposée, par sa valeur d'énumération. */
+    methodLabels: Record<string, string>;
     /** Une phrase par code d'erreur rendu par l'action. */
     errors: Record<string, string>;
 }
@@ -71,18 +74,41 @@ export function CheckoutForm(props: CheckoutFormProps): JSX.Element {
                 />
             </FormSection>
 
-            {/* Un mot PAR BOUTIQUE : chaque groupe devient une commande distincte, et un
-                mot unique arriverait chez des vendeurs qui n'ont rien à voir entre eux. */}
+            {/* Un mot et une méthode PAR BOUTIQUE : chaque groupe devient une commande
+                distincte, un mot unique arriverait chez des vendeurs qui n'ont rien à voir
+                entre eux, et une méthode unique rendrait le panier invalidable dès que deux
+                boutiques n'en ont aucune en commun. */}
             {props.shops.map((shop) => (
-                <TextAreaField
-                    key={shop.slug}
-                    label={(props.labels["noteToShop"] ?? "").replace("{shop}", shop.name)}
-                    name={`note:${shop.slug}`}
-                    maxLength={1000}
-                    rows={2}
-                    hint={props.labels["noteHint"] ?? ""}
-                    defaultValue={kept(`note:${shop.slug}`)}
-                />
+                <div key={shop.slug} className="flex flex-col gap-6">
+                    <TextAreaField
+                        label={(props.labels["noteToShop"] ?? "").replace("{shop}", shop.name)}
+                        name={`note:${shop.slug}`}
+                        maxLength={1000}
+                        rows={2}
+                        hint={props.labels["noteHint"] ?? ""}
+                        defaultValue={kept(`note:${shop.slug}`)}
+                    />
+                    {/* AUCUN bouton présélectionné : préchoisir pour quelqu'un comment il
+                        paie se paie en litige. Seul le choix qui revient d'un refus est
+                        recoché, pour qu'il ne soit pas à refaire. */}
+                    <fieldset className="flex flex-col gap-3">
+                        <legend className="mb-3 text-sm">
+                            {(props.labels["paymentMethod"] ?? "").replace("{shop}", shop.name)}
+                        </legend>
+                        {shop.methods.map((method) => (
+                            <label key={method} className="inline-flex items-center gap-2 text-sm">
+                                <input
+                                    type="radio"
+                                    name={`method:${shop.slug}`}
+                                    value={method}
+                                    defaultChecked={kept(`method:${shop.slug}`) === method}
+                                    className="size-4 accent-texte"
+                                />
+                                <span>{props.methodLabels[method] ?? method}</span>
+                            </label>
+                        ))}
+                    </fieldset>
+                </div>
             ))}
 
             {state.error !== undefined && (

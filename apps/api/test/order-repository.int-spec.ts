@@ -2,6 +2,7 @@ import {
     ERROR_CART_EMPTY,
     ERROR_ITEM_INELIGIBLE,
     ERROR_LINE_MISSING,
+    ERROR_METHOD_UNAVAILABLE,
     ERROR_ORDER_NOT_FOUND,
     ERROR_ORDER_STATUS_STALE,
     ERROR_TOTAL_CHANGED,
@@ -27,6 +28,8 @@ let counter = 0;
 const addItem = (input: { userId: string; variantId: string; quantity: number }) =>
     addCartItem(prisma, { ...input, maxQuantity: MAX_CART_QUANTITY });
 
+const PRICE = 5000;
+
 const SHIP_TO = {
     name: "Awa Traoré",
     phone: "+32470000000",
@@ -34,6 +37,11 @@ const SHIP_TO = {
     city: "Bruxelles",
     country: "BE",
 };
+
+// Les tests qui ne portent pas sur la méthode la choisissent pour chaque boutique qu'ils
+// nomment : `createShop` en accepte une par défaut.
+const offPlatform = (...shops: { slug: string }[]) =>
+    Object.fromEntries(shops.map((shop) => [shop.slug, "OFF_PLATFORM"]));
 
 async function createUser(): Promise<string> {
     counter += 1;
@@ -47,7 +55,7 @@ async function createUser(): Promise<string> {
     return user.id;
 }
 
-async function createShop(currency: string) {
+async function createShop(currency: string, paymentMethods: string[] = ["OFF_PLATFORM"]) {
     counter += 1;
     return prisma.vendor.create({
         data: {
@@ -63,7 +71,7 @@ async function createShop(currency: string) {
             registrationNumber: "0123456789",
             country: "BE",
             currency: currency as never,
-            paymentMethods: ["OFF_PLATFORM"],
+            paymentMethods: paymentMethods as never,
         },
     });
 }
@@ -123,6 +131,7 @@ describe("placeOrders", () => {
             expectedTotal: 13000,
             shipTo: SHIP_TO,
             notes: {},
+            methods: offPlatform(premiere, seconde),
             lines: [
                 { variantId: a.variantId, label: "" },
                 { variantId: b.variantId, label: "" },
@@ -156,6 +165,7 @@ describe("placeOrders", () => {
                 expectedTotal: 4000,
                 shipTo: SHIP_TO,
                 notes: {},
+                methods: offPlatform(shop),
                 lines: [{ variantId: a.variantId, label: "" }],
             }),
         ).rejects.toMatchObject({ message: ERROR_TOTAL_CHANGED });
@@ -184,6 +194,7 @@ describe("placeOrders", () => {
                 expectedTotal: 8000,
                 shipTo: SHIP_TO,
                 notes: {},
+                methods: offPlatform(shop),
                 lines: [
                     { variantId: a.variantId, label: "" },
                     { variantId: b.variantId, label: "" },
@@ -203,6 +214,7 @@ describe("placeOrders", () => {
                 expectedTotal: 0,
                 shipTo: SHIP_TO,
                 notes: {},
+                methods: {},
                 lines: [],
             }),
         ).rejects.toMatchObject({ message: ERROR_CART_EMPTY });
@@ -221,6 +233,7 @@ describe("placeOrders", () => {
             expectedTotal: 5000,
             shipTo: SHIP_TO,
             notes: {},
+            methods: offPlatform(shop),
             lines: [{ variantId: a.variantId, label: "" }],
         };
         const resultats = await Promise.allSettled([
@@ -267,6 +280,7 @@ describe("placeOrders", () => {
                 expectedTotal: 8000,
                 shipTo: SHIP_TO,
                 notes: {},
+                methods: offPlatform(shop),
                 // `b` manque.
                 lines: [{ variantId: a.variantId, label: "" }],
             }),
@@ -293,6 +307,7 @@ describe("placeOrders", () => {
             expectedTotal: 5000,
             shipTo: SHIP_TO,
             notes: {},
+            methods: offPlatform(shop),
             lines: [{ variantId: a.variantId, label: "" }],
         };
 
@@ -317,6 +332,7 @@ describe("placeOrders", () => {
             expectedTotal: 5000,
             shipTo: SHIP_TO,
             notes: {},
+            methods: offPlatform(shop),
             lines: [{ variantId: a.variantId, label: "Taille : L" }],
         });
 
@@ -357,6 +373,7 @@ describe("placeOrders", () => {
             expectedTotal: 5000,
             shipTo: SHIP_TO,
             notes: { [shop.slug]: "Emballage cadeau" },
+            methods: offPlatform(shop),
             lines: [{ variantId: a.variantId, label: "" }],
         });
 
@@ -365,6 +382,282 @@ describe("placeOrders", () => {
         });
         expect(commande.note).toBe("Emballage cadeau");
         expect(commande.shipToCity).toBe(SHIP_TO.city);
+    });
+});
+
+describe("la méthode de paiement", () => {
+    it("se fige sur la commande, et le paiement naît en attente", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR", ["CASH_ON_DELIVERY", "OFF_PLATFORM"]);
+        const a = await publishedVariant(shop.id, "EUR", PRICE);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+
+        const { references } = await placeOrders(prisma, {
+            userId,
+            expectedTotal: PRICE,
+            shipTo: SHIP_TO,
+            notes: {},
+            methods: { [shop.slug]: "CASH_ON_DELIVERY" },
+            lines: [{ variantId: a.variantId, label: "" }],
+        });
+
+        const order = await readOrderForBuyer(prisma, {
+            buyerId: userId,
+            reference: references[0] ?? "",
+        });
+        expect(order?.paymentMethod).toBe("CASH_ON_DELIVERY");
+        expect(order?.paymentStatus).toBe("PENDING");
+        expect(order?.payments).toEqual([]);
+    });
+
+    // Le champ vient d'un formulaire, donc du client. Une valeur que la boutique n'accepte
+    // pas doit refuser TOUTE la validation, et non se replier sur un défaut : se replier
+    // choisirait pour l'acheteur comment il paie. La boutique a des méthodes, mais pas
+    // celle-ci : une boutique sans aucune méthode échouerait plus tôt, à l'éligibilité.
+    it("refuse une méthode que la boutique n'accepte pas", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR", ["OFF_PLATFORM"]);
+        const a = await publishedVariant(shop.id, "EUR", PRICE);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+
+        await expect(
+            placeOrders(prisma, {
+                userId,
+                expectedTotal: PRICE,
+                shipTo: SHIP_TO,
+                notes: {},
+                methods: { [shop.slug]: "CARD" },
+                lines: [{ variantId: a.variantId, label: "" }],
+            }),
+        ).rejects.toMatchObject({ message: ERROR_METHOD_UNAVAILABLE });
+
+        // Le panier est INTACT : une validation refusée ne doit rien emporter.
+        expect(await prisma.order.count({ where: { buyerId: userId } })).toBe(0);
+        expect((await readCart(prisma, userId))?.lines).toHaveLength(1);
+    });
+
+    // Une valeur hors de l'enum n'est pas une méthode que la boutique refuse : c'est une
+    // valeur que la base ne sait pas écrire. Elle doit être refusée avant, avec la même
+    // raison, et non faire lever une erreur de Prisma que l'écran ne traduit pas.
+    it("refuse une valeur qui n'est pas une méthode", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR", ["OFF_PLATFORM"]);
+        const a = await publishedVariant(shop.id, "EUR", PRICE);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+
+        await expect(
+            placeOrders(prisma, {
+                userId,
+                expectedTotal: PRICE,
+                shipTo: SHIP_TO,
+                notes: {},
+                methods: { [shop.slug]: "BITCOIN" },
+                lines: [{ variantId: a.variantId, label: "" }],
+            }),
+        ).rejects.toMatchObject({ message: ERROR_METHOD_UNAVAILABLE });
+
+        expect((await readCart(prisma, userId))?.lines).toHaveLength(1);
+    });
+
+    it("refuse une boutique du panier sans méthode fournie", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR", ["OFF_PLATFORM"]);
+        const a = await publishedVariant(shop.id, "EUR", PRICE);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+
+        await expect(
+            placeOrders(prisma, {
+                userId,
+                expectedTotal: PRICE,
+                shipTo: SHIP_TO,
+                notes: {},
+                methods: {},
+                lines: [{ variantId: a.variantId, label: "" }],
+            }),
+        ).rejects.toMatchObject({ message: ERROR_METHOD_UNAVAILABLE });
+
+        expect((await readCart(prisma, userId))?.lines).toHaveLength(1);
+    });
+
+    // Le cas que cette tranche existe pour tenir : une boutique qui décoche pendant que
+    // l'acheteur remplit son adresse. Les méthodes se lisent dans la transaction, donc la
+    // validation refuse sur l'état de la boutique à l'instant de l'écriture, et non sur
+    // celui que l'écran affichait.
+    it("refuse une méthode que la boutique a décochée entretemps", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR", ["CASH_ON_DELIVERY", "OFF_PLATFORM"]);
+        const a = await publishedVariant(shop.id, "EUR", PRICE);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+
+        // L'écran proposait les deux, l'acheteur a choisi la livraison, puis la boutique
+        // retire cette méthode.
+        await prisma.vendor.update({
+            where: { id: shop.id },
+            data: { paymentMethods: ["OFF_PLATFORM"] },
+        });
+
+        await expect(
+            placeOrders(prisma, {
+                userId,
+                expectedTotal: PRICE,
+                shipTo: SHIP_TO,
+                notes: {},
+                methods: { [shop.slug]: "CASH_ON_DELIVERY" },
+                lines: [{ variantId: a.variantId, label: "" }],
+            }),
+        ).rejects.toMatchObject({ message: ERROR_METHOD_UNAVAILABLE });
+
+        expect(await prisma.order.count({ where: { buyerId: userId } })).toBe(0);
+        expect((await readCart(prisma, userId))?.lines).toHaveLength(1);
+    });
+
+    // Deux boutiques, deux méthodes différentes : c'est tout l'intérêt du choix par
+    // boutique, et le cas qu'un choix unique pour le panier aurait rendu impossible.
+    it("donne à chaque commande la méthode de sa boutique", async () => {
+        const userId = await createUser();
+        const first = await createShop("EUR", ["CASH_ON_DELIVERY"]);
+        const second = await createShop("EUR", ["BANK_TRANSFER"]);
+        const a = await publishedVariant(first.id, "EUR", PRICE);
+        const b = await publishedVariant(second.id, "EUR", PRICE);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: b.variantId, quantity: 1 });
+
+        const { references } = await placeOrders(prisma, {
+            userId,
+            expectedTotal: PRICE * 2,
+            shipTo: SHIP_TO,
+            notes: {},
+            methods: {
+                [first.slug]: "CASH_ON_DELIVERY",
+                [second.slug]: "BANK_TRANSFER",
+            },
+            lines: [
+                { variantId: a.variantId, label: "" },
+                { variantId: b.variantId, label: "" },
+            ],
+        });
+
+        expect(references).toHaveLength(2);
+        const orders = await prisma.order.findMany({
+            where: { reference: { in: references } },
+            select: { vendorId: true, paymentMethod: true },
+        });
+        expect(orders.find((o) => o.vendorId === first.id)?.paymentMethod).toBe(
+            "CASH_ON_DELIVERY",
+        );
+        expect(orders.find((o) => o.vendorId === second.id)?.paymentMethod).toBe(
+            "BANK_TRANSFER",
+        );
+    });
+
+    // Le refus d'UNE boutique emporte TOUTE la validation. La première commande est déjà
+    // écrite quand la seconde est refusée : la transaction doit la reprendre, sans quoi
+    // l'acheteur aurait une commande qu'il croit ne pas avoir passée.
+    it("refuse tout quand une seule des boutiques n'a pas de méthode valide", async () => {
+        const userId = await createUser();
+        const first = await createShop("EUR", ["CASH_ON_DELIVERY"]);
+        const second = await createShop("EUR", ["BANK_TRANSFER"]);
+        const a = await publishedVariant(first.id, "EUR", PRICE);
+        const b = await publishedVariant(second.id, "EUR", PRICE);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: b.variantId, quantity: 1 });
+
+        await expect(
+            placeOrders(prisma, {
+                userId,
+                expectedTotal: PRICE * 2,
+                shipTo: SHIP_TO,
+                notes: {},
+                methods: {
+                    [first.slug]: "CASH_ON_DELIVERY",
+                    [second.slug]: "CASH_ON_DELIVERY",
+                },
+                lines: [
+                    { variantId: a.variantId, label: "" },
+                    { variantId: b.variantId, label: "" },
+                ],
+            }),
+        ).rejects.toMatchObject({ message: ERROR_METHOD_UNAVAILABLE });
+
+        expect(await prisma.order.count({ where: { buyerId: userId } })).toBe(0);
+        expect((await readCart(prisma, userId))?.lines).toHaveLength(2);
+    });
+
+    // L'écran de validation ne propose que ce que la boutique accepte : le panier porte
+    // donc les méthodes de la boutique de chaque ligne.
+    it("le panier rend les méthodes que chaque boutique accepte", async () => {
+        const userId = await createUser();
+        const first = await createShop("EUR", ["CASH_ON_DELIVERY", "OFF_PLATFORM"]);
+        const second = await createShop("EUR", ["BANK_TRANSFER"]);
+        const a = await publishedVariant(first.id, "EUR", PRICE);
+        const b = await publishedVariant(second.id, "EUR", PRICE);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+        await addItem({ userId, variantId: b.variantId, quantity: 1 });
+
+        const cart = await readCart(prisma, userId);
+
+        const methodsOf = (variantId: string) =>
+            cart?.lines.find((line) => line.variantId === variantId)?.shopMethods.sort();
+        expect(methodsOf(a.variantId)).toEqual(["CASH_ON_DELIVERY", "OFF_PLATFORM"]);
+        expect(methodsOf(b.variantId)).toEqual(["BANK_TRANSFER"]);
+    });
+
+    // Les lectures rendent l'axe de l'argent : c'est ce que les écrans afficheront.
+    it("les listes et les lectures rendent la méthode et l'état du paiement", async () => {
+        const userId = await createUser();
+        const shop = await createShop("EUR", ["BANK_TRANSFER"]);
+        const a = await publishedVariant(shop.id, "EUR", PRICE);
+        await addItem({ userId, variantId: a.variantId, quantity: 1 });
+        const { references } = await placeOrders(prisma, {
+            userId,
+            expectedTotal: PRICE,
+            shipTo: SHIP_TO,
+            notes: {},
+            methods: { [shop.slug]: "BANK_TRANSFER" },
+            lines: [{ variantId: a.variantId, label: "" }],
+        });
+        const order = await prisma.order.findFirstOrThrow({
+            where: { reference: references[0] },
+        });
+
+        const forBuyer = await listOrdersForBuyer(prisma, userId);
+        expect(forBuyer[0]?.paymentMethod).toBe("BANK_TRANSFER");
+        expect(forBuyer[0]?.paymentStatus).toBe("PENDING");
+
+        const forVendor = await listOrdersForVendor(prisma, shop.id);
+        expect(forVendor[0]?.paymentMethod).toBe("BANK_TRANSFER");
+        expect(forVendor[0]?.paymentStatus).toBe("PENDING");
+
+        // La trace d'une tentative apparaît, sans son payload : `rawPayload` est chiffré
+        // et ne se lit qu'à l'enquête.
+        await prisma.orderPayment.create({
+            data: {
+                orderId: order.id,
+                method: "BANK_TRANSFER",
+                amount: PRICE,
+                currency: "EUR",
+                provider: "simulated",
+                providerRef: `ref-${counter}`,
+                rawPayload: Buffer.from("chiffré"),
+            },
+        });
+        const buyerView = await readOrderForBuyer(prisma, {
+            buyerId: userId,
+            reference: references[0] ?? "",
+        });
+        const vendorView = await readOrderForVendor(prisma, {
+            vendorId: shop.id,
+            orderId: order.id,
+        });
+        for (const view of [buyerView, vendorView]) {
+            expect(view?.payments).toHaveLength(1);
+            expect(view?.payments[0]).toMatchObject({
+                method: "BANK_TRANSFER",
+                status: "PENDING",
+                provider: "simulated",
+            });
+            expect(view?.payments[0]).not.toHaveProperty("rawPayload");
+        }
     });
 });
 
@@ -393,6 +686,7 @@ describe("l'isolement des commandes", () => {
             expectedTotal: 5000,
             shipTo: SHIP_TO,
             notes: {},
+            methods: offPlatform(mienne),
             lines: [{ variantId: a.variantId, label: "" }],
         });
         await placeOrders(prisma, {
@@ -400,6 +694,7 @@ describe("l'isolement des commandes", () => {
             expectedTotal: 3000,
             shipTo: SHIP_TO,
             notes: {},
+            methods: offPlatform(voisine),
             lines: [{ variantId: b.variantId, label: "" }],
         });
 
@@ -425,6 +720,7 @@ describe("l'isolement des commandes", () => {
             expectedTotal: 5000,
             shipTo: SHIP_TO,
             notes: {},
+            methods: offPlatform(shop),
             lines: [{ variantId: a.variantId, label: "" }],
         });
 
@@ -447,6 +743,7 @@ describe("l'isolement des commandes", () => {
             expectedTotal: 5000,
             shipTo: SHIP_TO,
             notes: {},
+            methods: offPlatform(autre),
             lines: [{ variantId: a.variantId, label: "" }],
         });
         const commande = await prisma.order.findFirstOrThrow({
@@ -471,6 +768,7 @@ describe("l'isolement des commandes", () => {
             expectedTotal: 5000,
             shipTo: SHIP_TO,
             notes: {},
+            methods: offPlatform(shop),
             lines: [{ variantId: a.variantId, label: "" }],
         });
         const order = await prisma.order.findFirstOrThrow({ where: { vendorId: shop.id } });
@@ -505,6 +803,7 @@ describe("l'isolement des commandes", () => {
             expectedTotal: 5000,
             shipTo: SHIP_TO,
             notes: {},
+            methods: offPlatform(shop),
             lines: [{ variantId: a.variantId, label: "" }],
         });
         const order = await prisma.order.findFirstOrThrow({ where: { vendorId: shop.id } });
@@ -548,6 +847,7 @@ describe("l'isolement des commandes", () => {
             expectedTotal: 5000,
             shipTo: SHIP_TO,
             notes: {},
+            methods: offPlatform(autre),
             lines: [{ variantId: a.variantId, label: "" }],
         });
         const commande = await prisma.order.findFirstOrThrow({

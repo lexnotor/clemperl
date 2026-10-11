@@ -28,7 +28,16 @@ export default async function CheckoutPage({
     const shops = groupByShop(cart.lines).map((group) => ({
         slug: group.shopSlug,
         name: group.lines[0]?.shopName ?? group.shopSlug,
+        methods: group.lines[0]?.shopMethods ?? [],
     }));
+    // Un libellé par méthode réellement proposée, par sa CLÉ : « CARD » n'est pas du
+    // français, et le formulaire est un composant client qui ne traduit pas.
+    const methodLabels = Object.fromEntries(
+        [...new Set(shops.flatMap((shop) => shop.methods))].map((method) => [
+            method,
+            t(`method.${method}`),
+        ]),
+    );
 
     return (
         <main className="mx-auto w-full max-w-2xl px-6 py-16">
@@ -37,6 +46,7 @@ export default async function CheckoutPage({
                 expectedTotal={total}
                 total={formatPrice(total, cart.currency as never, locale)}
                 shops={shops}
+                methodLabels={methodLabels}
                 labels={{
                     shipTo: t("shipTo"),
                     shipToName: t("shipToName"),
@@ -46,12 +56,14 @@ export default async function CheckoutPage({
                     shipToCountry: t("shipToCountry"),
                     noteToShop: t("noteToShop", { shop: "{shop}" }),
                     noteHint: t("noteHint"),
+                    paymentMethod: t("paymentMethod", { shop: "{shop}" }),
                     confirm: t("confirm"),
                 }}
                 errors={{
                     invalid: t("invalid"),
                     totalChanged: t("totalChanged"),
                     itemUnavailable: t("itemUnavailable"),
+                    methodUnavailable: t("methodUnavailable"),
                     cartEmpty: t("cartEmpty"),
                 }}
             />

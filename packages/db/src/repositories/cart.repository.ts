@@ -30,6 +30,9 @@ export interface ICartLine {
     imagePath: string;
     shopSlug: string;
     shopName: string;
+    // Les méthodes que la boutique accepte au moment de la lecture, pour que l'écran de
+    // validation ne propose que celles-là. La validation les relit sous verrou.
+    shopMethods: string[];
     vendorId: string;
     optionValues: { optionName: string; valueLabel: string }[];
 }
@@ -61,7 +64,15 @@ const VARIANT_SELECT = {
         select: {
             title: true,
             slug: true,
-            vendor: { select: { id: true, slug: true, shopName: true, currency: true } },
+            vendor: {
+                select: {
+                    id: true,
+                    slug: true,
+                    shopName: true,
+                    currency: true,
+                    paymentMethods: true,
+                },
+            },
             images: {
                 where: { status: "READY" as const },
                 orderBy: { position: "asc" as const },
@@ -107,6 +118,7 @@ export async function readCart(
             imagePath: item.variant.product.images[0]?.objectPath ?? "",
             shopSlug: item.variant.product.vendor.slug,
             shopName: item.variant.product.vendor.shopName,
+            shopMethods: item.variant.product.vendor.paymentMethods,
             vendorId: item.variant.product.vendor.id,
             optionValues: [...item.variant.values]
                 .sort((a, b) => a.option.position - b.option.position)
