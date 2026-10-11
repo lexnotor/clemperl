@@ -25,4 +25,16 @@ describe("FormSection", () => {
         );
         expect(screen.getByRole("group", { name: "Pièces justificatives" })).toBeInTheDocument();
     });
+
+    // Le titre nomme le groupe, la règle le DÉCRIT : un lecteur d'écran dit l'un puis
+    // l'autre, et la règle ne se perd pas dans le nom.
+    it("relie le groupe à la phrase qui en dit la règle", () => {
+        render(
+            <FormSection title="Paiements" describedBy="rule">
+                <p id="rule">Au moins un paiement.</p>
+            </FormSection>,
+        );
+        const group = screen.getByRole("group", { name: "Paiements" });
+        expect(group).toHaveAccessibleDescription("Au moins un paiement.");
+    });
 });

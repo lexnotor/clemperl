@@ -73,8 +73,9 @@ describe("shopPaymentMethodsSchema", () => {
         expect(shopPaymentMethodsSchema.safeParse(input).success).toBe(true);
     });
 
-    // Une liste vide sort la boutique du catalogue. Le refus est ici parce qu'une boutique
-    // qui ne vend rien par accident est pire qu'un formulaire qui refuse de se soumettre.
+    // Une liste vide tient la boutique hors du catalogue. Le refus est ici parce qu'une
+    // boutique qui ne vend rien par accident est pire qu'un formulaire qui refuse de se
+    // soumettre.
     it("refuse une liste vide", () => {
         expect(shopPaymentMethodsSchema.safeParse({ paymentMethods: [] }).success).toBe(false);
     });

@@ -1,4 +1,8 @@
-import type { E_CURRENCY, E_VENDOR_CATEGORY } from "../../generated/prisma/enums.js";
+import type {
+    E_CURRENCY,
+    E_PAYMENT_METHOD,
+    E_VENDOR_CATEGORY,
+} from "../../generated/prisma/enums.js";
 import type { PrismaClient } from "../../generated/prisma/client.js";
 
 type TCategory = (typeof E_VENDOR_CATEGORY)[keyof typeof E_VENDOR_CATEGORY];
@@ -72,15 +76,19 @@ export async function setShopCurrency(
     });
 }
 
+type TPaymentMethod = (typeof E_PAYMENT_METHOD)[keyof typeof E_PAYMENT_METHOD];
+
 // Pas de verrou ni de comptage, contrairement à la devise : les méthodes se corrigent
 // librement, y compris après la première vente. Une commande garde la sienne, qui est
 // figée dessus.
+//
+// La liste REMPLACE celle de la boutique, elle ne s'y ajoute pas.
 export async function setShopPaymentMethods(
     prisma: PrismaClient,
-    input: { vendorId: string; paymentMethods: readonly string[] },
+    input: { vendorId: string; paymentMethods: TPaymentMethod[] },
 ): Promise<void> {
     await prisma.vendor.update({
         where: { id: input.vendorId },
-        data: { paymentMethods: input.paymentMethods as never },
+        data: { paymentMethods: input.paymentMethods },
     });
 }

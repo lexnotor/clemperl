@@ -3,7 +3,7 @@
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { E_CURRENCY, E_PAYMENT_METHOD } from "@clemperl/db/enums";
 import { Button, CheckboxField, Field, FormSection, SelectField, TextAreaField } from "@clemperl/ui";
-import { useActionState, type JSX } from "react";
+import { useActionState, useId, type JSX } from "react";
 import { saveShopCurrency, saveShopPaymentMethods, saveShopProfile } from "./actions";
 import { INITIAL_STATE } from "./types/shop-form-state.interface";
 
@@ -33,6 +33,7 @@ export function ShopForm(shop: ShopFormProps): JSX.Element {
         saveShopPaymentMethods,
         INITIAL_STATE,
     );
+    const paymentRuleId = useId();
 
     return (
         <>
@@ -130,7 +131,7 @@ export function ShopForm(shop: ShopFormProps): JSX.Element {
 
         {/* Une form SÉPARÉE pour la même raison : les méthodes ont leur propre action serveur. */}
         <form action={paymentAction} className="mt-12 flex flex-col gap-6">
-            <FormSection title={t.payment.legend}>
+            <FormSection title={t.payment.legend} describedBy={paymentRuleId}>
                 <div className="flex flex-wrap gap-4">
                     {Object.values(E_PAYMENT_METHOD).map((method) => (
                         <CheckboxField
@@ -143,8 +144,11 @@ export function ShopForm(shop: ShopFormProps): JSX.Element {
                     ))}
                 </div>
                 {/* Phrase PERMANENTE : une alerte qui n'apparaîtrait qu'une fois la dernière
-                    case décochée arriverait après la décision qu'elle devait éclairer. */}
-                <p className="text-sm text-muet">{t.payment.lastOneWarning}</p>
+                    case décochée arriverait après la décision qu'elle devait éclairer. Le groupe
+                    la porte en `aria-describedby`, donc un lecteur d'écran la lit dès l'entrée. */}
+                <p id={paymentRuleId} className="text-sm text-muet">
+                    {t.payment.lastOneWarning}
+                </p>
             </FormSection>
 
             {paymentState.message.length > 0 && (

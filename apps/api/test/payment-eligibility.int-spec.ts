@@ -7,6 +7,7 @@ import {
     readPublishedShop,
     searchPublishedProducts,
     setProductStatus,
+    setShopPaymentMethods,
 } from "@clemperl/db";
 import type { Vendor } from "@clemperl/db";
 import { CATALOG_PAGE_SIZE, catalogOffset, readCatalogFilters } from "@clemperl/domain";
@@ -140,5 +141,41 @@ describe("une boutique sans méthode de paiement", () => {
         const after = productCountOf(await listCatalogCurrencies(prisma), shop.currency);
 
         expect(after).toBe(before - 1);
+    });
+});
+
+describe("setShopPaymentMethods", () => {
+    // Une boutique naît avec une liste vide : le premier enregistrement du vendeur est le
+    // moment où elle devient visible. Toutes les autres conditions sont réunies, donc seule
+    // l'écriture explique le passage.
+    it("fait entrer au catalogue une boutique qui n'avait aucune méthode", async () => {
+        const shop = await createShopWithPublishedProduct({ methods: [] });
+
+        await expect(
+            searchPublishedProducts(prisma, catalogQuery(shop)),
+        ).resolves.toMatchObject({ total: 0 });
+        await expect(readPublishedShop(prisma, { shopSlug: shop.slug })).resolves.toBeNull();
+
+        await setShopPaymentMethods(prisma, { vendorId: shop.id, paymentMethods: ["CARD"] });
+
+        await expect(
+            searchPublishedProducts(prisma, catalogQuery(shop)),
+        ).resolves.toMatchObject({ total: 1 });
+        await expect(readPublishedShop(prisma, { shopSlug: shop.slug })).resolves.not.toBeNull();
+    });
+
+    // La liste REMPLACE. Une écriture qui s'y ajouterait garderait la méthode que le vendeur
+    // vient de décocher, et l'acheteur pourrait encore la choisir à la validation.
+    it("remplace la liste et ne s'y ajoute pas", async () => {
+        const shop = await createShopWithPublishedProduct({ methods: [] });
+
+        await setShopPaymentMethods(prisma, { vendorId: shop.id, paymentMethods: ["CARD"] });
+        await setShopPaymentMethods(prisma, {
+            vendorId: shop.id,
+            paymentMethods: ["BANK_TRANSFER"],
+        });
+
+        const vendor = await prisma.vendor.findUniqueOrThrow({ where: { id: shop.id } });
+        expect(vendor.paymentMethods).toEqual(["BANK_TRANSFER"]);
     });
 });

@@ -39,8 +39,8 @@ export type TShopCurrency = z.infer<typeof shopCurrencySchema>;
 
 // Les méthodes vivent à part des champs commerciaux et de la devise, pour la même raison
 // qui sépare déjà ces deux-là : chaque signature dit une règle. Celle-ci dit qu'une
-// boutique doit accepter au moins une méthode, sans quoi elle ne peut rien vendre et quitte
-// le catalogue.
+// boutique doit accepter au moins une méthode, sans quoi elle ne peut rien vendre et reste
+// hors du catalogue.
 export const shopPaymentMethodsSchema = z.object({
     paymentMethods: z
         .array(z.enum(E_PAYMENT_METHOD))

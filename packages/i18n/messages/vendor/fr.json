@@ -43,7 +43,7 @@
         "BANK_TRANSFER": "Virement bancaire",
         "OFF_PLATFORM": "Hors plateforme"
       },
-      "lastOneWarning": "Votre boutique doit accepter au moins un paiement. Sans aucun, elle quitte le catalogue et ses articles ne sont plus visibles.",
+      "lastOneWarning": "Votre boutique doit accepter au moins un paiement. Sans aucun, elle n'apparaît pas dans le catalogue, et ses articles non plus.",
       "save": "Enregistrer les paiements"
     }
   },
