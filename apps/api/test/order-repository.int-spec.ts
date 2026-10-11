@@ -479,10 +479,9 @@ describe("la méthode de paiement", () => {
         expect((await readCart(prisma, userId))?.lines).toHaveLength(1);
     });
 
-    // Le cas que cette tranche existe pour tenir : une boutique qui décoche pendant que
-    // l'acheteur remplit son adresse. Les méthodes se lisent dans la transaction, donc la
-    // validation refuse sur l'état de la boutique à l'instant de l'écriture, et non sur
-    // celui que l'écran affichait.
+    // Une boutique décoche sa méthode pendant que l'acheteur remplit son adresse. Les
+    // méthodes se lisent dans la transaction, donc la validation refuse sur l'état de la
+    // boutique à l'instant de l'écriture, et non sur celui que l'écran affichait.
     it("refuse une méthode que la boutique a décochée entretemps", async () => {
         const userId = await createUser();
         const shop = await createShop("EUR", ["CASH_ON_DELIVERY", "OFF_PLATFORM"]);
@@ -550,9 +549,9 @@ describe("la méthode de paiement", () => {
         );
     });
 
-    // Le refus d'UNE boutique emporte TOUTE la validation. La première commande est déjà
-    // écrite quand la seconde est refusée : la transaction doit la reprendre, sans quoi
-    // l'acheteur aurait une commande qu'il croit ne pas avoir passée.
+    // Le refus d'UNE boutique emporte TOUTE la validation : aucune commande n'est écrite et
+    // le panier reste intact. L'ordre dans lequel les boutiques sont visitées n'est pas
+    // fixé, et le test tient dans les deux cas.
     it("refuse tout quand une seule des boutiques n'a pas de méthode valide", async () => {
         const userId = await createUser();
         const first = await createShop("EUR", ["CASH_ON_DELIVERY"]);
