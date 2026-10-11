@@ -38,9 +38,12 @@ export default async function OrdersPage(): Promise<JSX.Element> {
                             </Link>
                             {/* L'état par sa CLÉ, jamais la valeur de l'énumération :
                                 « PLACED » n'est pas du français, et un écran qui l'affiche
-                                parle la langue de la base. */}
+                                parle la langue de la base. Les deux axes se lisent côte à
+                                côte, et le mot « Paiement » reste devant le second : sans lui,
+                                « Reçue » (la commande) et « Reçu » (l'argent) se confondent. */}
                             <p className="mt-1 text-xs text-muet">
-                                {t.status[order.status]} · {order.shipToName} ·{" "}
+                                {t.status[order.status]} · {t.payment.title} :{" "}
+                                {t.payment.status[order.paymentStatus]} · {order.shipToName} ·{" "}
                                 {DATE.format(order.createdAt)}
                             </p>
                         </li>

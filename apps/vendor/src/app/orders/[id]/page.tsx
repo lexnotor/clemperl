@@ -1,4 +1,5 @@
 import { prisma, readOrderForVendor } from "@clemperl/db";
+import { E_PAYMENT_METHOD, E_PAYMENT_STATUS } from "@clemperl/db/enums";
 import { allowedOrderActions, formatPrice } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import Link from "next/link";
@@ -6,12 +7,24 @@ import { notFound } from "next/navigation";
 import type { JSX } from "react";
 import { requireVendorMembership } from "../../../lib/session";
 import { OrderActions } from "./order-actions";
+import { SettleButton } from "./settle-button";
 
 // Cette page lit la session : elle ne peut pas être pré-rendue au build.
 export const dynamic = "force-dynamic";
 
 const t = messages.orders;
+const METHODS = messages.shop.payment.method;
 const DATE = new Intl.DateTimeFormat("fr", { dateStyle: "long", timeStyle: "short" });
+
+// Le navigateur doit savoir où joindre l'API. Lue ICI, à l'exécution, puis passée au bouton
+// en prop : dans un composant client, Next remplacerait la variable à la construction du
+// paquet, et l'adresse resterait celle de la machine qui l'a construit.
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "";
+
+// Les méthodes qui se règlent chez un fournisseur : l'API n'en accepte aucun pointage à la
+// main, et l'écran n'offre donc pas le bouton. L'API reste l'autorité, elle refuse même si
+// cette liste dérive.
+const ONLINE_METHODS: readonly string[] = [E_PAYMENT_METHOD.CARD, E_PAYMENT_METHOD.MOBILE_MONEY];
 
 export default async function OrderPage({
     params,
@@ -32,6 +45,33 @@ export default async function OrderPage({
     // à une propriété est abandonnée dès qu'on entre dans une fermeture, et `formatPrice`
     // est appelée dans un `map`.
     const currency = order.currency;
+
+    // Le nom de qui a pointé ne fait PAS partie de la trace de paiement lue plus haut : cette
+    // trace est partagée avec l'acheteur, à qui le nom d'un membre de la boutique ne
+    // regarde pas. Il se lit ici, borné à la boutique, et seulement pour ce vendeur.
+    const settlers = await prisma.orderPayment.findMany({
+        where: { orderId: order.id, order: { vendorId: vendor.id }, settledById: { not: null } },
+        select: { id: true, settledBy: { select: { name: true } } },
+    });
+    const settlerNames = new Map(
+        settlers.map((attempt) => [attempt.id, attempt.settledBy?.name ?? null]),
+    );
+
+    // Un encaissement porte la date où l'argent est arrivé, les autres celle où la tentative
+    // a commencé. Le texte part tout fait : ni libellé ni nom ne se composent dans le JSX.
+    const attempts = order.payments.map((attempt) => {
+        const settler = settlerNames.get(attempt.id) ?? null;
+        return {
+            id: attempt.id,
+            label: `${METHODS[attempt.method]} · ${t.payment.status[attempt.status]}`,
+            date: DATE.format(attempt.settledAt ?? attempt.createdAt),
+            settledBy:
+                settler === null ? null : t.payment.settledBy.replace("{name}", () => settler),
+        };
+    });
+
+    const unsettled = order.paymentStatus !== E_PAYMENT_STATUS.SETTLED;
+    const online = ONLINE_METHODS.includes(order.paymentMethod);
 
     // Les boutons viennent de CETTE liste, et de rien d'autre. Une action impossible ne
     // s'affiche pas grisée, elle ne s'affiche pas : un bouton qu'on ne peut pas presser
@@ -83,6 +123,42 @@ export default async function OrderPage({
             </section>
 
             <section className="mt-10 text-sm">
+                <h2 className="font-titre text-xl">{t.payment.title}</h2>
+                <p className="mt-4 flex justify-between gap-6">
+                    <span>{METHODS[order.paymentMethod]}</span>
+                    <span className="text-muet">{t.payment.status[order.paymentStatus]}</span>
+                </p>
+                {attempts.length > 0 && (
+                    <>
+                        <h3 className="mt-6 text-muet">{t.payment.attempts}</h3>
+                        <ul className="mt-2 border-t border-bordure">
+                            {attempts.map((attempt) => (
+                                <li key={attempt.id} className="border-b border-bordure py-3">
+                                    <p className="flex justify-between gap-6">
+                                        <span>{attempt.label}</span>
+                                        <span className="text-muet">{attempt.date}</span>
+                                    </p>
+                                    {attempt.settledBy !== null && (
+                                        <p className="mt-1 text-muet">{attempt.settledBy}</p>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    </>
+                )}
+                {unsettled && online && <p className="mt-4 text-muet">{t.payment.onlineOnly}</p>}
+                {unsettled && !online && (
+                    <div className="mt-4">
+                        <SettleButton
+                            orderId={order.id}
+                            apiUrl={API_URL}
+                            labels={{ settle: t.payment.settle, failed: t.payment.settleFailed }}
+                        />
+                    </div>
+                )}
+            </section>
+
+            <section className="mt-10 text-sm">
                 <h2 className="font-titre text-xl">{t.shipTo}</h2>
                 <p className="mt-4">{order.shipToName}</p>
                 <p>{order.shipToLine}</p>
@@ -99,7 +175,15 @@ export default async function OrderPage({
                 </section>
             )}
 
-            {actions.length > 0 && <OrderActions orderId={order.id} actions={actions} />}
+            {actions.length > 0 && (
+                <>
+                    {/* Cette phrase prévient et n'empêche rien : les boutons ci-dessous restent
+                        tous ouverts. Le vendeur connaît peut-être son client, ou a reçu les
+                        fonds par un chemin que la plateforme ignore. */}
+                    {unsettled && <p className="mt-10 text-sm">{t.payment.unpaidNotice}</p>}
+                    <OrderActions orderId={order.id} actions={actions} />
+                </>
+            )}
         </main>
     );
 }

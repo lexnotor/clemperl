@@ -184,6 +184,20 @@
       "ACCEPT": "Accepter",
       "SHIP": "Marquer expédiée",
       "CANCEL": "Annuler"
+    },
+    "payment": {
+      "title": "Paiement",
+      "status": {
+        "PENDING": "En attente",
+        "SETTLED": "Reçu",
+        "FAILED": "Refusé"
+      },
+      "settle": "Paiement reçu",
+      "settleFailed": "Le pointage a échoué. Rechargez la page.",
+      "settledBy": "Pointé par {name}",
+      "attempts": "Les tentatives",
+      "unpaidNotice": "Le paiement de cette commande n'est pas arrivé. À vous de juger si vous l'engagez.",
+      "onlineOnly": "Un paiement en ligne se règle chez le fournisseur : il ne se pointe pas à la main."
     }
   }
 }
