@@ -3,8 +3,9 @@ CREATE TYPE "payment_status" AS ENUM ('PENDING', 'SETTLED', 'FAILED');
 
 ALTER TABLE "vendors" ADD COLUMN "payment_methods" "payment_method"[] NOT NULL DEFAULT ARRAY[]::"payment_method"[];
 
--- Les boutiques existantes gardent leur place au catalogue. Sans cette ligne, la condition
--- d'éligibilité ajoutée par la tâche 2 les en sortirait TOUTES le jour du déploiement.
+-- Les boutiques existantes gardent leur place au catalogue. Le catalogue n'admet qu'une
+-- boutique acceptant au moins une méthode : sans cette ligne, elles en sortiraient TOUTES
+-- le jour du déploiement.
 UPDATE "vendors" SET "payment_methods" = ARRAY['OFF_PLATFORM']::"payment_method"[];
 
 ALTER TABLE "orders" ADD COLUMN "payment_method" "payment_method" NOT NULL DEFAULT 'OFF_PLATFORM';
@@ -14,8 +15,8 @@ ALTER TABLE "orders" ADD COLUMN "payment_status" "payment_status" NOT NULL DEFAU
 -- fausse sur de l'argent, et c'est le genre d'affirmation qu'on ne rattrape pas.
 UPDATE "orders" SET "payment_status" = 'SETTLED' WHERE "status" = 'SHIPPED';
 
--- Le défaut a servi la reprise. Le garder laisserait une commande naître sans méthode
--- choisie, ce que la tâche 4 interdit à l'entrée.
+-- Le défaut ne sert qu'à la reprise des lignes existantes. Le garder laisserait une
+-- commande naître sans méthode choisie, ce que la validation refuse à l'entrée.
 ALTER TABLE "orders" ALTER COLUMN "payment_method" DROP DEFAULT;
 
 CREATE TABLE "payments" (

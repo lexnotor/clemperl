@@ -157,7 +157,7 @@ export async function placeOrders(
                     vendorId,
                     currency: cart.currency,
                     // La validation ne reçoit aucune méthode : toute commande se règle
-                    // hors plateforme, comme celles que la migration a reprises.
+                    // hors plateforme.
                     paymentMethod: "OFF_PLATFORM",
                     shipToName: input.shipTo.name,
                     shipToPhone: input.shipTo.phone,
