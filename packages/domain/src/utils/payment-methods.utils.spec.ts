@@ -5,6 +5,7 @@ import {
     isOnlinePaymentMethod,
     offerablePaymentMethods,
     onlinePaymentMethods,
+    paymentHintMethod,
     paymentSimulatorEnabled,
 } from "./payment-methods.utils.js";
 
@@ -78,5 +79,31 @@ describe("ce que l'écran du vendeur offre", () => {
         expect(offerablePaymentMethods(ALLUME, [E_PAYMENT_METHOD.CARD])).toEqual(
             Object.values(E_PAYMENT_METHOD),
         );
+    });
+});
+
+describe("paymentHintMethod", () => {
+    // L'indication montrée à l'acheteur était choisie par le NOM de la méthode, alors que
+    // le bouton « Payer » s'affiche selon la CAPACITÉ réelle. Une commande par carte sans
+    // adapter annonçait donc « Réglez en ligne » au-dessus des coordonnées de la boutique,
+    // sans aucun moyen de régler en ligne.
+    it("rend la méthode elle-même quand un adapter la sert", () => {
+        expect(paymentHintMethod(ALLUME, E_PAYMENT_METHOD.CARD)).toBe(E_PAYMENT_METHOD.CARD);
+    });
+
+    it("rend la méthode elle-même pour ce qui se règle toujours hors ligne", () => {
+        for (const method of OFFLINE_PAYMENT_METHODS) {
+            expect(paymentHintMethod(ETEINT, method)).toBe(method);
+            expect(paymentHintMethod(ALLUME, method)).toBe(method);
+        }
+    });
+
+    // C'est le cas que la décision « le vendeur peut cocher la carte » rend courant en
+    // production : la méthode reste cochée, la commande se règle par arrangement, et c'est
+    // cela qu'il faut dire plutôt que de promettre une redirection qui n'existe pas.
+    it("renvoie vers l'arrangement quand la méthode attend un fournisseur absent", () => {
+        for (const method of PROVIDER_PAYMENT_METHODS) {
+            expect(paymentHintMethod(ETEINT, method)).toBe(E_PAYMENT_METHOD.OFF_PLATFORM);
+        }
     });
 });

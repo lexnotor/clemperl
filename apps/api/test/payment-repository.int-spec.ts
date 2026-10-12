@@ -586,6 +586,29 @@ describe("settleOffline", () => {
         expect(await prisma.orderPayment.count({ where: { orderId: order.id } })).toBe(0);
     });
 
+    // `readOrderToPay` refuse déjà une commande annulée à l'ACHETEUR. Sans ce refus-ci, le
+    // vendeur pouvait faire ce que l'acheteur ne pouvait pas : pointer comme payée une
+    // commande qu'il venait lui-même d'annuler. L'acheteur lisait alors « Annulée » et
+    // « Payé » côte à côte, sans aucun recours, et la trace affirmait un encaissement sur
+    // une commande qui n'existe plus.
+    it("refuse de pointer une commande annulée", async () => {
+        const order = await placedOrder({ method: "CASH_ON_DELIVERY" });
+        await prisma.order.update({ where: { id: order.id }, data: { status: "CANCELLED" } });
+
+        await expect(
+            settleOffline(prisma, {
+                vendorId: order.vendorId,
+                orderId: order.id,
+                userId: order.memberId,
+                offlineMethods: OFFLINE,
+            }),
+        ).rejects.toMatchObject({ message: ERROR_PAYMENT_ORDER_CANCELLED });
+
+        const after = await prisma.order.findUnique({ where: { id: order.id } });
+        expect(after?.paymentStatus).toBe("PENDING");
+        expect(await prisma.orderPayment.count({ where: { orderId: order.id } })).toBe(0);
+    });
+
     // Ce refus ferme un mensonge : seul le fournisseur dit ce qui s'est passé sur un
     // paiement en ligne, et un vendeur qui le pointerait à la main l'inventerait.
     it("refuse de pointer un paiement en ligne", async () => {

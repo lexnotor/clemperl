@@ -108,6 +108,16 @@ test("un visiteur remplit son panier, se connecte, commande, et le vendeur expé
     await expect(page.getByRole("button", { name: "Marquer expédiée" })).toBeVisible();
 
     await page.getByRole("button", { name: "Marquer expédiée" }).click();
+
+    // On vise la DISPARITION du bouton, parce qu'un état terminal n'offre plus aucune
+    // action. Chercher « Expédiée » directement ne prouverait rien : `getByText` compare par
+    // sous-chaîne et sans tenir compte de la casse, donc « Marquer expédiée » satisfait
+    // l'assertion, et ce bouton était là AVANT le clic. C'est le piège consigné dans
+    // `docs/pieges.md`, et ce test y était tombé.
+    //
+    // Ce n'est pas qu'une question de rigueur : une assertion qui passe avant l'action
+    // laisse le test interroger l'acheteur plus bas pendant que l'expédition s'écrit encore.
+    await expect(page.getByRole("button", { name: "Marquer expédiée" })).toBeHidden();
     await expect(inMain(page, "Expédiée")).toBeVisible();
 
     // L'acheteur lit le même état : c'est la seule preuve que les deux écrans parlent de

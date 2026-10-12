@@ -30,7 +30,11 @@ export async function pushLocalCart(
         items: clean,
         maxQuantity: MAX_CART_QUANTITY,
     });
-    revalidatePath("/cart");
+    // Le MOTIF de route, pas l'adresse visible. La boutique monte ses pages sous
+    // `/[locale]/…` même quand l'URL n'a pas de préfixe, donc `revalidatePath("/cart")`
+    // ne correspond à aucune route et porte dans le vide, sans rien signaler. Piège déjà
+    // payé et consigné dans `docs/pieges.md`.
+    revalidatePath("/[locale]/cart", "page");
     return result;
 }
 
@@ -42,7 +46,7 @@ export async function changeQuantity(variantId: string, quantity: number): Promi
         quantity: boundQuantity(quantity),
         maxQuantity: MAX_CART_QUANTITY,
     });
-    revalidatePath("/cart");
+    revalidatePath("/[locale]/cart", "page");
 }
 
 // Retirer, c'est poser zéro : une seule écriture à relire, et le dépôt y supprime déjà le
@@ -55,5 +59,5 @@ export async function removeLine(variantId: string): Promise<void> {
         quantity: 0,
         maxQuantity: MAX_CART_QUANTITY,
     });
-    revalidatePath("/cart");
+    revalidatePath("/[locale]/cart", "page");
 }

@@ -1,5 +1,5 @@
 import { ERROR_PAYMENT_ALREADY_SETTLED, prisma, readOrderForVendor } from "@clemperl/db";
-import { E_PAYMENT_STATUS } from "@clemperl/db/enums";
+import { E_ORDER_STATUS, E_PAYMENT_STATUS } from "@clemperl/db/enums";
 import { allowedOrderActions, formatPrice, isOnlinePaymentMethod } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import Link from "next/link";
@@ -64,7 +64,12 @@ export default async function OrderPage({
         };
     });
 
-    const unsettled = order.paymentStatus !== E_PAYMENT_STATUS.SETTLED;
+    // Une commande ANNULÉE ne se pointe plus, et l'API le refuse désormais comme elle le
+    // refuse déjà à l'acheteur. Le bouton suit ce refus plutôt que de le découvrir : un
+    // bouton qu'on ne peut pas presser est une promesse que l'écran ne tient pas.
+    const unsettled =
+        order.paymentStatus !== E_PAYMENT_STATUS.SETTLED &&
+        order.status !== E_ORDER_STATUS.CANCELLED;
     // Une méthode qui se règle chez un fournisseur ne se pointe pas à la main, et l'API le
     // refuse. Ce qu'elle sert vient du domaine, à partir de l'environnement qu'elle lit
     // aussi : sans adapter, la méthode se règle hors ligne, et le bouton « Paiement reçu »

@@ -1,6 +1,6 @@
 import { prisma, readOrderForBuyer } from "@clemperl/db";
 import { E_ORDER_STATUS, E_PAYMENT_STATUS } from "@clemperl/db/enums";
-import { formatPrice, isOnlinePaymentMethod } from "@clemperl/domain";
+import { formatPrice, isOnlinePaymentMethod, paymentHintMethod } from "@clemperl/domain";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import type { JSX } from "react";
@@ -105,7 +105,10 @@ export default async function OrderPage({
 
                 {owed && (
                     <div className="mt-4 flex flex-col gap-4">
-                        <p>{t(`methodHint.${order.paymentMethod}`)}</p>
+                        {/* L'indication suit la CAPACITÉ, comme le bouton au-dessous :
+                            une carte sans adapter se règle par arrangement, et promettre
+                            une redirection qui n'existe pas serait mentir à l'acheteur. */}
+                        <p>{t(`methodHint.${paymentHintMethod(process.env, order.paymentMethod)}`)}</p>
                         {online ? (
                             <PayButton
                                 orderId={order.id}
