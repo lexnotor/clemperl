@@ -164,6 +164,7 @@ export async function settleOffline(
             where: { id: input.orderId, vendorId: input.vendorId },
             select: {
                 id: true,
+                status: true,
                 totalAmount: true,
                 currency: true,
                 paymentMethod: true,
@@ -172,6 +173,14 @@ export async function settleOffline(
         });
         if (!order) {
             throw new Error(ERROR_PAYMENT_ORDER_NOT_FOUND);
+        }
+        // Le MÊME refus que `readOrderToPay` oppose à l'acheteur. Sans lui, le vendeur
+        // pouvait faire ce que l'acheteur ne pouvait pas : pointer comme payée une commande
+        // qu'il venait d'annuler. L'acheteur lisait alors « Annulée » et « Payé » côte à
+        // côte, sans recours, et la trace affirmait un encaissement sur une commande qui
+        // n'existe plus.
+        if (order.status === "CANCELLED") {
+            throw new Error(ERROR_PAYMENT_ORDER_CANCELLED);
         }
         if (!input.offlineMethods.includes(order.paymentMethod)) {
             throw new Error(ERROR_PAYMENT_NOT_OFFLINE);

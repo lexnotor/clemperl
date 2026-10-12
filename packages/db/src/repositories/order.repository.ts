@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client.js";
 import { eligibleVariantWhere } from "./cart.repository.js";
+import { retryOnUniqueViolation } from "../retry-unique.js";
 
 export const ERROR_CART_EMPTY = "CART_EMPTY";
 export const ERROR_TOTAL_CHANGED = "TOTAL_CHANGED";
@@ -86,150 +87,159 @@ export async function placeOrders(
     prisma: PrismaClient,
     input: IPlaceOrders,
 ): Promise<{ references: string[] }> {
-    return prisma.$transaction(async (tx) => {
-        // Le VERROU d'abord. Sans lui, deux onglets lisent tous deux un panier plein et
-        // écrivent chacun leur jeu de commandes : l'acheteur paie deux fois pour un seul
-        // achat. Même mécanique que le verrou de devise de T2b et celui des collections.
-        await tx.$executeRaw`SELECT id FROM carts WHERE user_id = ${input.userId} FOR UPDATE`;
+    // La référence est TIRÉE AU SORT, donc elle peut entrer en collision avec une référence
+    // déjà posée, et l'index unique fait alors échouer toute la validation. Rejouer la
+    // transaction entière regénère les références : PostgreSQL refusant toute instruction
+    // qui suit une erreur dans une transaction, il n'y a pas de reprise plus fine.
+    //
+    // La transaction ayant été annulée, le panier est intact et la reprise repart d'un état
+    // propre, verrou compris.
+    return retryOnUniqueViolation(() =>
+        prisma.$transaction(async (tx) => {
+            // Le VERROU d'abord. Sans lui, deux onglets lisent tous deux un panier plein et
+            // écrivent chacun leur jeu de commandes : l'acheteur paie deux fois pour un seul
+            // achat. Même mécanique que le verrou de devise de T2b et celui des collections.
+            await tx.$executeRaw`SELECT id FROM carts WHERE user_id = ${input.userId} FOR UPDATE`;
 
-        const cart = await tx.cart.findUnique({
-            where: { userId: input.userId },
-            select: {
-                id: true,
-                currency: true,
-                items: { select: { variantId: true, quantity: true } },
-            },
-        });
-        if (!cart || cart.items.length === 0) {
-            throw new Error(ERROR_CART_EMPTY);
-        }
-
-        // Les prix sont RELUS ici, jamais repris du panier : un vendeur a pu les changer
-        // pendant que l'acheteur remplissait son adresse.
-        const lines = [];
-        for (const item of cart.items) {
-            const variant = await tx.productVariant.findFirst({
-                where: eligibleVariantWhere(item.variantId),
+            const cart = await tx.cart.findUnique({
+                where: { userId: input.userId },
                 select: {
                     id: true,
-                    priceAmount: true,
-                    product: {
-                        select: {
-                            title: true,
-                            vendorId: true,
-                            vendor: { select: { slug: true, paymentMethods: true } },
-                            images: {
-                                where: { status: "READY" as const },
-                                orderBy: { position: "asc" as const },
-                                take: 1,
-                                select: { objectPath: true },
+                    currency: true,
+                    items: { select: { variantId: true, quantity: true } },
+                },
+            });
+            if (!cart || cart.items.length === 0) {
+                throw new Error(ERROR_CART_EMPTY);
+            }
+
+            // Les prix sont RELUS ici, jamais repris du panier : un vendeur a pu les changer
+            // pendant que l'acheteur remplissait son adresse.
+            const lines = [];
+            for (const item of cart.items) {
+                const variant = await tx.productVariant.findFirst({
+                    where: eligibleVariantWhere(item.variantId),
+                    select: {
+                        id: true,
+                        priceAmount: true,
+                        product: {
+                            select: {
+                                title: true,
+                                vendorId: true,
+                                vendor: { select: { slug: true, paymentMethods: true } },
+                                images: {
+                                    where: { status: "READY" as const },
+                                    orderBy: { position: "asc" as const },
+                                    take: 1,
+                                    select: { objectPath: true },
+                                },
                             },
                         },
                     },
-                },
+                });
+                // Un article devenu inéligible interrompt TOUT : une commande amputée en
+                // silence est pire qu'un refus, l'acheteur croirait avoir ce qu'il n'a plus.
+                if (!variant) {
+                    throw new Error(ERROR_ITEM_INELIGIBLE);
+                }
+
+                lines.push({
+                    variantId: variant.id,
+                    quantity: item.quantity,
+                    unitAmount: variant.priceAmount,
+                    productTitle: variant.product.title,
+                    imagePath: variant.product.images[0]?.objectPath ?? "",
+                    vendorId: variant.product.vendorId,
+                    shopSlug: variant.product.vendor.slug,
+                    shopMethods: variant.product.vendor.paymentMethods,
+                });
+            }
+
+            // Le TOTAL d'abord, les libellés ensuite, et cet ordre compte. Une ligne sans
+            // libellé fourni vient presque toujours d'un panier qui a grossi dans un autre
+            // onglet pendant que l'acheteur remplissait son adresse, et ce panier a donc aussi
+            // un autre total. Lui dire « le total a changé » est vrai et actionnable ; lui
+            // parler d'un libellé manquant ne lui dirait rien.
+            const total = lines.reduce((t, l) => t + l.unitAmount * l.quantity, 0);
+            if (total !== input.expectedTotal) {
+                throw new Error(ERROR_TOTAL_CHANGED);
+            }
+
+            // Le refus porte sur l'ABSENCE de l'entrée, et non sur un libellé vide : un produit
+            // sans axe a une seule déclinaison, dont le libellé est légitimement vide.
+            // Confondre les deux refuserait la moitié du catalogue.
+            const labelled = lines.map((line) => {
+                const supplied = input.lines.find((l) => l.variantId === line.variantId);
+                if (supplied === undefined) {
+                    throw new Error(ERROR_LINE_MISSING);
+                }
+                return { ...line, label: supplied.label };
             });
-            // Un article devenu inéligible interrompt TOUT : une commande amputée en
-            // silence est pire qu'un refus, l'acheteur croirait avoir ce qu'il n'a plus.
-            if (!variant) {
-                throw new Error(ERROR_ITEM_INELIGIBLE);
+
+            const byShop = new Map<string, typeof labelled>();
+            for (const line of labelled) {
+                const existing = byShop.get(line.vendorId);
+                if (existing) {
+                    existing.push(line);
+                } else {
+                    byShop.set(line.vendorId, [line]);
+                }
             }
 
-            lines.push({
-                variantId: variant.id,
-                quantity: item.quantity,
-                unitAmount: variant.priceAmount,
-                productTitle: variant.product.title,
-                imagePath: variant.product.images[0]?.objectPath ?? "",
-                vendorId: variant.product.vendorId,
-                shopSlug: variant.product.vendor.slug,
-                shopMethods: variant.product.vendor.paymentMethods,
-            });
-        }
+            const references: string[] = [];
+            for (const [vendorId, group] of byShop) {
+                const shopSlug = group[0]?.shopSlug ?? "";
+                // Les méthodes de la boutique viennent de la lecture faite DANS cette
+                // transaction : une boutique qui en décoche une pendant que l'acheteur remplit
+                // son adresse fait refuser la validation, comme un prix qui change. Le refus
+                // couvre aussi une valeur hors de l'enum, que `includes` ne trouve pas.
+                const method = ownValue(input.methods, shopSlug);
+                const accepted: readonly string[] = group[0]?.shopMethods ?? [];
+                if (method === null || !accepted.includes(method)) {
+                    throw new Error(ERROR_METHOD_UNAVAILABLE);
+                }
 
-        // Le TOTAL d'abord, les libellés ensuite, et cet ordre compte. Une ligne sans
-        // libellé fourni vient presque toujours d'un panier qui a grossi dans un autre
-        // onglet pendant que l'acheteur remplissait son adresse, et ce panier a donc aussi
-        // un autre total. Lui dire « le total a changé » est vrai et actionnable ; lui
-        // parler d'un libellé manquant ne lui dirait rien.
-        const total = lines.reduce((t, l) => t + l.unitAmount * l.quantity, 0);
-        if (total !== input.expectedTotal) {
-            throw new Error(ERROR_TOTAL_CHANGED);
-        }
-
-        // Le refus porte sur l'ABSENCE de l'entrée, et non sur un libellé vide : un produit
-        // sans axe a une seule déclinaison, dont le libellé est légitimement vide.
-        // Confondre les deux refuserait la moitié du catalogue.
-        const labelled = lines.map((line) => {
-            const supplied = input.lines.find((l) => l.variantId === line.variantId);
-            if (supplied === undefined) {
-                throw new Error(ERROR_LINE_MISSING);
-            }
-            return { ...line, label: supplied.label };
-        });
-
-        const byShop = new Map<string, typeof labelled>();
-        for (const line of labelled) {
-            const existing = byShop.get(line.vendorId);
-            if (existing) {
-                existing.push(line);
-            } else {
-                byShop.set(line.vendorId, [line]);
-            }
-        }
-
-        const references: string[] = [];
-        for (const [vendorId, group] of byShop) {
-            const shopSlug = group[0]?.shopSlug ?? "";
-            // Les méthodes de la boutique viennent de la lecture faite DANS cette
-            // transaction : une boutique qui en décoche une pendant que l'acheteur remplit
-            // son adresse fait refuser la validation, comme un prix qui change. Le refus
-            // couvre aussi une valeur hors de l'enum, que `includes` ne trouve pas.
-            const method = ownValue(input.methods, shopSlug);
-            const accepted: readonly string[] = group[0]?.shopMethods ?? [];
-            if (method === null || !accepted.includes(method)) {
-                throw new Error(ERROR_METHOD_UNAVAILABLE);
-            }
-
-            const reference = newReference();
-            await tx.order.create({
-                data: {
-                    reference,
-                    buyerId: input.userId,
-                    vendorId,
-                    currency: cart.currency,
-                    paymentMethod: method as never,
-                    shipToName: input.shipTo.name,
-                    shipToPhone: input.shipTo.phone,
-                    shipToLine: input.shipTo.line,
-                    shipToCity: input.shipTo.city,
-                    shipToCountry: input.shipTo.country,
-                    // Passe par `ownValue`, qui ferme l'accès à la chaîne de prototypes.
-                    note: ownValue(input.notes, shopSlug),
-                    totalAmount: group.reduce(
-                        (t, l) => t + l.unitAmount * l.quantity,
-                        0,
-                    ),
-                    items: {
-                        create: group.map((line) => ({
-                            variantId: line.variantId,
-                            productTitle: line.productTitle,
-                            variantLabel: line.label,
-                            imagePath: line.imagePath,
-                            unitAmount: line.unitAmount,
-                            quantity: line.quantity,
-                        })),
+                const reference = newReference();
+                await tx.order.create({
+                    data: {
+                        reference,
+                        buyerId: input.userId,
+                        vendorId,
+                        currency: cart.currency,
+                        paymentMethod: method as never,
+                        shipToName: input.shipTo.name,
+                        shipToPhone: input.shipTo.phone,
+                        shipToLine: input.shipTo.line,
+                        shipToCity: input.shipTo.city,
+                        shipToCountry: input.shipTo.country,
+                        // Passe par `ownValue`, qui ferme l'accès à la chaîne de prototypes.
+                        note: ownValue(input.notes, shopSlug),
+                        totalAmount: group.reduce(
+                            (t, l) => t + l.unitAmount * l.quantity,
+                            0,
+                        ),
+                        items: {
+                            create: group.map((line) => ({
+                                variantId: line.variantId,
+                                productTitle: line.productTitle,
+                                variantLabel: line.label,
+                                imagePath: line.imagePath,
+                                unitAmount: line.unitAmount,
+                                quantity: line.quantity,
+                            })),
+                        },
                     },
-                },
-            });
-            references.push(reference);
-        }
+                });
+                references.push(reference);
+            }
 
-        // Dans la MÊME transaction : il ne doit exister aucun instant où les commandes
-        // sont écrites et le panier encore plein.
-        await tx.cart.delete({ where: { id: cart.id } });
+            // Dans la MÊME transaction : il ne doit exister aucun instant où les commandes
+            // sont écrites et le panier encore plein.
+            await tx.cart.delete({ where: { id: cart.id } });
 
-        return { references };
-    });
+            return { references };
+        }),
+    );
 }
 
 export async function listOrdersForBuyer(

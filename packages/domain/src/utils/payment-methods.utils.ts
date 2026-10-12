@@ -59,3 +59,23 @@ export function offerablePaymentMethods(
             accepted.includes(method),
     );
 }
+
+// La méthode dont il faut montrer l'INDICATION à l'acheteur, qui n'est pas toujours la
+// méthode de sa commande.
+//
+// Le bouton « Payer » s'affiche selon la capacité réelle, `isOnlinePaymentMethod`, tandis que
+// l'indication se choisissait par le nom de la méthode. Une commande par carte sans adapter
+// annonçait donc « Réglez en ligne pour que la boutique prépare votre commande » juste
+// au-dessus des coordonnées de la boutique, sans aucun moyen de régler en ligne : l'écran
+// demandait une chose et en rendait une autre.
+//
+// Une méthode qui attend un fournisseur qu'aucun adapter ne sert se règle par arrangement,
+// exactement comme `OFF_PLATFORM`, et c'est donc son indication qu'il faut lire. C'est le cas
+// courant en production, où le vendeur garde le droit de cocher la carte.
+export function paymentHintMethod(env: TPaymentMethodEnv, method: string): string {
+    if (isOnlinePaymentMethod(env, method)) {
+        return method;
+    }
+    const avecFournisseur: readonly string[] = PROVIDER_PAYMENT_METHODS;
+    return avecFournisseur.includes(method) ? E_PAYMENT_METHOD.OFF_PLATFORM : method;
+}
