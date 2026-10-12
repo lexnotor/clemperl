@@ -24,7 +24,7 @@ plan, exécution, un commit.
 | T2e | Collections de produits | **Livrée**, PR #7 |
 | T3 | Panier et commande | **Livrée** |
 | T4 | Paiement, point d'extension | **Livrée** |
-| T5 | Abonnements vendeurs | non commencée |
+| T5 | Abonnements vendeurs | **en cadrage**, décisions ci-dessous |
 | T6 | Administration | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
@@ -95,6 +95,79 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 (`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
+
+## Où en est le cadrage de T5, au 2026-10-12
+
+**T4 est fusionnée** (PR #9, en écrasement), et la PR #10 derrière elle, en rebase, qui
+ferme cinq défauts trouvés en la relisant. `main` est à `cfffe6c`. Rien n'est en cours.
+
+**T5 est en cadrage, et rien n'est écrit.** Ni spec, ni plan, ni code. Ce qui suit est tout
+ce qui a été décidé, et c'est la seule trace : la discussion n'existe nulle part ailleurs.
+Reprendre, c'est relancer l'idéation à partir de ces réponses, trancher les trois points
+restés ouverts, puis écrire la spec.
+
+### Ce qui est décidé
+
+**À quoi sert un abonnement.** Deux choses à la fois : le droit de vendre, et des quotas de
+catalogue.
+
+**Une formule gratuite bornée existe.** Un vendeur validé démarre dessus et vend dès le
+premier jour. Il paie quand il grandit. Conséquence voulue : les boutiques déjà ouvertes
+atterrissent sur la gratuite sans que rien ne casse.
+
+**Les quotas portent sur trois axes** : le nombre de produits, le nombre d'images par
+produit, le nombre de collections. Pas sur le nombre de membres de la boutique, écarté
+explicitement.
+
+**Un quota atteint bloque la CRÉATION, et rien d'autre.** Une boutique à deux cents produits
+qui se retrouve sur une formule qui en permet dix les garde tous, visibles et vendables, et
+ne peut plus en ajouter. Rien ne se dépublie, rien ne disparaît, un vendeur ne se réveille
+jamais amputé. Le prix assumé de ce choix : le quota ne ramène personne à la formule
+supérieure une fois dépassé.
+
+**Le paiement d'une formule se fait HORS LIGNE**, et un administrateur le pointe, exactement
+comme un vendeur pointe un paiement hors ligne en T4. Conséquence importante pour le
+chiffrage : **aucun adaptateur de paiement n'est à construire**, et le port de T4 n'est pas
+touché. Il est de toute façon taillé pour une commande ponctuelle (`IPaymentStart` porte
+`orderId`, `reference`, `amount`, et `start()` rend une redirection unique), sans aucune
+notion de mandat ni de prélèvement récurrent.
+
+**La fin d'un abonnement payant fait retomber sur la gratuite, et un OPÉRATEUR le fait.**
+Décision structurante, et plus large que la question posée : **aucune transition
+automatique**. Pas d'ordonnanceur, pas de tâche planifiée, pas d'horloge qui déclasse
+personne. L'administration voit ce qui est échu et agit. C'est l'esprit de T4 étendu au
+cycle de vie entier.
+
+### Ce qui en découle, et qui n'a pas été dit explicitement
+
+« Quitter le catalogue » n'arrive donc JAMAIS par non-paiement, puisque la gratuite est le
+plancher de tout le monde et qu'elle laisse au catalogue. Ce serait une suspension décidée
+par un administrateur. Elle n'est pas prévue dans T5, sauf décision contraire.
+
+### Les trois points restés ouverts
+
+Ils changent le modèle de données, donc ils se tranchent avant la spec.
+
+**La devise des formules.** Chaque boutique a la sienne, figée dès son premier produit, euro
+ou franc CFA. Une formule à 15 000 vaut quinze mille francs ou quinze mille euros selon la
+boutique. Deux sorties : un tarif dans une devise unique de plateforme, ou un prix par
+devise sur chaque formule.
+
+**La période.** Mensuelle, annuelle, ou les deux au choix du vendeur.
+
+**Le nombre de formules, et où elles vivent.** Combien, et leurs quotas et prix en base,
+modifiables par un administrateur, ou en dur dans le code comme une donnée de référence.
+
+### Ce qu'il faudra regarder en écrivant la spec
+
+`Vendor` n'a aujourd'hui AUCUNE notion de formule ou de plan : table rase, rien à migrer
+dans le modèle existant.
+
+La condition d'éligibilité du catalogue vit en trois endroits qui disent déjà la même chose,
+`eligibleVariantWhere` dans `cart.repository.ts`, la liste de `catalog.repository.ts`, et
+`readPublishedProduct`. T4 y a ajouté `paymentMethods: { isEmpty: false }`. Si T5 doit un
+jour sortir une boutique du catalogue, c'est là que ça se passe, et aux trois endroits à la
+fois.
 
 ## Où en est le travail, au 2026-10-11
 
