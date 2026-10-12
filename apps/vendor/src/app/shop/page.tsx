@@ -1,4 +1,5 @@
 import { countProductsForVendor, prisma } from "@clemperl/db";
+import { offerablePaymentMethods } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { FormSection } from "@clemperl/ui";
 import type { JSX } from "react";
@@ -18,6 +19,14 @@ export default async function ShopPage(): Promise<JSX.Element> {
     // Le verrou se lit ici et non dans le composant : c'est la base qui refuse, et
     // l'écran ne fait que ne pas proposer ce qui sera refusé.
     const productCount = await countProductsForVendor(prisma, vendor.id);
+
+    // Les cases viennent du DOMAINE, pas de l'enum : une méthode en ligne n'existe que si un
+    // adapter la sert, et cocher ce que la plateforme ne sait pas servir mène l'acheteur
+    // devant un bouton « Payer » que l'API refuse. La lecture se fait ICI, à l'exécution et
+    // côté serveur : la variable n'est pas publique, et un composant client ne la verrait pas.
+    // Ce que la boutique accepte déjà reste offert, sinon l'enregistrement le retirerait de
+    // la base sans que personne ne l'ait décidé.
+    const paymentChoices = offerablePaymentMethods(process.env, vendor.paymentMethods);
 
     // Des tuples DÉCLARÉS, pas un tableau de tableaux : `noUncheckedIndexedAccess` est
     // activé dans `packages/tsconfig/base.json`, et une cellule lue par indice y vaut
@@ -42,6 +51,8 @@ export default async function ShopPage(): Promise<JSX.Element> {
                 categories={vendor.categories}
                 currency={vendor.currency}
                 currencyLocked={productCount > 0}
+                paymentMethods={vendor.paymentMethods}
+                paymentChoices={paymentChoices}
             />
 
             <div className="mt-12">

@@ -186,15 +186,50 @@
     "total": "Total",
     "noteToShop": "Un mot pour {shop}",
     "noteHint": "Une précision de taille, de gravure, d'horaire de livraison.",
+    "paymentMethod": "Comment payer {shop}",
+    "method": {
+      "CARD": "Carte bancaire",
+      "MOBILE_MONEY": "Mobile money",
+      "CASH_ON_DELIVERY": "Paiement à la livraison",
+      "BANK_TRANSFER": "Virement bancaire",
+      "OFF_PLATFORM": "Arrangement avec la boutique"
+    },
     "status": {
       "PLACED": "Reçue",
       "ACCEPTED": "Acceptée",
       "SHIPPED": "Expédiée",
       "CANCELLED": "Annulée"
     },
+    "payment": "Paiement",
+    "paymentStatus": {
+      "PENDING": "En attente",
+      "SETTLED": "Payé",
+      "FAILED": "Refusé"
+    },
+    "methodHint": {
+      "CASH_ON_DELIVERY": "Vous réglerez à la remise de votre commande.",
+      "BANK_TRANSFER": "La boutique vous communiquera ses coordonnées bancaires.",
+      "OFF_PLATFORM": "La boutique vous contactera pour convenir du règlement.",
+      "CARD": "Réglez en ligne pour que la boutique prépare votre commande.",
+      "MOBILE_MONEY": "Réglez en ligne pour que la boutique prépare votre commande."
+    },
+    "pay": "Payer",
+    "payRetry": "Réessayer le paiement",
+    "payFailed": "Le paiement n'a pas pu démarrer. Réessayez.",
+    "payErrors": {
+      "UNAUTHORIZED": "Votre session a expiré. Reconnectez-vous pour payer.",
+      "PAYMENT_ORDER_NOT_FOUND": "Cette commande est introuvable.",
+      "PAYMENT_ORDER_CANCELLED": "Cette commande a été annulée, elle ne peut plus être payée.",
+      "PAYMENT_ALREADY_SETTLED": "Cette commande est déjà réglée. Actualisez la page.",
+      "PAYMENT_NO_ADAPTER": "Le paiement en ligne n'est pas disponible pour le moment. Contactez la boutique.",
+      "PAYMENT_ORIGIN_REFUSED": "Le paiement ne peut pas être lancé depuis cette adresse. Ouvrez le site depuis son adresse habituelle."
+    },
+    "attempts": "Les tentatives",
+    "shopContact": "Contact de la boutique",
     "invalid": "Vérifiez les champs signalés.",
     "totalChanged": "Les prix ont changé pendant votre commande. Vérifiez votre panier.",
     "itemUnavailable": "Un article n'est plus disponible. Vérifiez votre panier.",
+    "methodUnavailable": "Choisissez un paiement pour chaque boutique.",
     "cartEmpty": "Votre panier est vide.",
     "shipToName": "Nom du destinataire",
     "shipToPhone": "Téléphone",

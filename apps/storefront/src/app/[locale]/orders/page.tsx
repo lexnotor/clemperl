@@ -44,9 +44,12 @@ export default async function OrdersPage({
                             </Link>
                             {/* L'état par sa CLÉ, jamais la valeur de l'énumération :
                                 « PLACED » n'est pas du français, et un écran qui l'affiche
-                                parle la langue de la base. */}
+                                parle la langue de la base. L'expédition et l'argent sont
+                                deux états : une commande expédiée et impayée existe. */}
                             <p className="mt-1 text-xs text-muet">
-                                {t(`status.${order.status}`)} · {order.vendor.shopName} ·{" "}
+                                {t(`status.${order.status}`)} · {t("payment")} :{" "}
+                                {t(`paymentStatus.${order.paymentStatus}`)} ·{" "}
+                                {order.vendor.shopName} ·{" "}
                                 {format.dateTime(order.createdAt, "long")}
                             </p>
                         </li>

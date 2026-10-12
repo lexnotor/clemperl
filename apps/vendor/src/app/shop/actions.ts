@@ -1,7 +1,13 @@
 "use server";
 
-import { ERROR_CURRENCY_LOCKED, prisma, setShopCurrency, updateShopProfile } from "@clemperl/db";
-import { shopCurrencySchema, shopProfileSchema } from "@clemperl/domain";
+import {
+    ERROR_CURRENCY_LOCKED,
+    prisma,
+    setShopCurrency,
+    setShopPaymentMethods,
+    updateShopProfile,
+} from "@clemperl/db";
+import { shopCurrencySchema, shopPaymentMethodsSchema, shopProfileSchema } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { revalidatePath } from "next/cache";
 import { requireVendorMembership } from "../../lib/session";
@@ -69,6 +75,39 @@ export async function saveShopCurrency(
             message: [locked ? messages.errors.currencyLocked : messages.errors.failed],
             saved: false,
         };
+    }
+
+    revalidatePath("/shop");
+    return { message: [], saved: true };
+}
+
+// Les méthodes de paiement ont leur PROPRE action, pour la même raison que la devise : chaque
+// signature dit une règle. Les champs commerciaux se corrigent librement, la devise cesse de
+// l'être dès qu'un produit existe, et les méthodes se corrigent librement, y compris après la
+// première vente, parce qu'une commande porte sa propre méthode, figée à la validation.
+export async function saveShopPaymentMethods(
+    _previous: IShopFormState,
+    form: FormData,
+): Promise<IShopFormState> {
+    // La garde est rappelée ICI : une action serveur est une route publique, et la page
+    // qui l'a rendue ne la protège pas.
+    const { vendor } = await requireVendorMembership();
+
+    const parsed = shopPaymentMethodsSchema.safeParse({
+        paymentMethods: form.getAll("paymentMethods"),
+    });
+    if (!parsed.success) {
+        return { message: [messages.errors.noPaymentMethod], saved: false };
+    }
+
+    try {
+        await setShopPaymentMethods(prisma, {
+            vendorId: vendor.id,
+            paymentMethods: parsed.data.paymentMethods,
+        });
+    } catch (error) {
+        console.error("saveShopPaymentMethods", error);
+        return { message: [messages.errors.failed], saved: false };
     }
 
     revalidatePath("/shop");

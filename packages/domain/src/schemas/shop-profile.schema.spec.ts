@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { applicationSubmissionSchema } from "./application-submission.schema.js";
-import { shopCurrencySchema, shopProfileSchema } from "./shop-profile.schema.js";
+import {
+    shopCurrencySchema,
+    shopPaymentMethodsSchema,
+    shopProfileSchema,
+} from "./shop-profile.schema.js";
 
 const VALID = {
     shopName: "Atelier Lumière",
@@ -60,5 +64,31 @@ describe("shopCurrencySchema", () => {
     // produirait un montant faux plutôt qu'une erreur : d'où le refus ici.
     it("refuse un code hors de la plateforme", () => {
         expect(shopCurrencySchema.safeParse({ currency: "GBP" }).success).toBe(false);
+    });
+});
+
+describe("shopPaymentMethodsSchema", () => {
+    it("accepte une liste de méthodes de la plateforme", () => {
+        const input = { paymentMethods: ["CARD", "CASH_ON_DELIVERY"] };
+        expect(shopPaymentMethodsSchema.safeParse(input).success).toBe(true);
+    });
+
+    // Une liste vide tient la boutique hors du catalogue. Le refus est ici parce qu'une
+    // boutique qui ne vend rien par accident est pire qu'un formulaire qui refuse de se
+    // soumettre.
+    it("refuse une liste vide", () => {
+        expect(shopPaymentMethodsSchema.safeParse({ paymentMethods: [] }).success).toBe(false);
+    });
+
+    it("refuse une méthode inconnue", () => {
+        const input = { paymentMethods: ["BITCOIN"] };
+        expect(shopPaymentMethodsSchema.safeParse(input).success).toBe(false);
+    });
+
+    // Le formulaire rend une case par méthode : deux cases du même nom cochées envoient
+    // deux fois la même valeur, et la base porterait un doublon qu'aucun écran ne montre.
+    it("dédoublonne", () => {
+        const input = { paymentMethods: ["CARD", "CARD"] };
+        expect(shopPaymentMethodsSchema.parse(input).paymentMethods).toEqual(["CARD"]);
     });
 });

@@ -33,7 +33,19 @@
     "currencyLocked": "Vos produits sont déjà chiffrés dans cette devise : elle ne change plus.",
     "currencyPlaceholder": "Choisir une devise",
     "saveCurrency": "Enregistrer la devise",
-    "currencySaved": "Votre devise est enregistrée."
+    "currencySaved": "Votre devise est enregistrée.",
+    "payment": {
+      "legend": "Les paiements que vous acceptez",
+      "method": {
+        "CARD": "Carte bancaire",
+        "MOBILE_MONEY": "Mobile money",
+        "CASH_ON_DELIVERY": "Paiement à la livraison",
+        "BANK_TRANSFER": "Virement bancaire",
+        "OFF_PLATFORM": "Hors plateforme"
+      },
+      "lastOneWarning": "Votre boutique doit accepter au moins un paiement. Sans aucun, elle n'apparaît pas dans le catalogue, et ses articles non plus.",
+      "save": "Enregistrer les paiements"
+    }
   },
   "category": {
     "APPAREL": "Habillement",
@@ -57,7 +69,8 @@
     "collectionSlugTaken": "Vous avez déjà une collection portant ce titre. Choisissez-en un autre.",
     "collectionNotFound": "Cette collection n'existe pas, ou elle n'est pas la vôtre.",
     "orderNotFound": "Cette commande n'existe pas, ou elle n'est pas la vôtre.",
-    "orderMoved": "Cette commande n'est plus dans cet état. Rechargez la page."
+    "orderMoved": "Cette commande n'est plus dans cet état. Rechargez la page.",
+    "noPaymentMethod": "Choisissez au moins un paiement."
   },
   "currency": {
     "EUR": "Euro (€)",
@@ -171,6 +184,21 @@
       "ACCEPT": "Accepter",
       "SHIP": "Marquer expédiée",
       "CANCEL": "Annuler"
+    },
+    "payment": {
+      "title": "Paiement",
+      "status": {
+        "PENDING": "En attente",
+        "SETTLED": "Reçu",
+        "FAILED": "Refusé"
+      },
+      "settle": "Paiement reçu",
+      "settleFailed": "Le pointage a échoué. Rechargez la page.",
+      "settledBy": "Pointé par {name}",
+      "settledByMember": "Pointé par un membre de la boutique",
+      "attempts": "Les tentatives",
+      "unpaidNotice": "Le paiement de cette commande n'est pas arrivé. À vous de juger si vous l'engagez.",
+      "onlineOnly": "Un paiement en ligne se règle chez le fournisseur : il ne se pointe pas à la main."
     }
   }
 }

@@ -8,6 +8,8 @@ export const ERROR_TOTAL_CHANGED = "TOTAL_CHANGED";
 export const ERROR_ITEM_INELIGIBLE = "ORDER_ITEM_INELIGIBLE";
 export const ERROR_ORDER_NOT_FOUND = "ORDER_NOT_FOUND";
 export const ERROR_ORDER_STATUS_STALE = "ORDER_STATUS_STALE";
+// Une boutique du panier sans méthode choisie, ou avec une méthode qu'elle n'accepte pas.
+export const ERROR_METHOD_UNAVAILABLE = "ORDER_METHOD_UNAVAILABLE";
 
 // Le libellé de déclinaison vient de l'APPELANT, parce qu'il se calcule dans
 // `packages/domain`, que ce package ne peut pas importer sans fermer un cycle. Un appelant
@@ -28,6 +30,10 @@ export interface IPlaceOrders {
     };
     // Slug de boutique vers son mot.
     notes: Readonly<Record<string, string>>;
+    // Slug de boutique vers la méthode choisie. Un slug absent, ou une méthode que la
+    // boutique n'accepte pas, refuse TOUTE la validation : se replier sur un défaut
+    // choisirait pour l'acheteur comment il paie.
+    methods: Readonly<Record<string, string>>;
     // Libellés figés, calculés par l'appelant : ce paquet ne peut pas importer le domaine.
     lines: readonly { variantId: string; label: string }[];
 }
@@ -49,9 +55,32 @@ function newReference(): string {
 // slug `constructor`, et rendrait `Object.prototype.constructor`, une fonction que le
 // `?? null` ne rattrape pas. Ne pas revenir à un accès direct. `catalog.repository.ts`
 // emploie `Object.hasOwn` pour la même raison, sur sa table de tris.
-function noteFor(notes: Readonly<Record<string, string>>, shopSlug: string): string | null {
-    return Object.hasOwn(notes, shopSlug) ? (notes[shopSlug] ?? null) : null;
+function ownValue(values: Readonly<Record<string, string>>, key: string): string | null {
+    return Object.hasOwn(values, key) ? (values[key] ?? null) : null;
 }
+
+// Les tentatives de paiement d'une commande, telles que les écrans les lisent. `rawPayload`
+// n'y figure JAMAIS : il est chiffré, il ne se lit qu'à l'enquête, et le sortir par défaut
+// le ferait traverser des couches qui n'ont aucune raison de le voir.
+const PAYMENT_TRACE = {
+    orderBy: { createdAt: "desc" },
+    select: {
+        id: true,
+        method: true,
+        status: true,
+        provider: true,
+        createdAt: true,
+        settledAt: true,
+    },
+} as const;
+
+// La trace telle que le VENDEUR la lit : celle de l'acheteur, plus le nom de qui a pointé
+// un encaissement hors ligne. Ce nom ne doit JAMAIS rejoindre `PAYMENT_TRACE`, que lit
+// aussi l'acheteur : le nom d'un membre de la boutique ne le regarde pas.
+const VENDOR_PAYMENT_TRACE = {
+    ...PAYMENT_TRACE,
+    select: { ...PAYMENT_TRACE.select, settledBy: { select: { name: true } } },
+} as const;
 
 export async function placeOrders(
     prisma: PrismaClient,
@@ -88,7 +117,7 @@ export async function placeOrders(
                         select: {
                             title: true,
                             vendorId: true,
-                            vendor: { select: { slug: true } },
+                            vendor: { select: { slug: true, paymentMethods: true } },
                             images: {
                                 where: { status: "READY" as const },
                                 orderBy: { position: "asc" as const },
@@ -113,6 +142,7 @@ export async function placeOrders(
                 imagePath: variant.product.images[0]?.objectPath ?? "",
                 vendorId: variant.product.vendorId,
                 shopSlug: variant.product.vendor.slug,
+                shopMethods: variant.product.vendor.paymentMethods,
             });
         }
 
@@ -149,6 +179,17 @@ export async function placeOrders(
 
         const references: string[] = [];
         for (const [vendorId, group] of byShop) {
+            const shopSlug = group[0]?.shopSlug ?? "";
+            // Les méthodes de la boutique viennent de la lecture faite DANS cette
+            // transaction : une boutique qui en décoche une pendant que l'acheteur remplit
+            // son adresse fait refuser la validation, comme un prix qui change. Le refus
+            // couvre aussi une valeur hors de l'enum, que `includes` ne trouve pas.
+            const method = ownValue(input.methods, shopSlug);
+            const accepted: readonly string[] = group[0]?.shopMethods ?? [];
+            if (method === null || !accepted.includes(method)) {
+                throw new Error(ERROR_METHOD_UNAVAILABLE);
+            }
+
             const reference = newReference();
             await tx.order.create({
                 data: {
@@ -156,13 +197,14 @@ export async function placeOrders(
                     buyerId: input.userId,
                     vendorId,
                     currency: cart.currency,
+                    paymentMethod: method as never,
                     shipToName: input.shipTo.name,
                     shipToPhone: input.shipTo.phone,
                     shipToLine: input.shipTo.line,
                     shipToCity: input.shipTo.city,
                     shipToCountry: input.shipTo.country,
-                    // Passe par `noteFor`, qui ferme l'accès à la chaîne de prototypes.
-                    note: noteFor(input.notes, group[0]?.shopSlug ?? ""),
+                    // Passe par `ownValue`, qui ferme l'accès à la chaîne de prototypes.
+                    note: ownValue(input.notes, shopSlug),
                     totalAmount: group.reduce(
                         (t, l) => t + l.unitAmount * l.quantity,
                         0,
@@ -202,6 +244,8 @@ export async function listOrdersForBuyer(
             status: true,
             currency: true,
             totalAmount: true,
+            paymentMethod: true,
+            paymentStatus: true,
             createdAt: true,
             vendor: { select: { shopName: true } },
         },
@@ -216,7 +260,12 @@ export async function readOrderForBuyer(
         where: { reference: input.reference, buyerId: input.buyerId },
         include: {
             items: { orderBy: { id: "asc" } },
-            vendor: { select: { shopName: true, slug: true } },
+            // Les coordonnées vont à l'acheteur : une commande payée hors ligne n'a que
+            // la boutique pour la régler, et le vendeur ne renseigne aucune instruction.
+            vendor: {
+                select: { shopName: true, slug: true, contactEmail: true, contactPhone: true },
+            },
+            payments: PAYMENT_TRACE,
         },
     });
 }
@@ -234,6 +283,8 @@ export async function listOrdersForVendor(
             status: true,
             currency: true,
             totalAmount: true,
+            paymentMethod: true,
+            paymentStatus: true,
             createdAt: true,
             shipToName: true,
         },
@@ -246,7 +297,10 @@ export async function readOrderForVendor(
 ) {
     return prisma.order.findFirst({
         where: { id: input.orderId, vendorId: input.vendorId },
-        include: { items: { orderBy: { id: "asc" } } },
+        include: {
+            items: { orderBy: { id: "asc" } },
+            payments: VENDOR_PAYMENT_TRACE,
+        },
     });
 }
 

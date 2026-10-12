@@ -30,21 +30,28 @@ export interface ICartLine {
     imagePath: string;
     shopSlug: string;
     shopName: string;
+    // Les méthodes que la boutique accepte au moment de la lecture, pour que l'écran de
+    // validation ne propose que celles-là. La validation les relit sous verrou.
+    shopMethods: string[];
     vendorId: string;
     optionValues: { optionName: string; valueLabel: string }[];
 }
 
 // L'ÉLIGIBILITÉ, écrite une fois. Les mêmes conditions que la liste du catalogue : le
-// produit est publié et non supprimé, sa boutique est ouverte et a une devise, et il a au
-// moins une image prête. Les recopier ailleurs créerait une seconde vérité, ce que la
-// revue de T2d a déjà coûté une fois.
+// produit est publié et non supprimé, sa boutique est ouverte, a une devise et accepte au
+// moins une méthode de paiement, et il a au moins une image prête. Les recopier ailleurs
+// créerait une seconde vérité, ce que la revue de T2d a déjà coûté une fois.
 export function eligibleVariantWhere(variantId: string) {
     return {
         id: variantId,
         product: {
             status: "PUBLISHED" as const,
             deletedAt: null,
-            vendor: { deletedAt: null, currency: { not: null } },
+            vendor: {
+                deletedAt: null,
+                currency: { not: null },
+                paymentMethods: { isEmpty: false },
+            },
             images: { some: { status: "READY" as const } },
         },
     };
@@ -57,7 +64,15 @@ const VARIANT_SELECT = {
         select: {
             title: true,
             slug: true,
-            vendor: { select: { id: true, slug: true, shopName: true, currency: true } },
+            vendor: {
+                select: {
+                    id: true,
+                    slug: true,
+                    shopName: true,
+                    currency: true,
+                    paymentMethods: true,
+                },
+            },
             images: {
                 where: { status: "READY" as const },
                 orderBy: { position: "asc" as const },
@@ -103,6 +118,7 @@ export async function readCart(
             imagePath: item.variant.product.images[0]?.objectPath ?? "",
             shopSlug: item.variant.product.vendor.slug,
             shopName: item.variant.product.vendor.shopName,
+            shopMethods: item.variant.product.vendor.paymentMethods,
             vendorId: item.variant.product.vendor.id,
             optionValues: [...item.variant.values]
                 .sort((a, b) => a.option.position - b.option.position)

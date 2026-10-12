@@ -186,15 +186,50 @@
     "total": "Total",
     "noteToShop": "A note for {shop}",
     "noteHint": "A size, an engraving, a delivery time.",
+    "paymentMethod": "How to pay {shop}",
+    "method": {
+      "CARD": "Bank card",
+      "MOBILE_MONEY": "Mobile money",
+      "CASH_ON_DELIVERY": "Cash on delivery",
+      "BANK_TRANSFER": "Bank transfer",
+      "OFF_PLATFORM": "Arrangement with the shop"
+    },
     "status": {
       "PLACED": "Received",
       "ACCEPTED": "Accepted",
       "SHIPPED": "Shipped",
       "CANCELLED": "Cancelled"
     },
+    "payment": "Payment",
+    "paymentStatus": {
+      "PENDING": "Pending",
+      "SETTLED": "Paid",
+      "FAILED": "Declined"
+    },
+    "methodHint": {
+      "CASH_ON_DELIVERY": "You will pay when your order is handed over.",
+      "BANK_TRANSFER": "The shop will send you its bank details.",
+      "OFF_PLATFORM": "The shop will contact you to agree on the payment.",
+      "CARD": "Pay online so the shop can prepare your order.",
+      "MOBILE_MONEY": "Pay online so the shop can prepare your order."
+    },
+    "pay": "Pay",
+    "payRetry": "Try the payment again",
+    "payFailed": "The payment could not start. Try again.",
+    "payErrors": {
+      "UNAUTHORIZED": "Your session has expired. Sign in again to pay.",
+      "PAYMENT_ORDER_NOT_FOUND": "This order could not be found.",
+      "PAYMENT_ORDER_CANCELLED": "This order was cancelled, it can no longer be paid.",
+      "PAYMENT_ALREADY_SETTLED": "This order is already paid. Refresh the page.",
+      "PAYMENT_NO_ADAPTER": "Online payment is not available right now. Contact the shop.",
+      "PAYMENT_ORIGIN_REFUSED": "The payment cannot be started from this address. Open the site from its usual address."
+    },
+    "attempts": "Attempts",
+    "shopContact": "Shop contact",
     "invalid": "Check the highlighted fields.",
     "totalChanged": "Prices changed while you were ordering. Check your cart.",
     "itemUnavailable": "An item is no longer available. Check your cart.",
+    "methodUnavailable": "Choose a payment method for each shop.",
     "cartEmpty": "Your cart is empty.",
     "shipToName": "Recipient name",
     "shipToPhone": "Phone",

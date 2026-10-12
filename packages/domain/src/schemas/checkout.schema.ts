@@ -1,3 +1,4 @@
+import { E_PAYMENT_METHOD } from "@clemperl/db/enums";
 import { z } from "zod";
 
 // L'adresse est saisie à chaque commande et FIGÉE dessus : l'acheteur peut déménager, et
@@ -20,3 +21,8 @@ export const checkoutFields = {
 export const checkoutSchema = z.object(checkoutFields);
 
 export type TCheckout = z.infer<typeof checkoutSchema>;
+
+// Une valeur venue d'un formulaire, donc du client. Le schéma ferme l'enum ; que la
+// BOUTIQUE l'accepte est vérifié par `placeOrders`, dans sa transaction verrouillée, parce
+// que lui seul lit la boutique au moment de l'écriture.
+export const paymentMethodSchema = z.enum(E_PAYMENT_METHOD);

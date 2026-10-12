@@ -50,6 +50,7 @@ async function createShop(currency: string) {
             registrationNumber: "0123456789",
             country: "BE",
             currency: currency as never,
+            paymentMethods: ["OFF_PLATFORM"],
         },
     });
 }
@@ -610,6 +611,7 @@ describe("readPublishedShop", () => {
                 legalName: "Sans devise SRL",
                 registrationNumber: "0123456789",
                 country: "BE",
+                paymentMethods: ["OFF_PLATFORM"],
             },
         });
 

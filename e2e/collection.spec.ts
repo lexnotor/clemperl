@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { URL_STOREFRONT, URL_VENDOR } from "../playwright.config";
-import { createApprovedVendorShop } from "./helpers/accounts";
+import { acceptPaymentMethods, createApprovedVendorShop, publishProduct } from "./helpers/accounts";
 
 // L'annonceur de route de Next porte le titre de la page hors de `main`, et le titre
 // d'une fiche EST le nom du produit. Un `getByText` non restreint en trouve donc deux,
@@ -14,25 +14,6 @@ test.describe.configure({ mode: "serial" });
 
 // Ce parcours crée deux produits avec photo, chacune passant par le worker d'images.
 test.setTimeout(240_000);
-
-// Crée un produit PUBLIÉ, photo comprise. Le catalogue, et donc une collection, n'a rien
-// à montrer sans image prête : c'est une condition de `conditions()` et non un rappel.
-async function publishProduct(page: Page, titre: string): Promise<void> {
-    await page.goto(`${URL_VENDOR}/products/new`);
-    await page.getByRole("textbox", { name: "Titre" }).fill(titre);
-    await page
-        .getByRole("textbox", { name: "Description" })
-        .fill("Cuir pleine fleur tanné végétal, coutures à la main, doublure en lin.");
-    await page.getByRole("combobox", { name: "Catégorie" }).selectOption("LEATHER_GOODS");
-    await page.getByRole("textbox", { name: "Prix", exact: true }).fill("180,00");
-    await page.getByRole("button", { name: "Créer le produit" }).click();
-    await page.waitForURL(/\/products\/[^/]+$/);
-
-    await page.getByLabel("Ajouter des photos").setInputFiles("e2e/fixtures/product.jpg");
-    await expect(page.getByTestId("vignette")).toBeVisible({ timeout: 60_000 });
-    await page.getByRole("button", { name: "Publier" }).click();
-    await expect(page.getByText("Publié")).toBeVisible();
-}
 
 // La ligne d'un article dans la liste ordonnée, ciblée par son titre : les boutons
 // « Monter » et « Descendre » existent sur chaque ligne, donc les viser globalement
@@ -56,9 +37,11 @@ test("un vendeur range deux articles, choisit leur ordre, et le visiteur le voit
     await page.getByRole("combobox", { name: "Devise des prix" }).selectOption("EUR");
     await page.getByRole("button", { name: "Enregistrer la devise" }).click();
     await expect(page.getByText("Votre devise est enregistrée.")).toBeVisible();
+    // Sans méthode acceptée, la boutique n'a ni vitrine ni page publique de collection.
+    await acceptPaymentMethods(page, ["Paiement à la livraison"]);
 
-    await publishProduct(page, premier);
-    await publishProduct(page, second);
+    await publishProduct(page, premier, "180,00");
+    await publishProduct(page, second, "180,00");
 
     // Critère 1 : la collection naît en brouillon.
     await page.goto(`${URL_VENDOR}/collections/new`);
@@ -157,6 +140,8 @@ test("une collection en brouillon ne se visite pas", async ({ page, request, bro
     await page.getByRole("combobox", { name: "Devise des prix" }).selectOption("EUR");
     await page.getByRole("button", { name: "Enregistrer la devise" }).click();
     await expect(page.getByText("Votre devise est enregistrée.")).toBeVisible();
+    // Sans méthode acceptée, la boutique n'a ni vitrine ni page publique de collection.
+    await acceptPaymentMethods(page, ["Paiement à la livraison"]);
     await page.goto(`${URL_VENDOR}/collections/new`);
     await page.getByRole("textbox", { name: "Titre" }).fill(titreCollection);
     await page.getByRole("button", { name: "Créer la collection" }).click();
@@ -199,6 +184,8 @@ test("un vendeur corrige le titre de sa collection, et son adresse suit tant qu'
     await page.getByRole("combobox", { name: "Devise des prix" }).selectOption("EUR");
     await page.getByRole("button", { name: "Enregistrer la devise" }).click();
     await expect(page.getByText("Votre devise est enregistrée.")).toBeVisible();
+    // Sans méthode acceptée, la boutique n'a ni vitrine ni page publique de collection.
+    await acceptPaymentMethods(page, ["Paiement à la livraison"]);
 
     await page.goto(`${URL_VENDOR}/collections/new`);
     await page.getByRole("textbox", { name: "Titre" }).fill(`Soldes d ete ${suffix}`);

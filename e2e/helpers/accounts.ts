@@ -1,5 +1,5 @@
 import { expect, type APIRequestContext, type Browser, type Page } from "@playwright/test";
-import { URL_ADMIN, URL_MAILPIT, URL_STOREFRONT } from "../../playwright.config";
+import { URL_ADMIN, URL_MAILPIT, URL_STOREFRONT, URL_VENDOR } from "../../playwright.config";
 
 export const PASSWORD = "motdepasse123";
 
@@ -196,4 +196,56 @@ export async function createApprovedVendorShop(
     await adminContext.close();
 
     return { address, shopName };
+}
+
+// Coche les paiements que la boutique accepte, depuis l'écran du vendeur.
+//
+// Après `createApprovedVendorShop`, la boutique n'en accepte AUCUN : la colonne naît vide,
+// et une boutique sans méthode quitte le catalogue, sa vitrine et ses collections
+// publiques. Tout parcours qui doit montrer une boutique à un visiteur passe donc par ici.
+export async function acceptPaymentMethods(
+    page: Page,
+    labels: readonly string[],
+): Promise<void> {
+    await page.goto(`${URL_VENDOR}/shop`);
+    // La page doit être stabilisée avant la première interaction : cocher dans un DOM que
+    // React va remplacer perd le choix. Piège consigné dans `docs/pieges.md`.
+    await page.waitForLoadState("networkidle");
+
+    for (const label of labels) {
+        await page.getByRole("checkbox", { name: label }).check();
+    }
+    await page.getByRole("button", { name: "Enregistrer les paiements" }).click();
+
+    // La confirmation vient de l'ACTION : `useActionState` ne la pose qu'une fois
+    // l'écriture faite. Attendre « coché » ne prouverait rien, la case l'est dès le clic.
+    await expect(page.getByText("Vos informations sont enregistrées.")).toBeVisible();
+
+    // Et la base le porte, pas seulement l'affichage : sans ce rechargement, l'assertion
+    // relirait le rendu qu'elle vient de constater.
+    await page.reload();
+    for (const label of labels) {
+        await expect(page.getByRole("checkbox", { name: label })).toBeChecked();
+    }
+}
+
+// Publie un produit complet depuis l'espace vendeur. Le catalogue, donc le panier, n'a rien
+// à montrer sans image prête : c'est une condition de `conditions()`, pas un rappel.
+//
+// La devise de la boutique doit être posée avant : le prix se lit dans cette devise.
+export async function publishProduct(page: Page, title: string, price: string): Promise<void> {
+    await page.goto(`${URL_VENDOR}/products/new`);
+    await page.getByRole("textbox", { name: "Titre" }).fill(title);
+    await page
+        .getByRole("textbox", { name: "Description" })
+        .fill("Cuir pleine fleur tanné végétal, coutures à la main, doublure en lin.");
+    await page.getByRole("combobox", { name: "Catégorie" }).selectOption("LEATHER_GOODS");
+    await page.getByRole("textbox", { name: "Prix", exact: true }).fill(price);
+    await page.getByRole("button", { name: "Créer le produit" }).click();
+    await page.waitForURL(/\/products\/[^/]+$/);
+
+    await page.getByLabel("Ajouter des photos").setInputFiles("e2e/fixtures/product.jpg");
+    await expect(page.getByTestId("vignette")).toBeVisible({ timeout: 60_000 });
+    await page.getByRole("button", { name: "Publier" }).click();
+    await expect(page.getByText("Publié")).toBeVisible();
 }
