@@ -1,7 +1,10 @@
 # ClemPerl, T4 : paiement, point d'extension
 
 **Date** : 2026-10-11
-**Statut** : cadrée, non commencée
+**Statut** : livrée. Une décision de cadrage a été renversée au stade du plan : l'écran du
+vendeur devait n'offrir que les méthodes qu'un adapter sait servir, et le plan a écrit « une
+case par méthode ». La revue de branche l'a rattrapée, le code suit bien cette section, et
+le plan est corrigé.
 **Tranche** : T4
 **S'appuie sur** : `2026-09-17-t0-fondations-monorepo-design.md` (décisions de cadrage),
 `2026-09-18-t1a-identite-design.md` (le port de courriels, et Better Auth dans l'API),
@@ -401,7 +404,7 @@ dans `packages/core` offrirait un outil générique à un seul appelant.
 | Liste du catalogue | SQL de `catalog.repository.ts` | `cardinality(s.payment_methods) > 0` |
 | Décompte des devises | le même SQL | la même |
 | Variante achetable | `eligibleVariantWhere` | `paymentMethods: { isEmpty: false }` |
-| Fiche produit et vitrine | `readPublishedProduct`, `readShop` | la même |
+| Fiche produit et vitrine | `readPublishedProduct`, `readPublishedShop` | la même |
 
 T3 a corrigé le désalignement de la fiche produit, qui proposait un achat que le panier
 refusait. Ne pas le recréer est la moitié du travail de cette section.
