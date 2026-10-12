@@ -257,6 +257,55 @@ Les deux aides sont dans `e2e/helpers/accounts.ts` : `acceptPaymentMethods`, qui
 confirmation de l'ACTION puis recharge pour prouver que la base porte le choix, et
 `publishProduct`, qui existait en deux exemplaires et en aurait eu trois.
 
+### Ce que T4 laisse ouvert
+
+Les revues ont relevé cinquante-trois constats mineurs. Ceux qui bloquaient sont corrigés ;
+les autres partent ici avec leur raison, parce qu'une liste qui vit dans un espace de travail
+jetable n'existe pas.
+
+**Une action vous attend, et elle ne concerne que la machine de développement d'origine.**
+La ligne de `_prisma_migrations` de cette base garde l'ancienne somme de contrôle de la
+migration des paiements, dont un commentaire a été réécrit après application. Rien ne casse,
+c'est mesuré : `migrate deploy` sort en 0 et `migrate status` répond « up to date ». Seul un
+futur `migrate dev` sur CETTE machine s'en plaindra. L'entrée de `docs/pieges.md` sur le
+sha256 porte la commande gardée et la façon de l'exécuter.
+
+**Un import à resserrer, qui est à un mot-clé d'une panne obscure.**
+`apps/vendor/src/app/shop/shop-form.tsx` importe `TPaymentMethod` depuis `@clemperl/domain`
+et non `@clemperl/domain/browser`. C'est un `import type`, donc effacé à la compilation et
+sans danger aujourd'hui ; si quelqu'un retire le mot `type`, l'assemblage Turbopack échoue
+sur `node:net` avec une erreur qui ne nomme aucun maillon. Réexporter le type depuis
+`browser.ts` ferme le risque.
+
+**Le prédicat d'éligibilité est écrit à la main en cinq endroits.** La prose de la spec dit
+« une seule vérité » et son propre tableau en prescrit cinq copies ; `currency` était déjà
+recopiée ainsi. Le filet existe et il est réel : `payment-eligibility.int-spec.ts` vérifie
+les cinq lectures dans un seul test, décompte des devises compris, et chaque retrait de
+condition le fait échouer sur sa propre assertion. Un fragment partagé serait plus propre.
+
+**Du confort d'écran, visible et non trompeur.** Les boutons radio de la validation n'ont pas
+`required`, donc un oubli coûte un aller-retour serveur. Après le départ vers le fournisseur
+le bouton reste désactivé : si un navigateur restaure la page depuis son cache arrière, un
+acheteur qui abandonne trouverait un bouton mort, ce qui demande un navigateur pour être
+tranché. Une tentative morte affiche « En attente » à côté d'une commande réglée. Les dates
+suivent le fuseau du serveur. Un seul libellé couvre tous les refus de pointage sauf celui du
+collègue plus rapide. Et la ligne de liste anglaise porte l'espacement français.
+
+**Des aides de test à durcir.** Le sondage de `raceBehindLock` compte les attentes de toute la
+base et non les seules sessions bloquées par son détenteur ; son `isLocked` ne se résout
+jamais si le SQL du détenteur échoue, donc le test pend jusqu'au délai de Jest au lieu de
+montrer l'erreur ; et sur une erreur de sondage les appels ne sont pas attendus. Le spec du
+chiffrement redéclare les longueurs au lieu de lire celles du module. `PAYMENT_TRACE` trie
+par date sans départage par identifiant, donc deux tentatives de la même milliseconde ont un
+ordre instable.
+
+**Deux restes de la source unique.** `isOnline` dans le registre n'a plus d'autre lecteur que
+son propre test, et `vendor.repository.ts` garde une copie locale de `TPaymentMethod` que
+`packages/domain` exporte désormais.
+
+**Le premier test des trois fronts tourne sans configuration vitest**, sur les défauts. Il en
+faudra une le jour où un test aura besoin d'un DOM.
+
 ### Pièges payés pendant T4
 
 Cinq entrées de `docs/pieges.md` sont nées de cette tranche : le sha256 d'une migration
