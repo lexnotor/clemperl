@@ -106,6 +106,46 @@ ce qui a été décidé, et c'est la seule trace : la discussion n'existe nulle 
 Reprendre, c'est relancer l'idéation à partir de ces réponses, trancher les trois points
 restés ouverts, puis écrire la spec.
 
+### Où en est l'exécution de T5, au 2026-10-13
+
+**La spec et le plan sont écrits et commités.** Spec :
+`docs/superpowers/specs/2026-10-13-t5-suspension-boutique-design.md`. Plan :
+`docs/superpowers/plans/2026-10-13-t5-suspension-boutique.md`, six tâches. Reprendre, c'est
+reprendre le plan à la tâche 2.
+
+**La tâche 1 est faite** : `Vendor.suspendedAt` et `Vendor.suspendedById` avec la relation
+`SuspendedShops` vers `User` en `SetNull`, et la migration `20261012234243_shop_suspension`,
+appliquée. Les deux colonnes naissent nulles, donc toutes les boutiques existantes sont
+actives. `prisma validate`, `migrate status` et `typecheck` passent.
+
+**Les tâches 2 à 6 restent** : la condition dans le prédicat d'éligibilité et le test de ce
+que la suspension ne touche PAS, les deux fonctions de dépôt, l'écran d'administration, le
+bandeau du vendeur, puis le bout en bout et les documents.
+
+**Le cadrage a changé plusieurs fois pendant l'idéation**, et c'est la version ci-dessous qui
+fait foi, pas celle du 2026-10-12 : pas de quotas dans le MVP, aucun prix dans la plateforme,
+aucune échéance, on active et on désactive.
+
+### La somme de contrôle de la migration des paiements, à corriger sur la machine d'origine
+
+Elle a mordu : `prisma migrate dev` refuse de tourner sur cette machine et propose une
+réinitialisation. La migration des paiements a vu un commentaire réécrit après application,
+donc son sha256 a bougé et `_prisma_migrations` garde l'ancien. La tâche 1 a contourné par
+`migrate diff`, qui est en lecture seule, et a vérifié que la base correspond bien aux
+migrations commitées : l'écart est la seule somme.
+
+Le remède, une ligne, à passer sur la machine qui porte cette base :
+
+    docker exec clemperl_dev_postgres psql -U clemperl -d clemperl -c \
+      "UPDATE _prisma_migrations \
+         SET checksum = '73a867cd4b29f8eaded37b2ae0db1d9e30cf8b347923b0d682659bda22ca56ac' \
+       WHERE migration_name = '20261010233701_payments' \
+         AND checksum = '7bd87e2f93c0b2b3c7a79f447836dd19f80e465e6fc4c1d8257fc6bc744b6ea5';"
+
+Il doit répondre `UPDATE 1`. `UPDATE 0` signifie que la somme stockée n'est plus celle-là,
+ou que le nom est mal recopié. Une base NEUVE n'a pas le problème : elle applique la
+migration depuis le fichier courant et enregistre la bonne somme.
+
 ### Ce qui est décidé
 
 **À quoi sert un abonnement.** Deux choses à la fois : le droit de vendre, et des quotas de
