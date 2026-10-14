@@ -4,6 +4,7 @@ import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { JSX } from "react";
+import { ShopOffline } from "../components/shop-offline";
 import { requireVendorMembership } from "../../lib/session";
 
 // Cette page lit la session : elle ne peut pas être pré-rendue au build.
@@ -29,6 +30,7 @@ export default async function ProductsPage(): Promise<JSX.Element> {
 
     return (
         <main className="mx-auto max-w-3xl px-6 py-16">
+            <ShopOffline suspended={vendor.suspendedAt !== null} />
             <div className="flex items-baseline justify-between gap-6">
                 <h1 className="font-titre text-4xl leading-tight tracking-tight">{t.title}</h1>
                 <Link href="/products/new" className="text-sm underline">

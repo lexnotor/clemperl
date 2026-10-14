@@ -200,5 +200,8 @@
       "unpaidNotice": "Le paiement de cette commande n'est pas arrivé. À vous de juger si vous l'engagez.",
       "onlineOnly": "Un paiement en ligne se règle chez le fournisseur : il ne se pointe pas à la main."
     }
+  },
+  "shopOffline": {
+    "message": "Votre boutique n'apparaît pas au catalogue, et ses articles ne sont pas achetables. Vos commandes en cours restent à traiter normalement."
   }
 }

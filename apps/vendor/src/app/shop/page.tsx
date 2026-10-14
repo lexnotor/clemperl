@@ -3,6 +3,7 @@ import { offerablePaymentMethods } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { FormSection } from "@clemperl/ui";
 import type { JSX } from "react";
+import { ShopOffline } from "../components/shop-offline";
 import { requireVendorMembership } from "../../lib/session";
 import { ShopForm } from "./shop-form";
 
@@ -41,6 +42,7 @@ export default async function ShopPage(): Promise<JSX.Element> {
 
     return (
         <main className="mx-auto max-w-2xl px-6 py-16">
+            <ShopOffline suspended={vendor.suspendedAt !== null} />
             <h1 className="font-titre text-4xl leading-tight tracking-tight">{vendor.shopName}</h1>
 
             <ShopForm

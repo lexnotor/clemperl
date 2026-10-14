@@ -38,9 +38,15 @@ export interface ICartLine {
 }
 
 // L'ÉLIGIBILITÉ, écrite une fois. Les mêmes conditions que la liste du catalogue : le
-// produit est publié et non supprimé, sa boutique est ouverte, a une devise et accepte au
-// moins une méthode de paiement, et il a au moins une image prête. Les recopier ailleurs
-// créerait une seconde vérité, ce que la revue de T2d a déjà coûté une fois.
+// produit est publié et non supprimé, sa boutique est ouverte, NON SUSPENDUE, a une devise
+// et accepte au moins une méthode de paiement, et il a au moins une image prête. Les
+// recopier ailleurs créerait une seconde vérité, ce que la revue de T2d a déjà coûté une
+// fois.
+//
+// `deletedAt` et `suspendedAt` se ressemblent et ne disent pas la même chose : la première
+// est une boutique fermée, qui ne revient pas et dont les membres perdent leur espace ; la
+// seconde est une boutique qui ne vend plus pour l'instant, dont les membres continuent de
+// travailler et d'expédier ce qu'ils ont vendu.
 export function eligibleVariantWhere(variantId: string) {
     return {
         id: variantId,
@@ -49,6 +55,7 @@ export function eligibleVariantWhere(variantId: string) {
             deletedAt: null,
             vendor: {
                 deletedAt: null,
+                suspendedAt: null,
                 currency: { not: null },
                 paymentMethods: { isEmpty: false },
             },

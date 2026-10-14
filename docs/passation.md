@@ -24,7 +24,7 @@ plan, exécution, un commit.
 | T2e | Collections de produits | **Livrée**, PR #7 |
 | T3 | Panier et commande | **Livrée** |
 | T4 | Paiement, point d'extension | **Livrée** |
-| T5 | Abonnements vendeurs | non commencée |
+| T5 | Activer et suspendre une boutique | **Livrée** |
 | T6 | Administration | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
@@ -95,6 +95,230 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 (`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
+
+## T5 est livrée, au 2026-10-14
+
+Un administrateur suspend une boutique, ses articles quittent le catalogue, et ses membres
+gardent leur espace. Six tâches, toutes faites. Branche `feat/vendor-subscriptions`, son nom
+datant du cadrage d'avant, celui des abonnements.
+
+### Les décisions qui comptent, et pourquoi
+
+**La suspension n'est PAS `deletedAt`, et les deux colonnes se ressemblent dangereusement.**
+`deletedAt` est une boutique FERMÉE : elle ne revient pas, et ses membres perdent leur
+espace, `readVendorForMember` la filtrant. `suspendedAt` est une boutique qui ne vend plus
+POUR L'INSTANT : elle sort du catalogue, et ses membres continuent de travailler. Confondre
+les deux ferait perdre son écran à quelqu'un qui doit encore expédier ce qu'il a vendu. Un
+test tient cette distinction dans `shop-suspension.int-spec.ts`, et sa portance a été
+prouvée par mutation : ajouter la condition à `readVendorForMember` fait rougir ce test seul.
+
+**C'est la BOUTIQUE qui est suspendue, jamais la personne.** Un compte peut être membre de
+plusieurs boutiques, et suspendre l'une ne touche pas les autres. Le libellé du bandeau le
+dit comme cela : « votre boutique n'apparaît pas au catalogue », jamais « vous êtes
+suspendu ».
+
+**Ce que la suspension ne touche pas**, et que `shop-suspension.int-spec.ts` épingle :
+les commandes restent lisibles des deux côtés, le vendeur peut les faire AVANCER et pas
+seulement les regarder, et son espace reste ouvert. Le panier d'un acheteur garde sa ligne :
+c'est la validation qui refuse, avec le même message qu'un article devenu indisponible, parce
+que vider le panier à sa place lui ferait croire qu'il a renoncé.
+
+**La condition vit à SIX endroits et s'écrit une fois** par lecture : `eligibleVariantWhere`,
+`conditions()`, `listCatalogCurrencies`, `readPublishedProduct`, `readPublishedShop`. Le
+décompte des devises a son propre SQL, et c'est celui que la revue de T2d avait trouvé
+désaligné de la liste. Un seul test les éprouve toutes, chacune sur son assertion.
+
+**Aucun montant, aucune devise, aucune échéance dans la plateforme.** Le prix d'un abonnement
+dépend de qui déploie ClemPerl, donc il se négocie et s'encaisse dehors. La plateforme
+n'offre qu'un levier : active, ou suspendue. C'est ce qui a fait abandonner le cadrage du
+2026-10-12, celui des formules et des quotas.
+
+**Le MVP part sans aucune notion de quota.** S'ils servent un jour, ils se poseront à côté de
+cette colonne, sans la remplacer : un quota borne ce qu'on peut AJOUTER, une suspension coupe
+ce qu'on peut VENDRE, et ce ne sont pas les mêmes leviers.
+
+**Rétablir efface la trace de la suspension précédente.** Les deux colonnes repassent à nul
+ensemble, et il n'existe aucun journal des mouvements. On sait qu'une boutique est suspendue,
+depuis quand et par qui ; on ne sait pas combien de fois elle l'a été. Si cet historique
+devient nécessaire, c'est une table à part, sur la forme de `vendor_decisions`.
+
+**`User.name` est NULLABLE**, ce que le typage a révélé en écrivant l'écran. L'état d'une
+ligne a donc trois formes et non deux, et la troisième arrive de deux façons réelles : le
+compte qui a suspendu a été supprimé, et le `SetNull` a effacé le lien sans lever la
+suspension ; ou ce compte existe sans nom.
+
+**Un compte membre de plusieurs boutiques n'en voit qu'une** dans l'espace vendeur,
+`readVendorForMember` rendant la première trouvée. Limite PRÉEXISTANTE, que T5 ne crée pas
+mais rend un peu plus visible : suspendre l'une des deux boutiques d'un même membre affiche
+le bandeau selon celle que la requête a choisie.
+
+### Un panier détruit par une suspension, et c'est assumé
+
+Décidé le 2026-10-14, après que deux revues l'ont soulevé.
+
+**Ce qui se passe.** Un visiteur sans compte met au panier un article d'une boutique qu'on
+suspend ensuite. Il se connecte : `mergeLocalCart` retire la ligne serveur puis la rajoute,
+l'ajout est refusé par la condition de suspension, et `local-cart-sync.tsx` vide le panier
+local sans condition. L'article ne revient PAS au rétablissement de la boutique.
+
+**L'asymétrie, qui est la partie surprenante.** Un acheteur DÉJÀ connecté garde sa ligne :
+`readCart` ne filtre aucune éligibilité, et c'est la validation qui refuse. La même
+suspension produit donc deux résultats opposés selon qu'on était connecté ou non.
+
+**Pourquoi c'est accepté.** Vider le panier local sans condition est ce qui empêche la
+remontée de représenter les mêmes refus à chaque visite, message compris. Distinguer les
+refus réversibles des définitifs demanderait de porter cette distinction jusque dans
+`CART_REJECTION`, donc d'ouvrir le panier de T3 depuis T5.
+
+**Ce qu'il en coûte si on se trompe.** Un acheteur perd silencieusement un article pour une
+suspension de dix minutes. Le jour où cela se voit, la sortie est de ne pas vider les lignes
+dont le refus est réversible, et elle n'a pas besoin de changer le modèle.
+
+### Les décomptes, mesurés
+
+| Couche | Résultat |
+| --- | --- |
+| `shop-suspension.int-spec.ts`, neuf | 12 tests |
+| `payment-eligibility.int-spec.ts`, dont 2 neufs | 6 tests |
+| Intégration, couche entière | 17 suites, 219 tests |
+| `lint`, `typecheck`, `test` | 15/15 chacun |
+| `build` | 9/9 |
+| Parcours navigateur, `pnpm docker:up` | 30 passés, dont le parcours neuf |
+
+### Ce que la vérification n'a PAS établi
+
+**La suite navigateur n'a jamais tourné en entier contre les sorties de production.** Lancée
+contre `docker-compose.e2e.yml`, elle tombe sur le limiteur de débit que Better Auth allume
+en production, et la création de comptes prend des 429. Mesuré le 2026-10-14 : 17 passés,
+8 en échec, 5 non exécutés. Ce n'est pas un défaut de T5, et la CI ne le rencontre pas
+puisqu'elle lance `pnpm docker:up`. Entrée dédiée dans `docs/pieges.md`.
+
+Ce que cela dit, et qui dépasse les tests : aucune sortie de production n'a jamais été
+exercée par une suite complète sur ce dépôt.
+
+## Où en est le cadrage de T5, au 2026-10-12
+
+**T4 est fusionnée** (PR #9, en écrasement), et la PR #10 derrière elle, en rebase, qui
+ferme cinq défauts trouvés en la relisant. `main` est à `cfffe6c`. Rien n'est en cours.
+
+**T5 est en cadrage, et rien n'est écrit.** Ni spec, ni plan, ni code. Ce qui suit est tout
+ce qui a été décidé, et c'est la seule trace : la discussion n'existe nulle part ailleurs.
+Reprendre, c'est relancer l'idéation à partir de ces réponses, trancher les trois points
+restés ouverts, puis écrire la spec.
+
+### Où en est l'exécution de T5, au 2026-10-13
+
+**La spec et le plan sont écrits et commités.** Spec :
+`docs/superpowers/specs/2026-10-13-t5-suspension-boutique-design.md`. Plan :
+`docs/superpowers/plans/2026-10-13-t5-suspension-boutique.md`, six tâches. Reprendre, c'est
+reprendre le plan à la tâche 2.
+
+**La tâche 1 est faite** : `Vendor.suspendedAt` et `Vendor.suspendedById` avec la relation
+`SuspendedShops` vers `User` en `SetNull`, et la migration `20261012234243_shop_suspension`,
+appliquée. Les deux colonnes naissent nulles, donc toutes les boutiques existantes sont
+actives. `prisma validate`, `migrate status` et `typecheck` passent.
+
+**Les tâches 2 à 6 restent** : la condition dans le prédicat d'éligibilité et le test de ce
+que la suspension ne touche PAS, les deux fonctions de dépôt, l'écran d'administration, le
+bandeau du vendeur, puis le bout en bout et les documents.
+
+**Le cadrage a changé plusieurs fois pendant l'idéation**, et c'est la version ci-dessous qui
+fait foi, pas celle du 2026-10-12 : pas de quotas dans le MVP, aucun prix dans la plateforme,
+aucune échéance, on active et on désactive.
+
+### La somme de contrôle de la migration des paiements, sur UNE machine seulement
+
+**Mesuré le 2026-10-14 sur la machine de développement principale : elle n'est PAS
+touchée.** Les dix sommes enregistrées y correspondent aux fichiers, `prisma migrate status`
+répond « Database schema is up to date! », et le service `migrate` du compose sort en 0.
+Vérifié aussi que `_prisma_migrations.checksum` est bien un `sha256` du fichier de migration,
+sur les neuf migrations d'alors, ce qui n'était jusqu'ici qu'affirmé.
+
+L'écart n'existe donc que là où la migration a été appliquée AVANT la réécriture de son
+commentaire. Le titre précédent disait « la machine d'origine », ce qui a envoyé chercher sur
+la mauvaise. Avant de jouer le remède, mesurer : si `migrate status` dit que le schéma est à
+jour, il n'y a rien à corriger sur cette machine-là.
+
+Elle a mordu : `prisma migrate dev` refuse de tourner sur la machine touchée et propose une
+réinitialisation. La migration des paiements a vu un commentaire réécrit après application,
+donc son sha256 a bougé et `_prisma_migrations` garde l'ancien. La tâche 1 a contourné par
+`migrate diff`, qui est en lecture seule, et a vérifié que la base correspond bien aux
+migrations commitées : l'écart est la seule somme.
+
+Le remède, une ligne, à passer sur la machine qui porte cette base :
+
+    docker exec clemperl_dev_postgres psql -U clemperl -d clemperl -c \
+      "UPDATE _prisma_migrations \
+         SET checksum = '73a867cd4b29f8eaded37b2ae0db1d9e30cf8b347923b0d682659bda22ca56ac' \
+       WHERE migration_name = '20261010233701_payments' \
+         AND checksum = '7bd87e2f93c0b2b3c7a79f447836dd19f80e465e6fc4c1d8257fc6bc744b6ea5';"
+
+Il doit répondre `UPDATE 1`. `UPDATE 0` signifie que la somme stockée n'est plus celle-là,
+ou que le nom est mal recopié. Une base NEUVE n'a pas le problème : elle applique la
+migration depuis le fichier courant et enregistre la bonne somme.
+
+### Ce qui est décidé
+
+**À quoi sert un abonnement.** Deux choses à la fois : le droit de vendre, et des quotas de
+catalogue.
+
+**Une formule gratuite bornée existe.** Un vendeur validé démarre dessus et vend dès le
+premier jour. Il paie quand il grandit. Conséquence voulue : les boutiques déjà ouvertes
+atterrissent sur la gratuite sans que rien ne casse.
+
+**Les quotas portent sur trois axes** : le nombre de produits, le nombre d'images par
+produit, le nombre de collections. Pas sur le nombre de membres de la boutique, écarté
+explicitement.
+
+**Un quota atteint bloque la CRÉATION, et rien d'autre.** Une boutique à deux cents produits
+qui se retrouve sur une formule qui en permet dix les garde tous, visibles et vendables, et
+ne peut plus en ajouter. Rien ne se dépublie, rien ne disparaît, un vendeur ne se réveille
+jamais amputé. Le prix assumé de ce choix : le quota ne ramène personne à la formule
+supérieure une fois dépassé.
+
+**Le paiement d'une formule se fait HORS LIGNE**, et un administrateur le pointe, exactement
+comme un vendeur pointe un paiement hors ligne en T4. Conséquence importante pour le
+chiffrage : **aucun adaptateur de paiement n'est à construire**, et le port de T4 n'est pas
+touché. Il est de toute façon taillé pour une commande ponctuelle (`IPaymentStart` porte
+`orderId`, `reference`, `amount`, et `start()` rend une redirection unique), sans aucune
+notion de mandat ni de prélèvement récurrent.
+
+**La fin d'un abonnement payant fait retomber sur la gratuite, et un OPÉRATEUR le fait.**
+Décision structurante, et plus large que la question posée : **aucune transition
+automatique**. Pas d'ordonnanceur, pas de tâche planifiée, pas d'horloge qui déclasse
+personne. L'administration voit ce qui est échu et agit. C'est l'esprit de T4 étendu au
+cycle de vie entier.
+
+### Ce qui en découle, et qui n'a pas été dit explicitement
+
+« Quitter le catalogue » n'arrive donc JAMAIS par non-paiement, puisque la gratuite est le
+plancher de tout le monde et qu'elle laisse au catalogue. Ce serait une suspension décidée
+par un administrateur. Elle n'est pas prévue dans T5, sauf décision contraire.
+
+### Les trois points restés ouverts
+
+Ils changent le modèle de données, donc ils se tranchent avant la spec.
+
+**La devise des formules.** Chaque boutique a la sienne, figée dès son premier produit, euro
+ou franc CFA. Une formule à 15 000 vaut quinze mille francs ou quinze mille euros selon la
+boutique. Deux sorties : un tarif dans une devise unique de plateforme, ou un prix par
+devise sur chaque formule.
+
+**La période.** Mensuelle, annuelle, ou les deux au choix du vendeur.
+
+**Le nombre de formules, et où elles vivent.** Combien, et leurs quotas et prix en base,
+modifiables par un administrateur, ou en dur dans le code comme une donnée de référence.
+
+### Ce qu'il faudra regarder en écrivant la spec
+
+`Vendor` n'a aujourd'hui AUCUNE notion de formule ou de plan : table rase, rien à migrer
+dans le modèle existant.
+
+La condition d'éligibilité du catalogue vit en trois endroits qui disent déjà la même chose,
+`eligibleVariantWhere` dans `cart.repository.ts`, la liste de `catalog.repository.ts`, et
+`readPublishedProduct`. T4 y a ajouté `paymentMethods: { isEmpty: false }`. Si T5 doit un
+jour sortir une boutique du catalogue, c'est là que ça se passe, et aux trois endroits à la
+fois.
 
 ## Où en est le travail, au 2026-10-11
 

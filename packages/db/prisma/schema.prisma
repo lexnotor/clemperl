@@ -54,6 +54,7 @@ model User {
   vendorApplications VendorApplication[]
   vendorDecisions    VendorDecision[]    @relation("DecisionsRendues")
   vendorMemberships  VendorMember[]
+  suspendedShops     Vendor[]            @relation("SuspendedShops")
   cart               Cart?
   orders             Order[]
   settledPayments    OrderPayment[]
@@ -316,6 +317,17 @@ model Vendor {
   // dans `/shop`, et elle se fige dès qu'un produit existe.
   currency E_CURRENCY?
 
+  // Une boutique suspendue ne vend plus : ses articles quittent le catalogue. Un
+  // horodatage et non un booléen, parce que l'écran d'administration montre depuis quand.
+  //
+  // À ne pas confondre avec `deletedAt`, juste en dessous : une fermeture est définitive et
+  // retire au vendeur l'accès à son espace, une suspension revient et le lui laisse.
+  suspendedAt DateTime? @map("suspended_at")
+
+  // QUI a suspendu. Le paiement se négocie hors de la plateforme, donc cet acte n'a aucune
+  // preuve extérieure : dire qui l'a posé est le minimum qu'on puisse en garder.
+  suspendedById String? @map("suspended_by_id")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -325,6 +337,10 @@ model Vendor {
   collections Collection[]
   products    Product[]
   orders      Order[]
+
+  // `SetNull` : supprimer un compte n'efface pas l'histoire de la boutique, il en retire
+  // seulement le nom.
+  suspendedBy User? @relation("SuspendedShops", fields: [suspendedById], references: [id], onDelete: SetNull)
 
   @@map("vendors")
 }
