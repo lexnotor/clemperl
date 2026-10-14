@@ -25,7 +25,9 @@ plan, exécution, un commit.
 | T3 | Panier et commande | **Livrée** |
 | T4 | Paiement, point d'extension | **Livrée** |
 | T5 | Activer et suspendre une boutique | **Livrée** |
-| T6 | Administration | non commencée |
+| T6a | Modérer le catalogue | **cadrée**, spec écrite |
+| T6b | Gérer les comptes et les rôles | non commencée |
+| T6c | Surveiller les commandes et arbitrer | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
 
@@ -95,6 +97,79 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 (`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
+
+## Où en est T6a, au 2026-10-14
+
+**T5 est fusionnée**, PR #11 en écrasement, `main` à `bd20daf`.
+
+**T6 a été DÉCOUPÉE en trois tranches**, parce que le mot recouvrait trois sous-systèmes qui
+ne partagent ni modèle, ni écran, ni risque :
+
+- **T6a, modérer le catalogue.** Cadrée, spec écrite, plan à écrire. C'est la suite.
+- **T6b, gérer les comptes et les rôles.** `E_USER_ROLE` ne connaît que `CUSTOMER` et `ADMIN`,
+  et seul l'amorçage crée un administrateur : personne n'en nomme un second depuis
+  l'interface. La plus petite des trois.
+- **T6c, surveiller les commandes et arbitrer.** La plus lourde : elle touche la machine à
+  états de T3, bâtie sur la règle « seul le vendeur fait avancer ». Un arbitrage est une
+  exception à cette règle, et il faudra décider si elle reste une règle avec une porte ou
+  cesse d'en être une.
+
+### Reprendre T6a
+
+Spec : `docs/superpowers/specs/2026-10-14-t6a-moderation-catalogue-design.md`, approuvée en
+conversation, non encore relue en entier par l'utilisateur. **Le plan n'est pas écrit** :
+reprendre par la compétence `writing-plans`.
+
+### Les décisions de T6a, et ce qu'elles coûtent
+
+**Le retrait est un AVERTISSEMENT.** Il dépublie et prévient, et le vendeur peut republier.
+Aucun état nouveau : on écrit `status: DRAFT`, ce qu'une dépublication ordinaire écrit déjà.
+Le coût assumé : un contenu illicite revient d'un clic, et le recours redevient la suspension
+de toute la boutique, livrée en T5.
+
+**Ce qui distingue un retrait d'une dépublication est le MOTIF, pas l'état.** Motif codé,
+commentaire obligatoire quand il vaut « autre », et courriel dans la langue du vendeur, sur
+la forme que T1b a écrite pour les refus de candidature. Réutiliser plutôt que réinventer :
+la règle du commentaire obligatoire vit déjà dans `packages/domain`, éprouvée.
+
+**Les tags système sont un tableau d'énumération sur `Product`**, vocabulaire FERMÉ, à la
+manière de `Vendor.paymentMethods`. Un produit en porte zéro, un ou plusieurs. Le vocabulaire
+démarre avec `REVIEWED` seul, et c'est voulu : un tag entre quand un écran en a besoin. Pas
+d'étiquettes libres, deux administrateurs écriraient « a-verifier » et « à vérifier ».
+
+**La file de modération, c'est « publiés sans `REVIEWED` », du plus récent au plus ancien.**
+Elle se VIDE, ce qui est sa propriété importante : un administrateur sait qu'il a fini. Pas
+de table de signalements, pas de bouton public.
+
+**Republier retire le tag `REVIEWED`.** C'est la décision la moins évidente, et celle qui
+donne son mordant à l'avertissement : sans elle, un vendeur republie un contenu retiré et ne
+repasse devant personne. La règle vaut pour TOUTE republication, qu'un retrait l'ait précédée
+ou non, parce que distinguer les deux demanderait de retenir qu'un retrait a eu lieu, donc le
+journal que T6 a écarté. Elle couple `setProductStatus` à la modération, assumé.
+
+### Ce que T6a ne fait pas
+
+Aucun journal des actes : qui a retiré quoi n'est conservé nulle part, et le courriel parti
+chez le vendeur en est la seule trace. Aucune modération du nom, de la description ou des
+images d'une boutique, ni des collections : le levier y reste la suspension. Aucun compteur
+de récidive, puisque rien n'est conservé.
+
+### Ce qui reste ouvert, hors T6a
+
+**Le test instable de `collection.int-spec.ts:582`**, laissé ouvert sur décision. Sept
+exécutions isolées, deux échecs. Le trancher demande de décider ce que `renameCollection`
+doit garantir face à une publication concurrente : la publication gagne toujours, ou le
+dernier arrivé gagne. Le code permet les deux, le test exige le premier, et son commentaire
+affirme que l'ordre n'importe pas, ce qui est faux dans les deux cas.
+
+**La suite navigateur contre les images de production.** Voir l'entrée dédiée de
+`docs/pieges.md` : Better Auth y allume son limiteur de débit et la création de comptes prend
+des 429. La CI ne le rencontre pas, elle lance `pnpm docker:up`. Aucune sortie de production
+n'a donc jamais été exercée par une suite complète.
+
+**Ce document grossit.** Il a servi deux fois le 2026-10-14, dont une pour trouver une somme
+de contrôle, donc il est utile. Mais il approche de la taille où personne ne le lit en
+entier, et les sections d'avant le 2026-10-09 gagneraient à être élaguées.
 
 ## T5 est livrée, au 2026-10-14
 
