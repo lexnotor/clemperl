@@ -27,7 +27,11 @@ function etatDe(shop: {
     const nom = shop.suspendedBy?.name;
     return nom === null || nom === undefined
         ? `${messages.shops.suspendedByUnknown} · ${quand}`
-        : `${messages.shops.suspendedBy.replace("{name}", nom)} · ${quand}`;
+        // La forme FONCTION, et non la chaîne : `String.replace` interprète `$&`, `` $` ``
+        // et `$'` dans son remplacement, et un nom d'administrateur est une saisie libre.
+        // Mesuré : « A$'B » rend « Suspendue par AB », la moitié de la phrase ayant
+        // disparu. Même remède qu'à `apps/vendor/src/app/orders/[id]/page.tsx`.
+        : `${messages.shops.suspendedBy.replace("{name}", () => nom)} · ${quand}`;
 }
 
 export default async function ShopsPage(): Promise<JSX.Element> {
@@ -50,6 +54,12 @@ export default async function ShopsPage(): Promise<JSX.Element> {
                         >
                             <div className="flex flex-col gap-1">
                                 <span className="font-titre text-lg">{shop.shopName}</span>
+                                {/* Le SLUG, et il n'est pas décoratif : `shopName` n'est pas
+                                    unique, `slug` l'est, et ce dépôt arbitre déjà les
+                                    homonymes à la validation d'une candidature. Deux lignes
+                                    identiques feraient suspendre la mauvaise boutique, donc
+                                    retirer de la vente les articles de quelqu'un d'autre. */}
+                                <span className="text-sm text-muet">{shop.slug}</span>
                                 <span data-testid="etat" className="text-sm text-muet">
                                     {etatDe(shop)}
                                 </span>

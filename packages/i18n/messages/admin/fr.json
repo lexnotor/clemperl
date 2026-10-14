@@ -93,7 +93,6 @@
     "title": "Les boutiques",
     "empty": "Aucune boutique ouverte.",
     "active": "Active",
-    "suspended": "Suspendue",
     "suspendedBy": "Suspendue par {name}",
     "suspendedByUnknown": "Suspendue, auteur inconnu",
     "suspend": "Suspendre",

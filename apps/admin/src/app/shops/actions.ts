@@ -16,7 +16,15 @@ export async function toggleSuspension(
 ): Promise<ISuspensionState> {
     const session = await requireAdministrator();
     const vendorId = String(form.get("vendorId") ?? "");
-    const suspended = form.get("suspended") === "true";
+    // Lu en TROIS états, pas deux. `form.get(...) === "true"` ferait d'un champ absent,
+    // renommé ou malformé un RÉTABLISSEMENT, c'est-à-dire la direction qui remet la
+    // boutique au catalogue, et l'action rendrait un succès. Un champ qu'on ne sait pas
+    // lire se refuse, il ne se devine pas du côté permissif.
+    const brut = form.get("suspended");
+    if (brut !== "true" && brut !== "false") {
+        return { message: [ERRORS["failed"] as string] };
+    }
+    const suspended = brut === "true";
 
     // L'existence se vérifie AVANT d'écrire. `setShopSuspension` passe par `updateMany`,
     // qui ne lève pas sur une boutique absente : sans ce contrôle, un identifiant inventé

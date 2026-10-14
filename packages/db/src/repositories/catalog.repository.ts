@@ -113,10 +113,12 @@ function conditions(input: ICatalogQuery): Prisma.Sql[] {
         Prisma.sql`p.status = 'PUBLISHED'`,
         Prisma.sql`p.deleted_at IS NULL`,
         Prisma.sql`s.deleted_at IS NULL`,
-        // Une boutique suspendue ne vend plus. Même raison que la condition des méthodes
-        // au-dessous : elle vit ICI, dans la liste partagée par le décompte et par la
-        // requête des lignes, et non dans la seule seconde, qui ferait compter des produits
-        // que la liste ne montre pas.
+        // Une boutique suspendue ne vend plus.
+        //
+        // ATTENTION : cette liste n'est PAS partagée avec `listCatalogCurrencies`, qui
+        // écrit son `WHERE` à la main. Toute condition ajoutée ici doit l'être là aussi,
+        // et rien ne le rappellera. C'est exactement l'écart que la revue de T2d avait
+        // trouvé : un décompte qui comptait des produits que la liste ne montrait pas.
         Prisma.sql`s.suspended_at IS NULL`,
         Prisma.sql`s.currency = ${input.currency}::"currency"`,
         // Une boutique qui n'accepte aucune méthode ne peut rien vendre. La condition vit

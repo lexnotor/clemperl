@@ -152,6 +152,28 @@ suspension ; ou ce compte existe sans nom.
 mais rend un peu plus visible : suspendre l'une des deux boutiques d'un même membre affiche
 le bandeau selon celle que la requête a choisie.
 
+### Un panier détruit par une suspension, et c'est assumé
+
+Décidé le 2026-10-14, après que deux revues l'ont soulevé.
+
+**Ce qui se passe.** Un visiteur sans compte met au panier un article d'une boutique qu'on
+suspend ensuite. Il se connecte : `mergeLocalCart` retire la ligne serveur puis la rajoute,
+l'ajout est refusé par la condition de suspension, et `local-cart-sync.tsx` vide le panier
+local sans condition. L'article ne revient PAS au rétablissement de la boutique.
+
+**L'asymétrie, qui est la partie surprenante.** Un acheteur DÉJÀ connecté garde sa ligne :
+`readCart` ne filtre aucune éligibilité, et c'est la validation qui refuse. La même
+suspension produit donc deux résultats opposés selon qu'on était connecté ou non.
+
+**Pourquoi c'est accepté.** Vider le panier local sans condition est ce qui empêche la
+remontée de représenter les mêmes refus à chaque visite, message compris. Distinguer les
+refus réversibles des définitifs demanderait de porter cette distinction jusque dans
+`CART_REJECTION`, donc d'ouvrir le panier de T3 depuis T5.
+
+**Ce qu'il en coûte si on se trompe.** Un acheteur perd silencieusement un article pour une
+suspension de dix minutes. Le jour où cela se voit, la sortie est de ne pas vider les lignes
+dont le refus est réversible, et elle n'a pas besoin de changer le modèle.
+
 ### Les décomptes, mesurés
 
 | Couche | Résultat |
