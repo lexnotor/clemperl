@@ -25,7 +25,7 @@ plan, exécution, un commit.
 | T3 | Panier et commande | **Livrée** |
 | T4 | Paiement, point d'extension | **Livrée** |
 | T5 | Activer et suspendre une boutique | **Livrée** |
-| T6a | Modérer le catalogue | **cadrée**, spec écrite |
+| T6a | Modérer le catalogue | **en cours**, tâche 1 sur 5 |
 | T6b | Gérer les comptes et les rôles | non commencée |
 | T6c | Surveiller les commandes et arbitrer | non commencée |
 | T7 | Temps réel | non commencée |
@@ -97,6 +97,46 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 (`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
+
+## Où en est l'exécution de T6a, à la coupure du 2026-10-14
+
+**Le plan est écrit** : `docs/superpowers/plans/2026-10-14-t6a-moderation-catalogue.md`,
+cinq tâches. Exécution NATIVE choisie. **Reprendre le plan à la tâche 2.**
+
+**La tâche 1 est faite.** Les deux énumérations `E_PRODUCT_TAG { REVIEWED }` et
+`E_MODERATION_REASON`, la colonne `Product.systemTags` avec défaut vide, et la migration
+`20261014120000_product_moderation`, appliquée. `lint`, `typecheck` et `test` à 15/15.
+
+**NE PAS toucher au fichier de migration**, commentaire compris : son `sha256` est désormais
+enregistré dans `_prisma_migrations`, et le modifier fait diverger la somme. Le piège est
+consigné dans `docs/pieges.md` et a déjà coûté une demi-heure sur ce dépôt.
+
+### Une décision prise en pré-vol, à appliquer en tâche 4
+
+**La liste des motifs offerte à l'écran doit venir de l'ENUM, pas du catalogue i18n.** Le
+plan fait construire les options depuis `messages.moderation.reason`, alors que la validation
+du domaine compare à `MODERATION_REASONS`, dérivé de l'énumération Prisma. Les deux peuvent
+diverger en silence : une clé ajoutée offrirait un motif que la validation refuse, une clé
+oubliée cacherait un motif légitime. La page dérive donc ses options de l'énumération et ne
+lit le catalogue que pour le libellé de chaque valeur.
+
+### Une mesure à porter à la tâche 4
+
+**La file démarrerait avec 193 articles** sur la base de développement, 346 produits y
+existant dont aucun ne porte de tag. C'est la conséquence voulue du défaut vide, mais c'est
+beaucoup pour une première session, et en production ce serait tout le catalogue publié
+depuis l'origine. L'écran devra au moins dire combien il en reste, sans quoi l'administrateur
+ne saura jamais où il en est. À trancher en tâche 4.
+
+### Ce que le plan demande et qu'il ne faut pas oublier
+
+La tâche 3 étape 8 demande de prouver les tests **par mutation**, et dit d'avance que la
+seconde mutation ne prouvera rien tant qu'un seul tag existe. Le dire plutôt que d'annoncer
+une preuve qu'on n'a pas.
+
+La tâche 5 étape 4 lance la suite navigateur contre `pnpm docker:up`, la pile de
+DÉVELOPPEMENT, et surtout pas `pnpm e2e:up` : la superposition de production allume le
+limiteur de débit de Better Auth et la création de comptes prend des 429. Mesuré en T5.
 
 ## Où en est T6a, au 2026-10-14
 

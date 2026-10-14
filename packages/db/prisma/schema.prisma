@@ -197,6 +197,31 @@ enum E_PRODUCT_STATUS {
   @@map("product_status")
 }
 
+// Les marques de travail INTERNE posées sur un produit. Vocabulaire fermé : un tag entre
+// ici quand un écran en a besoin, et chaque ajout passe par une migration, ce qui est une
+// friction utile. Des étiquettes libres laisseraient deux administrateurs écrire
+// « a-verifier » et « à vérifier », qu'aucun filtre ne réunirait.
+//
+// Ni le vendeur ni le public ne les voient.
+enum E_PRODUCT_TAG {
+  REVIEWED
+
+  @@map("product_tag")
+}
+
+// Le motif d'un retrait, dit au vendeur. La forme vient de T1b, qui code le motif d'un
+// refus de candidature ; les VALEURS n'ont rien à voir, un produit ne se refuse pas comme
+// un dossier.
+enum E_MODERATION_REASON {
+  COUNTERFEIT
+  PROHIBITED_ITEM
+  MISLEADING_CONTENT
+  INAPPROPRIATE_IMAGE
+  OTHER
+
+  @@map("moderation_reason")
+}
+
 enum E_PRODUCT_IMAGE_STATUS {
   PENDING
   READY
@@ -374,6 +399,14 @@ model Product {
   // formulaire vendeur, lui, EXIGE un choix : un défaut silencieux rangerait toutes les
   // bagues en vêtements.
   category E_PRODUCT_CATEGORY @default(APPAREL)
+
+  // Un tableau d'enum, et non une table de liaison : un tag n'a ni date, ni auteur, ni
+  // commentaire. Le jour où il en aurait, ce ne serait plus un tag mais un acte, et sa
+  // place serait dans un journal. Même raisonnement que `Vendor.paymentMethods`.
+  //
+  // Par défaut VIDE, donc tout produit déjà publié entre dans la file de modération à la
+  // migration. C'est voulu : personne ne les a jamais regardés.
+  systemTags E_PRODUCT_TAG[] @default([]) @map("system_tags")
 
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
