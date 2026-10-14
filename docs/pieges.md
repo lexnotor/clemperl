@@ -476,6 +476,77 @@ Ce qui protège maintenant : le commentaire d'en-tête de `packages/db/prisma/sc
 
 ---
 
+**La suite navigateur ne passe PAS contre `docker-compose.e2e.yml` : Better Auth y allume
+son limiteur de débit, et la création de comptes prend des 429.**
+
+Mesuré le 2026-10-14, pendant T5. `pnpm e2e:up` puis `pnpm test:e2e --workers=1` : 17 passés,
+8 en échec, 5 non exécutés, en 17 minutes. Les échecs rapides portaient tous la même cause,
+`inscription refusée pour <adresse> : 429 {"message":"Too many requests. Please try again
+later."}`, et les expirations à quatre minutes en découlaient, les parcours attendant une
+session qui ne venait pas.
+
+La cause est dans la bibliothèque, pas dans le dépôt. `better-auth@1.7.5` défaut ainsi :
+
+    enabled: options.rateLimit?.enabled ?? isProduction,
+
+Le dépôt ne configure aucun `rateLimit`. La superposition e2e bâtit les quatre applications
+sur la cible `runner`, donc en production, et le limiteur s'allume. La pile de développement
+seule ne l'allume pas, et c'est pourquoi la même suite y passe.
+
+**La CI lance `pnpm docker:up`, la pile de DÉVELOPPEMENT.** Elle ne rencontre donc jamais ce
+limiteur. Le commentaire en tête de `docker-compose.e2e.yml` dit que cette superposition est
+« ce que la CI devrait exercer » : au conditionnel, et cette entrée dit pourquoi elle ne le
+fait pas encore.
+
+Ce qui tranche aujourd'hui : lancer la suite contre `pnpm docker:up`, comme la CI. Le jour où
+l'on voudra vraiment éprouver les sorties de production, il faudra désactiver le limiteur
+pour les tests, par une option d'environnement, et non en espaçant les parcours.
+
+---
+
+**Une mutation qui n'a pas ATTERRI rend un faux négatif, et il ressemble à un succès.**
+
+Éprouver un test par mutation est la seule façon de savoir s'il porte quelque chose :
+on casse exprès le code, et on regarde si le test rougit. La manœuvre a un angle mort.
+
+Mesuré le 2026-10-14, pendant T5. La commande enchaînait `cp` pour sauvegarder, puis le
+script de mutation, par `&&`. Le `cp` a échoué, le dossier de destination n'existant pas,
+donc le script de mutation n'a jamais tourné. La commande suivante a bâti le paquet et lancé
+la suite, qui est sortie « 5 passed ». Lu vite, cela ressemble à « les tests tiennent malgré
+la mutation », alors que cela veut dire « rien n'a été muté ».
+
+Un faux négatif de ce genre VALIDE un test décoratif, ce qui est pire que de ne pas l'avoir
+éprouvé : on croit désormais qu'il protège.
+
+Ce qui protège : vérifier que la mutation est DANS LE FICHIER avant de lire le résultat, par
+un `grep` sur la ligne changée, et non se fier au fait que la commande n'a rien dit. Et
+restaurer de même, en constatant que le fichier est redevenu identique à `HEAD`.
+
+---
+
+**Remplacer l'hôte `postgres` par `localhost` peut atteindre la base d'un AUTRE projet.**
+
+Le service `postgres` ne publiant aucun port, le réflexe devant un `DATABASE_URL`
+irrésoluble est d'écrire `postgresql://clemperl:clemperl@localhost:5432/clemperl`. Mesuré le
+2026-10-14 : cette adresse a RÉPONDU, parce qu'un autre projet écoutait sur ce port de la
+machine. Prisma s'est arrêté sur `P1000: Authentication failed`, donc sur les identifiants,
+et non sur l'absence de serveur.
+
+Ce qui a protégé est le mot de passe, pas le dispositif. Avec des identifiants communs entre
+deux projets, la même commande aurait inspecté une base étrangère, et `migrate deploy` y
+aurait écrit. L'erreur à lire n'est donc pas « mauvais mot de passe » mais « je parle à
+quelque chose que je n'ai pas identifié ».
+
+La forme correcte passe par le réseau Docker, jamais par l'hôte :
+
+    docker compose --env-file .env -f docker/docker-compose.dev.yml \
+      run --rm --no-deps migrate sh -c "cd packages/db && pnpm exec prisma migrate status"
+
+Pour une simple lecture SQL, `docker exec clemperl_dev_postgres psql -U clemperl -d clemperl`
+suffit et ne traverse pas l'hôte non plus.
+
+---
+
 **`pnpm --filter @clemperl/db db:migrate` ne peut pas fonctionner depuis l'hôte : le
 service `postgres` ne publie aucun port.**
 

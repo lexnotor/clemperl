@@ -24,7 +24,7 @@ plan, exécution, un commit.
 | T2e | Collections de produits | **Livrée**, PR #7 |
 | T3 | Panier et commande | **Livrée** |
 | T4 | Paiement, point d'extension | **Livrée** |
-| T5 | Abonnements vendeurs | **en cadrage**, décisions ci-dessous |
+| T5 | Activer et suspendre une boutique | **Livrée** |
 | T6 | Administration | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
@@ -96,6 +96,84 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
+## T5 est livrée, au 2026-10-14
+
+Un administrateur suspend une boutique, ses articles quittent le catalogue, et ses membres
+gardent leur espace. Six tâches, toutes faites. Branche `feat/vendor-subscriptions`, son nom
+datant du cadrage d'avant, celui des abonnements.
+
+### Les décisions qui comptent, et pourquoi
+
+**La suspension n'est PAS `deletedAt`, et les deux colonnes se ressemblent dangereusement.**
+`deletedAt` est une boutique FERMÉE : elle ne revient pas, et ses membres perdent leur
+espace, `readVendorForMember` la filtrant. `suspendedAt` est une boutique qui ne vend plus
+POUR L'INSTANT : elle sort du catalogue, et ses membres continuent de travailler. Confondre
+les deux ferait perdre son écran à quelqu'un qui doit encore expédier ce qu'il a vendu. Un
+test tient cette distinction dans `shop-suspension.int-spec.ts`, et sa portance a été
+prouvée par mutation : ajouter la condition à `readVendorForMember` fait rougir ce test seul.
+
+**C'est la BOUTIQUE qui est suspendue, jamais la personne.** Un compte peut être membre de
+plusieurs boutiques, et suspendre l'une ne touche pas les autres. Le libellé du bandeau le
+dit comme cela : « votre boutique n'apparaît pas au catalogue », jamais « vous êtes
+suspendu ».
+
+**Ce que la suspension ne touche pas**, et que `shop-suspension.int-spec.ts` épingle :
+les commandes restent lisibles des deux côtés, le vendeur peut les faire AVANCER et pas
+seulement les regarder, et son espace reste ouvert. Le panier d'un acheteur garde sa ligne :
+c'est la validation qui refuse, avec le même message qu'un article devenu indisponible, parce
+que vider le panier à sa place lui ferait croire qu'il a renoncé.
+
+**La condition vit à SIX endroits et s'écrit une fois** par lecture : `eligibleVariantWhere`,
+`conditions()`, `listCatalogCurrencies`, `readPublishedProduct`, `readPublishedShop`. Le
+décompte des devises a son propre SQL, et c'est celui que la revue de T2d avait trouvé
+désaligné de la liste. Un seul test les éprouve toutes, chacune sur son assertion.
+
+**Aucun montant, aucune devise, aucune échéance dans la plateforme.** Le prix d'un abonnement
+dépend de qui déploie ClemPerl, donc il se négocie et s'encaisse dehors. La plateforme
+n'offre qu'un levier : active, ou suspendue. C'est ce qui a fait abandonner le cadrage du
+2026-10-12, celui des formules et des quotas.
+
+**Le MVP part sans aucune notion de quota.** S'ils servent un jour, ils se poseront à côté de
+cette colonne, sans la remplacer : un quota borne ce qu'on peut AJOUTER, une suspension coupe
+ce qu'on peut VENDRE, et ce ne sont pas les mêmes leviers.
+
+**Rétablir efface la trace de la suspension précédente.** Les deux colonnes repassent à nul
+ensemble, et il n'existe aucun journal des mouvements. On sait qu'une boutique est suspendue,
+depuis quand et par qui ; on ne sait pas combien de fois elle l'a été. Si cet historique
+devient nécessaire, c'est une table à part, sur la forme de `vendor_decisions`.
+
+**`User.name` est NULLABLE**, ce que le typage a révélé en écrivant l'écran. L'état d'une
+ligne a donc trois formes et non deux, et la troisième arrive de deux façons réelles : le
+compte qui a suspendu a été supprimé, et le `SetNull` a effacé le lien sans lever la
+suspension ; ou ce compte existe sans nom.
+
+**Un compte membre de plusieurs boutiques n'en voit qu'une** dans l'espace vendeur,
+`readVendorForMember` rendant la première trouvée. Limite PRÉEXISTANTE, que T5 ne crée pas
+mais rend un peu plus visible : suspendre l'une des deux boutiques d'un même membre affiche
+le bandeau selon celle que la requête a choisie.
+
+### Les décomptes, mesurés
+
+| Couche | Résultat |
+| --- | --- |
+| `shop-suspension.int-spec.ts`, neuf | 12 tests |
+| `payment-eligibility.int-spec.ts`, dont 2 neufs | 6 tests |
+| Intégration, couche entière | 17 suites, 219 tests |
+| `lint`, `typecheck`, `test` | 15/15 chacun |
+| `build` | 9/9 |
+| Parcours navigateur, `pnpm docker:up` | 30 passés, dont le parcours neuf |
+
+### Ce que la vérification n'a PAS établi
+
+**La suite navigateur n'a jamais tourné en entier contre les sorties de production.** Lancée
+contre `docker-compose.e2e.yml`, elle tombe sur le limiteur de débit que Better Auth allume
+en production, et la création de comptes prend des 429. Mesuré le 2026-10-14 : 17 passés,
+8 en échec, 5 non exécutés. Ce n'est pas un défaut de T5, et la CI ne le rencontre pas
+puisqu'elle lance `pnpm docker:up`. Entrée dédiée dans `docs/pieges.md`.
+
+Ce que cela dit, et qui dépasse les tests : aucune sortie de production n'a jamais été
+exercée par une suite complète sur ce dépôt.
+
 ## Où en est le cadrage de T5, au 2026-10-12
 
 **T4 est fusionnée** (PR #9, en écrasement), et la PR #10 derrière elle, en rebase, qui
@@ -126,9 +204,20 @@ bandeau du vendeur, puis le bout en bout et les documents.
 fait foi, pas celle du 2026-10-12 : pas de quotas dans le MVP, aucun prix dans la plateforme,
 aucune échéance, on active et on désactive.
 
-### La somme de contrôle de la migration des paiements, à corriger sur la machine d'origine
+### La somme de contrôle de la migration des paiements, sur UNE machine seulement
 
-Elle a mordu : `prisma migrate dev` refuse de tourner sur cette machine et propose une
+**Mesuré le 2026-10-14 sur la machine de développement principale : elle n'est PAS
+touchée.** Les dix sommes enregistrées y correspondent aux fichiers, `prisma migrate status`
+répond « Database schema is up to date! », et le service `migrate` du compose sort en 0.
+Vérifié aussi que `_prisma_migrations.checksum` est bien un `sha256` du fichier de migration,
+sur les neuf migrations d'alors, ce qui n'était jusqu'ici qu'affirmé.
+
+L'écart n'existe donc que là où la migration a été appliquée AVANT la réécriture de son
+commentaire. Le titre précédent disait « la machine d'origine », ce qui a envoyé chercher sur
+la mauvaise. Avant de jouer le remède, mesurer : si `migrate status` dit que le schéma est à
+jour, il n'y a rien à corriger sur cette machine-là.
+
+Elle a mordu : `prisma migrate dev` refuse de tourner sur la machine touchée et propose une
 réinitialisation. La migration des paiements a vu un commentaire réécrit après application,
 donc son sha256 a bougé et `_prisma_migrations` garde l'ancien. La tâche 1 a contourné par
 `migrate diff`, qui est en lecture seule, et a vérifié que la base correspond bien aux

@@ -179,3 +179,59 @@ describe("setShopPaymentMethods", () => {
         expect(vendor.paymentMethods).toEqual(["BANK_TRANSFER"]);
     });
 });
+
+describe("une boutique suspendue", () => {
+    // La condition est écrite UNE fois et lue à six endroits. Ce test échoue dès que l'une
+    // d'elles la perd, chacune sur sa propre assertion.
+    //
+    // Les quatre lectures sont vérifiées AVANT la suspension autant qu'après : sans cela,
+    // une boutique absente pour une tout autre raison, une image manquante par exemple,
+    // rendrait le test vert sans que la suspension y soit pour rien.
+    it("quitte les quatre lectures à la fois", async () => {
+        const shop = await createShopWithPublishedProduct({ methods: ["OFF_PLATFORM"] });
+
+        await expect(searchPublishedProducts(prisma, catalogQuery(shop))).resolves.toMatchObject({
+            total: 1,
+        });
+        await expect(
+            readPublishedProduct(prisma, { shopSlug: shop.slug, productSlug: shop.productSlug }),
+        ).resolves.not.toBeNull();
+        await expect(readPublishedShop(prisma, { shopSlug: shop.slug })).resolves.not.toBeNull();
+        await expect(
+            prisma.productVariant.findFirst({ where: eligibleVariantWhere(shop.variantId) }),
+        ).resolves.not.toBeNull();
+
+        await prisma.vendor.update({
+            where: { id: shop.id },
+            data: { suspendedAt: new Date() },
+        });
+
+        await expect(searchPublishedProducts(prisma, catalogQuery(shop))).resolves.toMatchObject({
+            total: 0,
+        });
+        await expect(
+            readPublishedProduct(prisma, { shopSlug: shop.slug, productSlug: shop.productSlug }),
+        ).resolves.toBeNull();
+        await expect(readPublishedShop(prisma, { shopSlug: shop.slug })).resolves.toBeNull();
+        await expect(
+            prisma.productVariant.findFirst({ where: eligibleVariantWhere(shop.variantId) }),
+        ).resolves.toBeNull();
+    });
+
+    // Le décompte des devises a son PROPRE SQL, et c'est celui que la revue de T2d avait
+    // trouvé désaligné : il comptait des produits que la liste ne montrait pas.
+    it("ne compte plus dans le décompte des devises", async () => {
+        const shop = await createShopWithPublishedProduct({ methods: ["OFF_PLATFORM"] });
+        const avant = await listCatalogCurrencies(prisma);
+
+        await prisma.vendor.update({
+            where: { id: shop.id },
+            data: { suspendedAt: new Date() },
+        });
+        const apres = await listCatalogCurrencies(prisma);
+
+        expect(productCountOf(apres, shop.currency)).toBe(
+            productCountOf(avant, shop.currency) - 1,
+        );
+    });
+});

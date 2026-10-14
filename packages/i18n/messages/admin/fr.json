@@ -25,6 +25,10 @@
     "setup": {
       "already_installed": "Un administrateur existe déjà.",
       "failed": "Le compte n'a pas pu être créé. Vérifiez l'adresse et le mot de passe."
+    },
+    "shop": {
+      "not_found": "Cette boutique n'existe plus.",
+      "failed": "Le changement n'a pas pu être enregistré. Réessayez."
     }
   },
   "vendor": {
@@ -84,5 +88,15 @@
     "comment": "Commentaire, lu par le candidat",
     "approve": "Accepter",
     "reject": "Refuser"
+  },
+  "shops": {
+    "title": "Les boutiques",
+    "empty": "Aucune boutique ouverte.",
+    "active": "Active",
+    "suspended": "Suspendue",
+    "suspendedBy": "Suspendue par {name}",
+    "suspendedByUnknown": "Suspendue, auteur inconnu",
+    "suspend": "Suspendre",
+    "restore": "Rétablir"
   }
 }

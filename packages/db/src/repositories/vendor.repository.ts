@@ -92,3 +92,54 @@ export async function setShopPaymentMethods(
         data: { paymentMethods: input.paymentMethods },
     });
 }
+
+// Suspendre, ou rétablir. Une seule fonction pour les deux sens : l'appelant dit l'ÉTAT
+// VISÉ, pas la transition, donc suspendre une boutique déjà suspendue est sans effet au
+// lieu d'être une erreur. Deux administrateurs qui cliquent en même temps, ou un double
+// clic, ne doivent pas produire de refus à expliquer.
+//
+// Les deux colonnes bougent ENSEMBLE. Une date sans auteur, ou l'inverse, ferait lire à
+// l'écran une suspension que personne n'a décidée.
+//
+// La date ne se réécrit PAS quand la boutique est déjà suspendue : elle dit depuis quand,
+// et la rafraîchir effacerait cette information sans que personne l'ait voulu. Le filtre
+// `suspendedAt: null` sur la suspension s'en charge, et `updateMany` rend zéro ligne
+// touchée au lieu de lever.
+export async function setShopSuspension(
+    prisma: PrismaClient,
+    input: { vendorId: string; administratorId: string; suspended: boolean },
+): Promise<void> {
+    if (input.suspended) {
+        await prisma.vendor.updateMany({
+            where: { id: input.vendorId, suspendedAt: null },
+            data: { suspendedAt: new Date(), suspendedById: input.administratorId },
+        });
+        return;
+    }
+
+    await prisma.vendor.updateMany({
+        where: { id: input.vendorId },
+        data: { suspendedAt: null, suspendedById: null },
+    });
+}
+
+// Ce que l'administration voit d'une boutique EXISTANTE. Les boutiques fermées en sont
+// absentes : une fermeture n'est pas un état qu'on bascule, et proposer de suspendre ce qui
+// n'existe plus n'a pas de sens.
+//
+// `suspendedBy` est nullable deux fois, et pour deux raisons différentes : la boutique n'est
+// pas suspendue, ou le compte qui l'a suspendue a été supprimé, auquel cas le `SetNull` de
+// la relation a effacé le lien sans lever la suspension. L'écran doit tenir les deux.
+export async function listShopsForAdministration(prisma: PrismaClient) {
+    return prisma.vendor.findMany({
+        where: { deletedAt: null },
+        orderBy: [{ shopName: "asc" }, { id: "asc" }],
+        select: {
+            id: true,
+            slug: true,
+            shopName: true,
+            suspendedAt: true,
+            suspendedBy: { select: { name: true } },
+        },
+    });
+}

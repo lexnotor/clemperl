@@ -27,9 +27,17 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
                         <a href="/" className="font-titre text-lg tracking-tight">
                             ClemPerl
                         </a>
-                        <a href="/applications" className="text-sm text-muet hover:text-texte">
-                            Dossiers
-                        </a>
+                        <nav className="flex items-center gap-6">
+                            <a
+                                href="/applications"
+                                className="text-sm text-muet hover:text-texte"
+                            >
+                                Dossiers
+                            </a>
+                            <a href="/shops" className="text-sm text-muet hover:text-texte">
+                                Boutiques
+                            </a>
+                        </nav>
                     </div>
                 </header>
                 {children}

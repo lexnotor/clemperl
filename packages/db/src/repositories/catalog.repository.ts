@@ -113,6 +113,11 @@ function conditions(input: ICatalogQuery): Prisma.Sql[] {
         Prisma.sql`p.status = 'PUBLISHED'`,
         Prisma.sql`p.deleted_at IS NULL`,
         Prisma.sql`s.deleted_at IS NULL`,
+        // Une boutique suspendue ne vend plus. Même raison que la condition des méthodes
+        // au-dessous : elle vit ICI, dans la liste partagée par le décompte et par la
+        // requête des lignes, et non dans la seule seconde, qui ferait compter des produits
+        // que la liste ne montre pas.
+        Prisma.sql`s.suspended_at IS NULL`,
         Prisma.sql`s.currency = ${input.currency}::"currency"`,
         // Une boutique qui n'accepte aucune méthode ne peut rien vendre. La condition vit
         // ICI, dans la liste partagée, et non dans la seule requête des lignes : le
@@ -219,6 +224,7 @@ export async function listCatalogCurrencies(
         JOIN product_variants v ON v.product_id = p.id
         ${IMAGE_JOIN}
         WHERE p.status = 'PUBLISHED' AND p.deleted_at IS NULL AND s.deleted_at IS NULL
+              AND s.suspended_at IS NULL
               AND s.currency IS NOT NULL AND cardinality(s.payment_methods) > 0
               AND i.object_path IS NOT NULL
         GROUP BY s.currency
@@ -259,6 +265,7 @@ export async function readPublishedProduct(
             vendor: {
                 slug: input.shopSlug,
                 deletedAt: null,
+                suspendedAt: null,
                 currency: { not: null },
                 paymentMethods: { isEmpty: false },
             },
@@ -328,7 +335,12 @@ export async function readPublishedShop(
     input: { shopSlug: string },
 ): Promise<IPublicShop | null> {
     const shop = await prisma.vendor.findFirst({
-        where: { slug: input.shopSlug, deletedAt: null, paymentMethods: { isEmpty: false } },
+        where: {
+            slug: input.shopSlug,
+            deletedAt: null,
+            suspendedAt: null,
+            paymentMethods: { isEmpty: false },
+        },
         select: {
             slug: true,
             shopName: true,
