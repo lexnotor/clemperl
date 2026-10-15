@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-11.
+Dernière mise à jour : 2026-10-15.
 
 ## Où en est le projet
 
@@ -25,7 +25,9 @@ plan, exécution, un commit.
 | T3 | Panier et commande | **Livrée** |
 | T4 | Paiement, point d'extension | **Livrée** |
 | T5 | Activer et suspendre une boutique | **Livrée** |
-| T6 | Administration | non commencée |
+| T6a | Modérer le catalogue | **en cours**, tâches 1 à 4 sur 5 |
+| T6b | Gérer les comptes et les rôles | non commencée |
+| T6c | Surveiller les commandes et arbitrer | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
 
@@ -95,6 +97,338 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 (`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
+
+## T6a est livrée, au 2026-10-15
+
+Un administrateur retire du catalogue un produit qui n'a rien à y faire, avec un motif que le
+vendeur reçoit, sans punir toute la boutique. Cinq tâches, faites sur deux machines.
+
+### Les décisions qui comptent
+
+**Le retrait est un AVERTISSEMENT.** Il dépublie et prévient, et le vendeur peut republier.
+Aucun état nouveau : on écrit `status: DRAFT`, ce qu'une dépublication ordinaire écrit déjà.
+Ce qui distingue les deux est le MOTIF et le courriel, pas l'état. Coût assumé : un contenu
+illicite revient d'un clic, et le recours redevient la suspension de T5.
+
+**Publier efface `REVIEWED`, pour TOUTE publication.** C'est ce qui donne son mordant à
+l'avertissement : sans cela, un vendeur republie ce qu'on lui a retiré et ne repasse devant
+personne. Distinguer une republication après retrait d'une republication ordinaire
+demanderait de retenir qu'un retrait a eu lieu, donc le journal que T6 a écarté.
+
+**Les tags système sont un vocabulaire FERMÉ**, un tableau d'énumération sur `Product`, à la
+manière de `Vendor.paymentMethods`. Il démarre avec `REVIEWED` seul : un tag entre quand un
+écran en a besoin, et chaque ajout coûte une migration, ce qui est une friction utile.
+
+**La file se définit comme « publiés sans `REVIEWED` »**, du plus récent au plus ancien, et
+elle SE VIDE. C'est sa propriété importante : un administrateur sait qu'il a fini. L'écran
+dit aussi combien il reste, sans quoi personne ne saurait où il en est, la file démarrant
+avec tout le catalogue déjà publié.
+
+**Les motifs dérivent de l'ÉNUMÉRATION**, pas du catalogue de traduction, qui ne fournit que
+les libellés. Une valeur ajoutée sans libellé s'affiche brute, donc se voit, au lieu de
+disparaître en silence.
+
+**Le motif n'a pas de valeur par défaut.** Un `select` sans choix neutre sélectionne le
+premier motif d'office, et confirmer sans choisir aurait accusé de contrefaçon quelqu'un
+qu'on voulait seulement rappeler à l'ordre. Aucune garde ne l'aurait attrapé, le motif étant
+du vocabulaire. Le choix vide est refusé côté serveur aussi.
+
+### Un produit validé se modifie librement, et c'est assumé
+
+Décidé le 2026-10-15, après qu'une revue l'a soulevé.
+
+**Ce qui se passe.** Seule une REPUBLICATION efface la marque `REVIEWED`. Or `saveProduct`
+ne touche ni `status` ni `systemTags`, et le dépôt d'images ne bloque que la suppression de
+la DERNIÈRE image prête d'un produit publié. Un vendeur peut donc faire examiner un article,
+puis en changer le titre, la description et les photos sans jamais quitter `PUBLISHED` : la
+marque demeure, et la file ne le revoit plus.
+
+**La décision.** Un produit validé se modifie à volonté. La remise en file sur édition est
+remise à plus tard, avec la question du renommage.
+
+**Ce qu'il en coûte si on se trompe.** Un vendeur peut publier un article inoffensif, le
+faire valider, puis l'éditer en tout autre chose sans qu'aucun administrateur ne le revoie.
+C'est la route la moins chère pour contourner ce que la modération existe pour empêcher, et
+elle est moins coûteuse que dépublier puis republier, qui ramène en file.
+
+**La sortie, le jour où cela gêne.** Effacer `REVIEWED` dans `saveProduct` et sur toute
+écriture d'image, exactement comme `setProductStatus` le fait déjà. Trois points d'appel, pas
+une refonte. Il faudra alors décider si une correction de faute d'orthographe renvoie en
+file, sans quoi la file se remplira de bruit.
+
+### Une dette qui ne fait aucun bruit
+
+**Le filtre de `REVIEWED` est écrit pour un futur que rien ne garde.** `setProductStatus`
+efface la marque PAR FILTRE et non par remise à zéro, afin qu'un futur tag ne disparaisse pas
+quand quelqu'un republie. Mais `E_PRODUCT_TAG` n'ayant qu'une valeur, aucun test ne distingue
+aujourd'hui un filtre d'une remise à zéro : la mutation l'a vérifié et ne tue rien.
+
+Le code est juste, le test est vert, et l'un ne prouve pas l'autre. **Le jour où un second tag
+entrera dans l'énumération, il faudra ajouter le test qui distingue**, et personne ne s'en
+souviendra si ce n'est pas écrit ici.
+
+### Ce que T6a ne fait pas
+
+Aucun journal des actes : qui a retiré quoi n'est conservé nulle part, et le courriel parti
+chez le vendeur en est la seule trace. Aucun compteur de récidive, puisque rien n'est
+conservé. Aucune modération du nom, de la description ou des images d'une boutique, ni des
+collections : le levier y reste la suspension de T5. Aucun signalement par les visiteurs : la
+file part des nouveautés, et le signalement sera sa propre tranche le jour où le volume
+dépassera ce qu'un humain parcourt.
+
+### Trois noms et une largeur, corrigés en route
+
+`ERROR_MODERATION_PRODUCT_NOT_FOUND` et non `ERROR_PRODUCT_NOT_FOUND`, ce dernier étant déjà
+pris par le dépôt des produits. Les deux restent distincts volontairement : `PRODUCT_NOT_FOUND`
+est une SOUS-CHAÎNE de l'autre, et les actions comparant par `includes`, les confondre aurait
+fait passer un test qui ne prouvait rien.
+
+La vignette se demande en **320**, pas en 200 : `DERIVATIVE_WIDTHS` vaut `[320, 800, 1600]` et
+la route de relais refuse le reste. En 200, toutes les vignettes auraient été cassées.
+
+### Les décomptes, mesurés
+
+| Couche | Résultat |
+| --- | --- |
+| `moderation.int-spec.ts` | 12 tests |
+| Domaine, motif et courriel | 6 tests |
+| Intégration, couche entière | 18 suites, 231 tests |
+| `lint`, `typecheck`, `test` | 15/15 chacun |
+| `build` | 9/9 |
+| Parcours navigateur de T6a, lancés seuls | 2 tests, 5 exécutions au vert |
+
+### Ce que la vérification n'a PAS établi
+
+**La suite navigateur n'est pas verte d'un bloc sur cette machine, et ce n'est pas une
+régression de T6a.** Trois exécutions complètes, trois jeux d'échecs DIFFÉRENTS, aucun test
+tombant deux fois : modération au premier passage, suspension et paiement au deuxième,
+commande et candidature au troisième. C'est mot pour mot le comportement documenté depuis
+T2e, et la consigne qui l'accompagne tient : ne pas s'acharner, la CI tranche sur un runner
+dédié.
+
+**Deux assertions ont tout de même été corrigées**, parce qu'elles relevaient d'une classe
+diagnostiquée et non de la charge : elles attendaient CINQ secondes une action serveur suivie
+d'une revalidation et d'un re-rendu. Mesuré : cinq exécutions isolées du parcours de
+modération passent, et seule la suite complète le faisait tomber. Le délai est passé à trente
+secondes dans `e2e/moderation.spec.ts` et `e2e/shop-suspension.spec.ts`, avec la mesure en
+commentaire. Allonger ne masque rien : si l'action n'avait pas lieu, l'écran ne changerait
+jamais.
+
+**L'échec du parcours de paiement n'a PAS été compris.** Un titre de page qui ne correspond
+pas, dans un parcours de T4, tombé une fois sur trois. Non diagnostiqué, non touché, signalé
+tel quel.
+
+## Où en est l'exécution de T6a, à la coupure du 2026-10-15
+
+**Le plan est écrit** : `docs/superpowers/plans/2026-10-14-t6a-moderation-catalogue.md`,
+cinq tâches. Exécution NATIVE. **Reprendre le plan à la tâche 5**, la dernière.
+
+Branche `feat/catalogue-moderation`, partie de `main` à `bd20daf`. Cinq commits, plus
+celui de cette passation :
+
+| Commit | Contenu |
+| --- | --- |
+| `c61ca4f` | La spec |
+| `160503d` | Tâche 1 : deux énumérations, `Product.systemTags`, la migration, le plan |
+| `280d96e` | Tâche 2 : motifs, décision et courriel de retrait, tous purs |
+| `8f4ce82` | Tâche 3 : le dépôt de modération |
+| `e3f8aa1` | Tâche 4 : l'écran de modération |
+
+**Un commit par tâche, et non le commit unique que demande `docs/conventions/git.md`.**
+C'est une dérogation assumée : le ledger d'exécution vit sous `.superpowers/`, ignoré par
+Git, donc il ne voyage pas d'une machine à l'autre. Seul un commit voyage. L'écrasement à
+la fusion aplatit le tout.
+
+**NE PAS toucher au fichier de migration** `20261014120000_product_moderation`, commentaire
+compris : son `sha256` est enregistré dans `_prisma_migrations`, et le modifier fait diverger
+la somme. Consigné dans `docs/pieges.md`.
+
+### Ce que les tâches 2 à 4 ont livré
+
+**Tâche 2**, dans `packages/domain` : `MODERATION_REASONS`, `validateModerationDecision`
+levant `InvalidDecisionError`, et `buildRetirementMessage(titre, motif, locale)` avec repli
+français. Aucun export depuis `browser.ts`, qui tirerait `node:net`. 24 fichiers, 200 tests,
+couverture 100/100/100/100.
+
+**Tâche 3**, dans `packages/db` : `listProductsToModerate`, `markProductReviewed`,
+`retireProduct`, et la constante `ERROR_MODERATION_PRODUCT_NOT_FOUND`. `setProductStatus`
+efface `REVIEWED` **par filtre** à la publication, jamais par remise à zéro. Treize tests
+d'intégration annoncés par le plan, **douze écrits**, parce que le bloc de code du plan en
+contient douze : le compte du plan était faux, pas la couverture. Toute la couche à 18
+suites et 231 tests.
+
+**Tâche 4**, dans `apps/admin` : `/moderation`, ses deux actions serveur, sa ligne cliente et
+le lien de navigation. `lint` 15/15, `typecheck` 15/15, `build` 9/9. Vérifiée **avec une
+vraie session d'administrateur**, et pas seulement par le 307 de la garde : 200, les lignes
+rendues, le compteur juste, les cinq motifs dans le `select`, les vignettes servies.
+
+### Trois décisions de ces tâches, qui engagent la suite
+
+**La constante de la modération s'appelle `ERROR_MODERATION_PRODUCT_NOT_FOUND`**, pas
+`ERROR_PRODUCT_NOT_FOUND` comme l'écrit le plan : ce nom est déjà pris par
+`packages/db/src/repositories/product.repository.ts`, avec la valeur `PRODUCT_NOT_FOUND`, et
+le baril refusait de compiler. Les deux refus restent distincts, et c'est volontaire :
+`PRODUCT_NOT_FOUND` est une SOUS-CHAÎNE de `MODERATION_PRODUCT_NOT_FOUND`, donc réutiliser
+l'ancienne aurait fait passer un test qui ne prouvait rien, les actions comparant par
+`texte.includes(...)`.
+
+**La vignette se demande en 320, pas en 200.** Le plan demande `derivativePath(chemin, 200)`,
+largeur que le worker ne produit pas : `DERIVATIVE_WIDTHS` vaut `[320, 800, 1600]` et la route
+de relais refuse le reste. En 200, toutes les vignettes auraient été cassées.
+
+**Le motif de retrait n'a pas de valeur par défaut.** Le `select` du plan n'a pas de choix
+vide, donc le premier motif, `COUNTERFEIT`, était sélectionné d'office : ouvrir le bloc de
+retrait et confirmer sans rien choisir accusait de contrefaçon quelqu'un qu'on voulait
+seulement rappeler à l'ordre, et aucune garde ne l'attrapait, le motif étant bien du
+vocabulaire. L'écran porte donc un choix neutre obligatoire, refusé aussi côté serveur.
+
+### Les deux consignes de pré-vol, tenues
+
+**Les motifs dérivent de l'ÉNUMÉRATION**, `MODERATION_REASONS`, et le catalogue ne fournit
+que les libellés. Une valeur ajoutée à `E_MODERATION_REASON` sans libellé s'affiche brute,
+donc se voit, au lieu de disparaître en silence.
+
+**L'écran dit combien il reste** à examiner, au-dessus de la liste. La mesure annoncée de 193
+articles venait d'une autre machine ; celle-ci en comptait 55 publiés non tagués. Le chiffre
+dépend de la base, la propriété ne dépend de rien.
+
+### Trois pièges payés, à porter dans `docs/pieges.md` en tâche 5
+
+**`packages/db/generated/` est ignoré par Git** (`.gitignore:20`). Tirer une branche qui
+AJOUTE une énumération Prisma laisse donc un client généré qui ne la connaît pas. Le symptôme
+nomme l'énumération absente, jamais la génération. Remède : `pnpm --filter @clemperl/db
+build`, qui enchaîne `db:generate` et le `tsc`. `prisma generate` nu échoue faute de
+`DATABASE_URL` ; le script `db:generate` en fournit une factice, et ne se connecte à aucune
+base.
+
+**Les tests d'intégration résolvent `@clemperl/db` par `dist/src/`**, le champ `exports` du
+paquet, et non par la source. Une mutation reste donc sans effet tant que le build n'a pas
+réussi. Mesuré : une mutation a échoué à bâtir sur un `TS6133`, et les douze tests sont passés
+contre l'ANCIEN `dist`, faux négatif qui ressemble trait pour trait à « la mutation ne tue
+rien ». Vérifier la mutation dans `dist/src/`, pas seulement dans la source, et noter que le
+chemin est `dist/src/...` et non `dist/...`.
+
+**`packages/i18n/messages/admin/fr.json` est indenté à DEUX espaces**, pas aux quatre du code.
+Le réécrire avec l'indentation du code reformate quatre-vingt-treize lignes pour vingt-quatre
+d'ajout réel.
+
+### Ce que la preuve par mutation a dit, et ce qu'elle n'a pas dit
+
+Retirer `suspendedAt: null` du filtre de la file tue « ne rend pas un produit d'une boutique
+suspendue », et lui seul.
+
+Remplacer le filtre de `REVIEWED` par une remise à zéro ne tue RIEN, et c'était annoncé :
+`E_PRODUCT_TAG` n'a qu'une valeur, donc aucun test ne distingue aujourd'hui un filtre d'une
+remise à zéro. Le filtre est écrit pour le jour où un second tag existera ; le test garde la
+propriété sans la prouver. Dit plutôt qu'enjolivé.
+
+### Ce que la tâche 5 doit faire
+
+Le parcours navigateur se lance contre `pnpm docker:up`, la pile de DÉVELOPPEMENT, et surtout
+pas `pnpm e2e:up` : la superposition de production allume le limiteur de débit de Better Auth
+et la création de comptes prend des 429. Mesuré en T5.
+
+Les identifiants d'administration de la pile de développement sont ceux des aides du
+navigateur : `administration@clemperl.test` et `motdepasse123`.
+
+## Où en est T6a, au 2026-10-14
+
+**T5 est fusionnée**, PR #11 en écrasement, `main` à `bd20daf`.
+
+**T6 a été DÉCOUPÉE en trois tranches**, parce que le mot recouvrait trois sous-systèmes qui
+ne partagent ni modèle, ni écran, ni risque :
+
+- **T6a, modérer le catalogue.** Cadrée, spec écrite, plan à écrire. C'est la suite.
+- **T6b, gérer les comptes et les rôles.** `E_USER_ROLE` ne connaît que `CUSTOMER` et `ADMIN`,
+  et seul l'amorçage crée un administrateur : personne n'en nomme un second depuis
+  l'interface. La plus petite des trois.
+- **T6c, surveiller les commandes et arbitrer.** La plus lourde : elle touche la machine à
+  états de T3, bâtie sur la règle « seul le vendeur fait avancer ». Un arbitrage est une
+  exception à cette règle, et il faudra décider si elle reste une règle avec une porte ou
+  cesse d'en être une.
+
+### Reprendre T6a
+
+Spec : `docs/superpowers/specs/2026-10-14-t6a-moderation-catalogue-design.md`, approuvée en
+conversation, non encore relue en entier par l'utilisateur. Le plan est écrit depuis, et
+l'exécution en est à la tâche 5 : voir plus haut, « Où en est l'exécution de T6a ».
+
+### Les décisions de T6a, et ce qu'elles coûtent
+
+**Le retrait est un AVERTISSEMENT.** Il dépublie et prévient, et le vendeur peut republier.
+Aucun état nouveau : on écrit `status: DRAFT`, ce qu'une dépublication ordinaire écrit déjà.
+Le coût assumé : un contenu illicite revient d'un clic, et le recours redevient la suspension
+de toute la boutique, livrée en T5.
+
+**Ce qui distingue un retrait d'une dépublication est le MOTIF, pas l'état.** Motif codé,
+commentaire obligatoire quand il vaut « autre », et courriel dans la langue du vendeur, sur
+la forme que T1b a écrite pour les refus de candidature. Réutiliser plutôt que réinventer :
+la règle du commentaire obligatoire vit déjà dans `packages/domain`, éprouvée.
+
+**Les tags système sont un tableau d'énumération sur `Product`**, vocabulaire FERMÉ, à la
+manière de `Vendor.paymentMethods`. Un produit en porte zéro, un ou plusieurs. Le vocabulaire
+démarre avec `REVIEWED` seul, et c'est voulu : un tag entre quand un écran en a besoin. Pas
+d'étiquettes libres, deux administrateurs écriraient « a-verifier » et « à vérifier ».
+
+**La file de modération, c'est « publiés sans `REVIEWED` », du plus récent au plus ancien.**
+Elle se VIDE, ce qui est sa propriété importante : un administrateur sait qu'il a fini. Pas
+de table de signalements, pas de bouton public.
+
+**Republier retire le tag `REVIEWED`.** C'est la décision la moins évidente, et celle qui
+donne son mordant à l'avertissement : sans elle, un vendeur republie un contenu retiré et ne
+repasse devant personne. La règle vaut pour TOUTE republication, qu'un retrait l'ait précédée
+ou non, parce que distinguer les deux demanderait de retenir qu'un retrait a eu lieu, donc le
+journal que T6 a écarté. Elle couple `setProductStatus` à la modération, assumé.
+
+### Ce que T6a ne fait pas
+
+Aucun journal des actes : qui a retiré quoi n'est conservé nulle part, et le courriel parti
+chez le vendeur en est la seule trace. Aucune modération du nom, de la description ou des
+images d'une boutique, ni des collections : le levier y reste la suspension. Aucun compteur
+de récidive, puisque rien n'est conservé.
+
+### Le test instable des collections est corrigé, et il portait la mauvaise propriété
+
+Le 2026-10-15, après qu'il a fait rougir la CI.
+
+**Le code de production était CORRECT.** `renameCollection` et `setCollectionStatus` prennent
+le même verrou, donc les deux écritures se sérialisent. Mais un verrou ne décide pas laquelle
+passe en premier, et les deux ordres honorent la règle du produit :
+
+- publication d'abord, le renommage lit `publishedAt` non nul et laisse le slug ;
+- renommage d'abord, la collection est encore un brouillon, le slug suit le titre, puis la
+  publication le fige.
+
+**Le test exigeait que la publication gagne toujours**, ce que rien ne promet et que rien ne
+peut garantir sans ordonner deux actions que le vendeur déclenche en parallèle. Son
+commentaire affirmait « quel que soit l'ordre des deux écritures », soit exactement ce qu'il
+ne vérifiait pas.
+
+**Il éprouve désormais la garantie qui existe** : les deux ordres sont acceptés, puis la
+collection publiée est renommée une seconde fois et son slug ne bouge plus alors que son
+titre change. C'est cette propriété qui protège un lien déjà partagé.
+
+Ce n'est pas un test rendu tolérant pour qu'il cesse de gêner : il est PLUS fort qu'avant.
+L'ancien ne touchait jamais au gel après publication. Mutation faite : retirer le gel du slug
+fait rougir le nouveau, et l'ancien ne l'aurait pas vu. Huit exécutions consécutives au vert,
+là où il échouait environ une fois sur trois.
+
+### Ce qui reste ouvert, hors T6a
+
+**Le test instable de `collection.int-spec.ts:582`**, laissé ouvert sur décision. Sept
+exécutions isolées, deux échecs. Le trancher demande de décider ce que `renameCollection`
+doit garantir face à une publication concurrente : la publication gagne toujours, ou le
+dernier arrivé gagne. Le code permet les deux, le test exige le premier, et son commentaire
+affirme que l'ordre n'importe pas, ce qui est faux dans les deux cas.
+
+**La suite navigateur contre les images de production.** Voir l'entrée dédiée de
+`docs/pieges.md` : Better Auth y allume son limiteur de débit et la création de comptes prend
+des 429. La CI ne le rencontre pas, elle lance `pnpm docker:up`. Aucune sortie de production
+n'a donc jamais été exercée par une suite complète.
+
+**Ce document grossit.** Il a servi deux fois le 2026-10-14, dont une pour trouver une somme
+de contrôle, donc il est utile. Mais il approche de la taille où personne ne le lit en
+entier, et les sections d'avant le 2026-10-09 gagneraient à être élaguées.
 
 ## T5 est livrée, au 2026-10-14
 

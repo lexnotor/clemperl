@@ -50,6 +50,10 @@ const ROUTES = [
     `${URL_ADMIN}/`,
     `${URL_ADMIN}/setup`,
     `${URL_ADMIN}/applications`,
+    // Next compile une route au PREMIER accès, plus lentement que le délai d'une
+    // assertion : sans échauffement, un test sain expire à l'arrivée.
+    `${URL_ADMIN}/shops`,
+    `${URL_ADMIN}/moderation`,
 ];
 
 export default async function globalSetup(): Promise<void> {

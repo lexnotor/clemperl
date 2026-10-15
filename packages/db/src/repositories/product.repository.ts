@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../generated/prisma/client.js";
+import type { E_PRODUCT_TAG, PrismaClient } from "../../generated/prisma/client.js";
 import { isUniqueViolation } from "../prisma-errors.js";
 
 export interface ICreateProduct {
@@ -272,6 +272,26 @@ export async function setProductStatus(
             }
         }
 
+        // Republier RAMÈNE le produit devant la modération, et c'est ce qui donne son
+        // mordant à l'avertissement : sans cela, un vendeur republie ce qu'on lui a retiré
+        // et ne repasse devant personne.
+        //
+        // La règle vaut pour TOUTE republication, qu'un retrait l'ait précédée ou non :
+        // distinguer les deux demanderait de retenir qu'un retrait a eu lieu, donc un
+        // journal qu'on a écarté.
+        //
+        // On FILTRE au lieu de remettre à zéro : le tableau est partagé, et un futur tag
+        // n'a pas à disparaître parce que quelqu'un republie. Prisma ne sait pas retirer
+        // UN élément d'une liste scalaire, d'où la relecture.
+        let tags: { systemTags: E_PRODUCT_TAG[] } | undefined;
+        if (input.publish) {
+            const current = await tx.product.findUniqueOrThrow({
+                where: { id: input.productId },
+                select: { systemTags: true },
+            });
+            tags = { systemTags: current.systemTags.filter((tag) => tag !== "REVIEWED") };
+        }
+
         await tx.product.updateMany({
             where: { id: input.productId, vendorId: input.vendorId, deletedAt: null },
             data: {
@@ -280,6 +300,7 @@ export async function setProductStatus(
                 // a cessé de pouvoir bouger, et dépublier ne rend pas une URL
                 // réutilisable.
                 ...(input.publish ? { publishedAt: new Date() } : {}),
+                ...(tags ?? {}),
             },
         });
     });
