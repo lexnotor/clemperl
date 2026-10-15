@@ -1,6 +1,7 @@
 export * from "./cart.repository.js";
 export * from "./catalog.repository.js";
 export * from "./collection.repository.js";
+export * from "./moderation.repository.js";
 export * from "./order.repository.js";
 export * from "./payment.repository.js";
 export * from "./product-image.repository.js";
