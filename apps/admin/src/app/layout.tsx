@@ -37,6 +37,9 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
                             <a href="/shops" className="text-sm text-muet hover:text-texte">
                                 Boutiques
                             </a>
+                            <a href="/moderation" className="text-sm text-muet hover:text-texte">
+                                Modération
+                            </a>
                         </nav>
                     </div>
                 </header>
