@@ -25,7 +25,7 @@ plan, exécution, un commit.
 | T3 | Panier et commande | **Livrée** |
 | T4 | Paiement, point d'extension | **Livrée** |
 | T5 | Activer et suspendre une boutique | **Livrée** |
-| T6a | Modérer le catalogue | **en cours**, tâches 1 à 4 sur 5 |
+| T6a | Modérer le catalogue | **Livrée**, PR #12 |
 | T6b | Gérer les comptes et les rôles | non commencée |
 | T6c | Surveiller les commandes et arbitrer | non commencée |
 | T7 | Temps réel | non commencée |

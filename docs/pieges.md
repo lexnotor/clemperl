@@ -566,6 +566,18 @@ est bien `dist/src/...` et non `dist/...`.
 Les deux routes ont la même forme : quelque chose entre l'intention et l'exécution a échoué
 en silence, et le vert qui suit se lit comme une preuve alors qu'il n'en est pas une.
 
+**Une TROISIÈME route, la plus banale : un `replace` qui ne trouve rien.** `str.replace` en
+Python et `String.replace` en JavaScript rendent la chaîne inchangée quand le motif est
+absent, sans lever et sans rien dire. Éditer un fichier par script en s'appuyant sur un texte
+qu'une autre main a modifié entre-temps produit donc un succès apparent et aucun changement.
+
+Le symétrique coûte autant : `str.replace` sans compteur remplace TOUTES les occurrences.
+Deux sections d'un même document qui partagent un titre se font écraser l'une par l'autre.
+
+Ce qui protège, dans les trois cas : ne pas se fier au silence. Un `assert` que le texte
+recherché est bien présent avant de remplacer, un `count=1` quand une seule occurrence est
+visée, et une relecture de ce que le fichier porte APRÈS, pas de ce que la commande a dit.
+
 ---
 
 **Remplacer l'hôte `postgres` par `localhost` peut atteindre la base d'un AUTRE projet.**
