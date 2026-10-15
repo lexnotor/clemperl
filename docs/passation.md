@@ -486,36 +486,6 @@ dont le refus est réversible, et elle n'a pas besoin de changer le modèle.
 
 | Couche | Résultat |
 | --- | --- |
-| `moderation.int-spec.ts` | 12 tests |
-| Domaine, motif et courriel | 6 tests |
-| Intégration, couche entière | 18 suites, 231 tests |
-| `lint`, `typecheck`, `test` | 15/15 chacun |
-| `build` | 9/9 |
-| Parcours navigateur de T6a, lancés seuls | 2 tests, 5 exécutions au vert |
-
-### Ce que la vérification n'a PAS établi
-
-**La suite navigateur n'est pas verte d'un bloc sur cette machine, et ce n'est pas une
-régression de T6a.** Trois exécutions complètes, trois jeux d'échecs DIFFÉRENTS, aucun test
-tombant deux fois : modération au premier passage, suspension et paiement au deuxième,
-commande et candidature au troisième. C'est mot pour mot le comportement documenté depuis
-T2e, et la consigne qui l'accompagne tient : ne pas s'acharner, la CI tranche sur un runner
-dédié.
-
-**Deux assertions ont tout de même été corrigées**, parce qu'elles relevaient d'une classe
-diagnostiquée et non de la charge : elles attendaient CINQ secondes une action serveur suivie
-d'une revalidation et d'un re-rendu. Mesuré : cinq exécutions isolées du parcours de
-modération passent, et seule la suite complète le faisait tomber. Le délai est passé à trente
-secondes dans `e2e/moderation.spec.ts` et `e2e/shop-suspension.spec.ts`, avec la mesure en
-commentaire. Allonger ne masque rien : si l'action n'avait pas lieu, l'écran ne changerait
-jamais.
-
-**L'échec du parcours de paiement n'a PAS été compris.** Un titre de page qui ne correspond
-pas, dans un parcours de T4, tombé une fois sur trois. Non diagnostiqué, non touché, signalé
-tel quel.
-
-| Couche | Résultat |
-| --- | --- |
 | `shop-suspension.int-spec.ts`, neuf | 12 tests |
 | `payment-eligibility.int-spec.ts`, dont 2 neufs | 6 tests |
 | Intégration, couche entière | 17 suites, 219 tests |
