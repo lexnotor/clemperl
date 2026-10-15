@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-11.
+Dernière mise à jour : 2026-10-15.
 
 ## Où en est le projet
 
@@ -25,7 +25,7 @@ plan, exécution, un commit.
 | T3 | Panier et commande | **Livrée** |
 | T4 | Paiement, point d'extension | **Livrée** |
 | T5 | Activer et suspendre une boutique | **Livrée** |
-| T6a | Modérer le catalogue | **en cours**, tâche 1 sur 5 |
+| T6a | Modérer le catalogue | **en cours**, tâches 1 à 4 sur 5 |
 | T6b | Gérer les comptes et les rôles | non commencée |
 | T6c | Surveiller les commandes et arbitrer | non commencée |
 | T7 | Temps réel | non commencée |
@@ -98,45 +98,118 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
-## Où en est l'exécution de T6a, à la coupure du 2026-10-14
+## Où en est l'exécution de T6a, à la coupure du 2026-10-15
 
 **Le plan est écrit** : `docs/superpowers/plans/2026-10-14-t6a-moderation-catalogue.md`,
-cinq tâches. Exécution NATIVE choisie. **Reprendre le plan à la tâche 2.**
+cinq tâches. Exécution NATIVE. **Reprendre le plan à la tâche 5**, la dernière.
 
-**La tâche 1 est faite.** Les deux énumérations `E_PRODUCT_TAG { REVIEWED }` et
-`E_MODERATION_REASON`, la colonne `Product.systemTags` avec défaut vide, et la migration
-`20261014120000_product_moderation`, appliquée. `lint`, `typecheck` et `test` à 15/15.
+Branche `feat/catalogue-moderation`, partie de `main` à `bd20daf`. Cinq commits, plus
+celui de cette passation :
 
-**NE PAS toucher au fichier de migration**, commentaire compris : son `sha256` est désormais
-enregistré dans `_prisma_migrations`, et le modifier fait diverger la somme. Le piège est
-consigné dans `docs/pieges.md` et a déjà coûté une demi-heure sur ce dépôt.
+| Commit | Contenu |
+| --- | --- |
+| `c61ca4f` | La spec |
+| `160503d` | Tâche 1 : deux énumérations, `Product.systemTags`, la migration, le plan |
+| `280d96e` | Tâche 2 : motifs, décision et courriel de retrait, tous purs |
+| `8f4ce82` | Tâche 3 : le dépôt de modération |
+| `e3f8aa1` | Tâche 4 : l'écran de modération |
 
-### Une décision prise en pré-vol, à appliquer en tâche 4
+**Un commit par tâche, et non le commit unique que demande `docs/conventions/git.md`.**
+C'est une dérogation assumée : le ledger d'exécution vit sous `.superpowers/`, ignoré par
+Git, donc il ne voyage pas d'une machine à l'autre. Seul un commit voyage. L'écrasement à
+la fusion aplatit le tout.
 
-**La liste des motifs offerte à l'écran doit venir de l'ENUM, pas du catalogue i18n.** Le
-plan fait construire les options depuis `messages.moderation.reason`, alors que la validation
-du domaine compare à `MODERATION_REASONS`, dérivé de l'énumération Prisma. Les deux peuvent
-diverger en silence : une clé ajoutée offrirait un motif que la validation refuse, une clé
-oubliée cacherait un motif légitime. La page dérive donc ses options de l'énumération et ne
-lit le catalogue que pour le libellé de chaque valeur.
+**NE PAS toucher au fichier de migration** `20261014120000_product_moderation`, commentaire
+compris : son `sha256` est enregistré dans `_prisma_migrations`, et le modifier fait diverger
+la somme. Consigné dans `docs/pieges.md`.
 
-### Une mesure à porter à la tâche 4
+### Ce que les tâches 2 à 4 ont livré
 
-**La file démarrerait avec 193 articles** sur la base de développement, 346 produits y
-existant dont aucun ne porte de tag. C'est la conséquence voulue du défaut vide, mais c'est
-beaucoup pour une première session, et en production ce serait tout le catalogue publié
-depuis l'origine. L'écran devra au moins dire combien il en reste, sans quoi l'administrateur
-ne saura jamais où il en est. À trancher en tâche 4.
+**Tâche 2**, dans `packages/domain` : `MODERATION_REASONS`, `validateModerationDecision`
+levant `InvalidDecisionError`, et `buildRetirementMessage(titre, motif, locale)` avec repli
+français. Aucun export depuis `browser.ts`, qui tirerait `node:net`. 24 fichiers, 200 tests,
+couverture 100/100/100/100.
 
-### Ce que le plan demande et qu'il ne faut pas oublier
+**Tâche 3**, dans `packages/db` : `listProductsToModerate`, `markProductReviewed`,
+`retireProduct`, et la constante `ERROR_MODERATION_PRODUCT_NOT_FOUND`. `setProductStatus`
+efface `REVIEWED` **par filtre** à la publication, jamais par remise à zéro. Treize tests
+d'intégration annoncés par le plan, **douze écrits**, parce que le bloc de code du plan en
+contient douze : le compte du plan était faux, pas la couverture. Toute la couche à 18
+suites et 231 tests.
 
-La tâche 3 étape 8 demande de prouver les tests **par mutation**, et dit d'avance que la
-seconde mutation ne prouvera rien tant qu'un seul tag existe. Le dire plutôt que d'annoncer
-une preuve qu'on n'a pas.
+**Tâche 4**, dans `apps/admin` : `/moderation`, ses deux actions serveur, sa ligne cliente et
+le lien de navigation. `lint` 15/15, `typecheck` 15/15, `build` 9/9. Vérifiée **avec une
+vraie session d'administrateur**, et pas seulement par le 307 de la garde : 200, les lignes
+rendues, le compteur juste, les cinq motifs dans le `select`, les vignettes servies.
 
-La tâche 5 étape 4 lance la suite navigateur contre `pnpm docker:up`, la pile de
-DÉVELOPPEMENT, et surtout pas `pnpm e2e:up` : la superposition de production allume le
-limiteur de débit de Better Auth et la création de comptes prend des 429. Mesuré en T5.
+### Trois décisions de ces tâches, qui engagent la suite
+
+**La constante de la modération s'appelle `ERROR_MODERATION_PRODUCT_NOT_FOUND`**, pas
+`ERROR_PRODUCT_NOT_FOUND` comme l'écrit le plan : ce nom est déjà pris par
+`packages/db/src/repositories/product.repository.ts`, avec la valeur `PRODUCT_NOT_FOUND`, et
+le baril refusait de compiler. Les deux refus restent distincts, et c'est volontaire :
+`PRODUCT_NOT_FOUND` est une SOUS-CHAÎNE de `MODERATION_PRODUCT_NOT_FOUND`, donc réutiliser
+l'ancienne aurait fait passer un test qui ne prouvait rien, les actions comparant par
+`texte.includes(...)`.
+
+**La vignette se demande en 320, pas en 200.** Le plan demande `derivativePath(chemin, 200)`,
+largeur que le worker ne produit pas : `DERIVATIVE_WIDTHS` vaut `[320, 800, 1600]` et la route
+de relais refuse le reste. En 200, toutes les vignettes auraient été cassées.
+
+**Le motif de retrait n'a pas de valeur par défaut.** Le `select` du plan n'a pas de choix
+vide, donc le premier motif, `COUNTERFEIT`, était sélectionné d'office : ouvrir le bloc de
+retrait et confirmer sans rien choisir accusait de contrefaçon quelqu'un qu'on voulait
+seulement rappeler à l'ordre, et aucune garde ne l'attrapait, le motif étant bien du
+vocabulaire. L'écran porte donc un choix neutre obligatoire, refusé aussi côté serveur.
+
+### Les deux consignes de pré-vol, tenues
+
+**Les motifs dérivent de l'ÉNUMÉRATION**, `MODERATION_REASONS`, et le catalogue ne fournit
+que les libellés. Une valeur ajoutée à `E_MODERATION_REASON` sans libellé s'affiche brute,
+donc se voit, au lieu de disparaître en silence.
+
+**L'écran dit combien il reste** à examiner, au-dessus de la liste. La mesure annoncée de 193
+articles venait d'une autre machine ; celle-ci en comptait 55 publiés non tagués. Le chiffre
+dépend de la base, la propriété ne dépend de rien.
+
+### Trois pièges payés, à porter dans `docs/pieges.md` en tâche 5
+
+**`packages/db/generated/` est ignoré par Git** (`.gitignore:20`). Tirer une branche qui
+AJOUTE une énumération Prisma laisse donc un client généré qui ne la connaît pas. Le symptôme
+nomme l'énumération absente, jamais la génération. Remède : `pnpm --filter @clemperl/db
+build`, qui enchaîne `db:generate` et le `tsc`. `prisma generate` nu échoue faute de
+`DATABASE_URL` ; le script `db:generate` en fournit une factice, et ne se connecte à aucune
+base.
+
+**Les tests d'intégration résolvent `@clemperl/db` par `dist/src/`**, le champ `exports` du
+paquet, et non par la source. Une mutation reste donc sans effet tant que le build n'a pas
+réussi. Mesuré : une mutation a échoué à bâtir sur un `TS6133`, et les douze tests sont passés
+contre l'ANCIEN `dist`, faux négatif qui ressemble trait pour trait à « la mutation ne tue
+rien ». Vérifier la mutation dans `dist/src/`, pas seulement dans la source, et noter que le
+chemin est `dist/src/...` et non `dist/...`.
+
+**`packages/i18n/messages/admin/fr.json` est indenté à DEUX espaces**, pas aux quatre du code.
+Le réécrire avec l'indentation du code reformate quatre-vingt-treize lignes pour vingt-quatre
+d'ajout réel.
+
+### Ce que la preuve par mutation a dit, et ce qu'elle n'a pas dit
+
+Retirer `suspendedAt: null` du filtre de la file tue « ne rend pas un produit d'une boutique
+suspendue », et lui seul.
+
+Remplacer le filtre de `REVIEWED` par une remise à zéro ne tue RIEN, et c'était annoncé :
+`E_PRODUCT_TAG` n'a qu'une valeur, donc aucun test ne distingue aujourd'hui un filtre d'une
+remise à zéro. Le filtre est écrit pour le jour où un second tag existera ; le test garde la
+propriété sans la prouver. Dit plutôt qu'enjolivé.
+
+### Ce que la tâche 5 doit faire
+
+Le parcours navigateur se lance contre `pnpm docker:up`, la pile de DÉVELOPPEMENT, et surtout
+pas `pnpm e2e:up` : la superposition de production allume le limiteur de débit de Better Auth
+et la création de comptes prend des 429. Mesuré en T5.
+
+Les identifiants d'administration de la pile de développement sont ceux des aides du
+navigateur : `administration@clemperl.test` et `motdepasse123`.
 
 ## Où en est T6a, au 2026-10-14
 
@@ -157,8 +230,8 @@ ne partagent ni modèle, ni écran, ni risque :
 ### Reprendre T6a
 
 Spec : `docs/superpowers/specs/2026-10-14-t6a-moderation-catalogue-design.md`, approuvée en
-conversation, non encore relue en entier par l'utilisateur. **Le plan n'est pas écrit** :
-reprendre par la compétence `writing-plans`.
+conversation, non encore relue en entier par l'utilisateur. Le plan est écrit depuis, et
+l'exécution en est à la tâche 5 : voir plus haut, « Où en est l'exécution de T6a ».
 
 ### Les décisions de T6a, et ce qu'elles coûtent
 
