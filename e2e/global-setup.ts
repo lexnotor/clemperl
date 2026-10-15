@@ -50,6 +50,11 @@ const ROUTES = [
     `${URL_ADMIN}/`,
     `${URL_ADMIN}/setup`,
     `${URL_ADMIN}/applications`,
+    // `/shops` manquait depuis T5, et `/moderation` arrive avec T6a. Next compile au
+    // PREMIER accès, et T2e a mesuré six secondes pour une route neuve contre un délai
+    // d'assertion de cinq : sans échauffement, un test sain expire à l'arrivée.
+    `${URL_ADMIN}/shops`,
+    `${URL_ADMIN}/moderation`,
 ];
 
 export default async function globalSetup(): Promise<void> {

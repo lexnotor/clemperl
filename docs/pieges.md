@@ -504,6 +504,37 @@ pour les tests, par une option d'environnement, et non en espaçant les parcours
 
 ---
 
+**`packages/db/generated/` est ignoré par Git : tirer une branche qui AJOUTE une énumération
+Prisma laisse un client généré qui ne la connaît pas.**
+
+Mesuré le 2026-10-15, en reprenant une branche faite sur une autre machine. Le symptôme nomme
+l'énumération absente, jamais la génération, et l'on cherche donc du côté du code qui
+l'utilise plutôt que du côté de l'outil qui ne l'a pas produite.
+
+`.gitignore:20` exclut `packages/db/generated/`, qui est un artefact. Le remède est
+`pnpm --filter @clemperl/db build`, qui enchaîne `db:generate` et le `tsc`.
+
+`prisma generate` lancé nu ÉCHOUE, faute de `DATABASE_URL`. Le script `db:generate` en
+fournit une factice et ne se connecte à aucune base : c'est lui qu'il faut, pas la commande
+Prisma directe.
+
+Le réflexe à prendre : après tout `git switch` ou `merge` qui touche `schema.prisma`,
+rebâtir le paquet avant de lire la moindre erreur de type.
+
+---
+
+**`packages/i18n/messages/admin/fr.json` est indenté à DEUX espaces, pas aux quatre du code.**
+
+Mesuré le 2026-10-15 : le réécrire avec l'indentation du code reformate quatre-vingt-treize
+lignes pour vingt-quatre d'ajout réel, et le diff devient illisible.
+
+C'est vrai de tous les catalogues JSON du dépôt. Les éditer par un script qui sérialise à
+nouveau le fichier entier demande donc `indent=2`, et il faut vérifier la taille du diff
+avant de commiter : un ajout de vingt lignes qui en change quatre-vingt-treize est un
+reformatage déguisé.
+
+---
+
 **Une mutation qui n'a pas ATTERRI rend un faux négatif, et il ressemble à un succès.**
 
 Éprouver un test par mutation est la seule façon de savoir s'il porte quelque chose :
@@ -521,6 +552,19 @@ Un faux négatif de ce genre VALIDE un test décoratif, ce qui est pire que de n
 Ce qui protège : vérifier que la mutation est DANS LE FICHIER avant de lire le résultat, par
 un `grep` sur la ligne changée, et non se fier au fait que la commande n'a rien dit. Et
 restaurer de même, en constatant que le fichier est redevenu identique à `HEAD`.
+
+**Une SECONDE route vers le même faux négatif, mesurée le 2026-10-15 pendant T6a.** Les
+tests d'intégration résolvent `@clemperl/db` par le champ `exports` du paquet, donc par
+`dist/src/`, et non par la source. Une mutation écrite dans la source reste sans effet tant
+que le build n'a pas réussi. Mesuré : une mutation a échoué à bâtir sur un `TS6133`, et les
+douze tests sont passés contre l'ANCIEN `dist`, ce qui ressemble trait pour trait à « la
+mutation ne tue rien ».
+
+Vérifier la mutation dans `dist/src/`, et pas seulement dans la source. Noter que le chemin
+est bien `dist/src/...` et non `dist/...`.
+
+Les deux routes ont la même forme : quelque chose entre l'intention et l'exécution a échoué
+en silence, et le vert qui suit se lit comme une preuve alors qu'il n'en est pas une.
 
 ---
 

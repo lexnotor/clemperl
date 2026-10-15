@@ -98,6 +98,103 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
+## T6a est livrée, au 2026-10-15
+
+Un administrateur retire du catalogue un produit qui n'a rien à y faire, avec un motif que le
+vendeur reçoit, sans punir toute la boutique. Cinq tâches, faites sur deux machines.
+
+### Les décisions qui comptent
+
+**Le retrait est un AVERTISSEMENT.** Il dépublie et prévient, et le vendeur peut republier.
+Aucun état nouveau : on écrit `status: DRAFT`, ce qu'une dépublication ordinaire écrit déjà.
+Ce qui distingue les deux est le MOTIF et le courriel, pas l'état. Coût assumé : un contenu
+illicite revient d'un clic, et le recours redevient la suspension de T5.
+
+**Publier efface `REVIEWED`, pour TOUTE publication.** C'est ce qui donne son mordant à
+l'avertissement : sans cela, un vendeur republie ce qu'on lui a retiré et ne repasse devant
+personne. Distinguer une republication après retrait d'une republication ordinaire
+demanderait de retenir qu'un retrait a eu lieu, donc le journal que T6 a écarté.
+
+**Les tags système sont un vocabulaire FERMÉ**, un tableau d'énumération sur `Product`, à la
+manière de `Vendor.paymentMethods`. Il démarre avec `REVIEWED` seul : un tag entre quand un
+écran en a besoin, et chaque ajout coûte une migration, ce qui est une friction utile.
+
+**La file se définit comme « publiés sans `REVIEWED` »**, du plus récent au plus ancien, et
+elle SE VIDE. C'est sa propriété importante : un administrateur sait qu'il a fini. L'écran
+dit aussi combien il reste, sans quoi personne ne saurait où il en est, la file démarrant
+avec tout le catalogue déjà publié.
+
+**Les motifs dérivent de l'ÉNUMÉRATION**, pas du catalogue de traduction, qui ne fournit que
+les libellés. Une valeur ajoutée sans libellé s'affiche brute, donc se voit, au lieu de
+disparaître en silence.
+
+**Le motif n'a pas de valeur par défaut.** Un `select` sans choix neutre sélectionne le
+premier motif d'office, et confirmer sans choisir aurait accusé de contrefaçon quelqu'un
+qu'on voulait seulement rappeler à l'ordre. Aucune garde ne l'aurait attrapé, le motif étant
+du vocabulaire. Le choix vide est refusé côté serveur aussi.
+
+### Une dette qui ne fait aucun bruit
+
+**Le filtre de `REVIEWED` est écrit pour un futur que rien ne garde.** `setProductStatus`
+efface la marque PAR FILTRE et non par remise à zéro, afin qu'un futur tag ne disparaisse pas
+quand quelqu'un republie. Mais `E_PRODUCT_TAG` n'ayant qu'une valeur, aucun test ne distingue
+aujourd'hui un filtre d'une remise à zéro : la mutation l'a vérifié et ne tue rien.
+
+Le code est juste, le test est vert, et l'un ne prouve pas l'autre. **Le jour où un second tag
+entrera dans l'énumération, il faudra ajouter le test qui distingue**, et personne ne s'en
+souviendra si ce n'est pas écrit ici.
+
+### Ce que T6a ne fait pas
+
+Aucun journal des actes : qui a retiré quoi n'est conservé nulle part, et le courriel parti
+chez le vendeur en est la seule trace. Aucun compteur de récidive, puisque rien n'est
+conservé. Aucune modération du nom, de la description ou des images d'une boutique, ni des
+collections : le levier y reste la suspension de T5. Aucun signalement par les visiteurs : la
+file part des nouveautés, et le signalement sera sa propre tranche le jour où le volume
+dépassera ce qu'un humain parcourt.
+
+### Trois noms et une largeur, corrigés en route
+
+`ERROR_MODERATION_PRODUCT_NOT_FOUND` et non `ERROR_PRODUCT_NOT_FOUND`, ce dernier étant déjà
+pris par le dépôt des produits. Les deux restent distincts volontairement : `PRODUCT_NOT_FOUND`
+est une SOUS-CHAÎNE de l'autre, et les actions comparant par `includes`, les confondre aurait
+fait passer un test qui ne prouvait rien.
+
+La vignette se demande en **320**, pas en 200 : `DERIVATIVE_WIDTHS` vaut `[320, 800, 1600]` et
+la route de relais refuse le reste. En 200, toutes les vignettes auraient été cassées.
+
+### Les décomptes, mesurés
+
+| Couche | Résultat |
+| --- | --- |
+| `moderation.int-spec.ts` | 12 tests |
+| Domaine, motif et courriel | 6 tests |
+| Intégration, couche entière | 18 suites, 231 tests |
+| `lint`, `typecheck`, `test` | 15/15 chacun |
+| `build` | 9/9 |
+| Parcours navigateur de T6a, lancés seuls | 2 tests, 5 exécutions au vert |
+
+### Ce que la vérification n'a PAS établi
+
+**La suite navigateur n'est pas verte d'un bloc sur cette machine, et ce n'est pas une
+régression de T6a.** Trois exécutions complètes, trois jeux d'échecs DIFFÉRENTS, aucun test
+tombant deux fois : modération au premier passage, suspension et paiement au deuxième,
+commande et candidature au troisième. C'est mot pour mot le comportement documenté depuis
+T2e, et la consigne qui l'accompagne tient : ne pas s'acharner, la CI tranche sur un runner
+dédié.
+
+**Deux assertions ont tout de même été corrigées**, parce qu'elles relevaient d'une classe
+diagnostiquée et non de la charge : elles attendaient CINQ secondes une action serveur suivie
+d'une revalidation et d'un re-rendu. Mesuré : cinq exécutions isolées du parcours de
+modération passent, et seule la suite complète le faisait tomber. Le délai est passé à trente
+secondes dans `e2e/moderation.spec.ts` et `e2e/shop-suspension.spec.ts`, avec la mesure en
+commentaire. Allonger ne masque rien : si l'action n'avait pas lieu, l'écran ne changerait
+jamais.
+
+**L'échec du parcours de paiement n'a PAS été compris.** Un titre de page qui ne correspond
+pas, dans un parcours de T4, tombé une fois sur trois. Non diagnostiqué, non touché, signalé
+tel quel.
+
 ## Où en est l'exécution de T6a, à la coupure du 2026-10-15
 
 **Le plan est écrit** : `docs/superpowers/plans/2026-10-14-t6a-moderation-catalogue.md`,
@@ -363,6 +460,36 @@ suspension de dix minutes. Le jour où cela se voit, la sortie est de ne pas vid
 dont le refus est réversible, et elle n'a pas besoin de changer le modèle.
 
 ### Les décomptes, mesurés
+
+| Couche | Résultat |
+| --- | --- |
+| `moderation.int-spec.ts` | 12 tests |
+| Domaine, motif et courriel | 6 tests |
+| Intégration, couche entière | 18 suites, 231 tests |
+| `lint`, `typecheck`, `test` | 15/15 chacun |
+| `build` | 9/9 |
+| Parcours navigateur de T6a, lancés seuls | 2 tests, 5 exécutions au vert |
+
+### Ce que la vérification n'a PAS établi
+
+**La suite navigateur n'est pas verte d'un bloc sur cette machine, et ce n'est pas une
+régression de T6a.** Trois exécutions complètes, trois jeux d'échecs DIFFÉRENTS, aucun test
+tombant deux fois : modération au premier passage, suspension et paiement au deuxième,
+commande et candidature au troisième. C'est mot pour mot le comportement documenté depuis
+T2e, et la consigne qui l'accompagne tient : ne pas s'acharner, la CI tranche sur un runner
+dédié.
+
+**Deux assertions ont tout de même été corrigées**, parce qu'elles relevaient d'une classe
+diagnostiquée et non de la charge : elles attendaient CINQ secondes une action serveur suivie
+d'une revalidation et d'un re-rendu. Mesuré : cinq exécutions isolées du parcours de
+modération passent, et seule la suite complète le faisait tomber. Le délai est passé à trente
+secondes dans `e2e/moderation.spec.ts` et `e2e/shop-suspension.spec.ts`, avec la mesure en
+commentaire. Allonger ne masque rien : si l'action n'avait pas lieu, l'écran ne changerait
+jamais.
+
+**L'échec du parcours de paiement n'a PAS été compris.** Un titre de page qui ne correspond
+pas, dans un parcours de T4, tombé une fois sur trois. Non diagnostiqué, non touché, signalé
+tel quel.
 
 | Couche | Résultat |
 | --- | --- |
