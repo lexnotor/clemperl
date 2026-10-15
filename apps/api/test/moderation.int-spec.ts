@@ -169,6 +169,23 @@ describe("retireProduct", () => {
         expect(seconde.alreadyRetired).toBe(true);
     });
 
+    // Deux administrateurs sur la même ligne, ou un double clic : chaque ligne porte son
+    // propre formulaire, et les deux partent. UN SEUL doit annoncer le retrait, sans quoi le
+    // vendeur reçoit deux fois le même reproche pour un seul acte et croit qu'on s'acharne.
+    it("ne reconnaît le retrait qu'à UN seul de deux appels simultanés", async () => {
+        const shop = await createShop();
+        const id = await publishedProduct(shop.id, "Sac retiré deux fois");
+
+        const sorties = await Promise.all([
+            retireProduct(prisma, { productId: id }),
+            retireProduct(prisma, { productId: id }),
+        ]);
+
+        expect(sorties.filter((sortie) => !sortie.alreadyRetired)).toHaveLength(1);
+        const apres = await prisma.product.findUniqueOrThrow({ where: { id } });
+        expect(apres.status).toBe("DRAFT");
+    });
+
     it("refuse un produit qui n'existe pas", async () => {
         await expect(
             retireProduct(prisma, { productId: "c00000000000000000000000" }),

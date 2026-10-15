@@ -114,16 +114,22 @@ export async function retireProduct(
             throw new Error(ERROR_MODERATION_PRODUCT_NOT_FOUND);
         }
 
-        const alreadyRetired = product.status !== "PUBLISHED";
-        if (!alreadyRetired) {
-            await tx.product.updateMany({
-                where: { id: product.id },
-                // `publishedAt` ne bouge pas : il date le moment où le slug a cessé de
-                // pouvoir changer, et un retrait ne rend pas une URL réutilisable. Même
-                // raison qu'une dépublication ordinaire.
-                data: { status: "DRAFT" },
-            });
-        }
+        // C'est L'ÉCRITURE qui tranche, pas une lecture suivie d'une décision. Le filtre
+        // `status: "PUBLISHED"` fait que la base départage deux retraits simultanés : le
+        // second touche zéro ligne, et c'est ce zéro qui dit « déjà retiré ».
+        //
+        // Lire l'état puis décider laisserait les deux appels voir `PUBLISHED` avant que
+        // l'un ait commis, donc annoncer deux fois le retrait, et le vendeur recevrait deux
+        // fois le même reproche pour un seul acte.
+        //
+        // `publishedAt` ne bouge pas : il date le moment où le slug a cessé de pouvoir
+        // changer, et un retrait ne rend pas une URL réutilisable. Même raison qu'une
+        // dépublication ordinaire.
+        const { count } = await tx.product.updateMany({
+            where: { id: product.id, status: "PUBLISHED" },
+            data: { status: "DRAFT" },
+        });
+        const alreadyRetired = count === 0;
 
         return {
             title: product.title,

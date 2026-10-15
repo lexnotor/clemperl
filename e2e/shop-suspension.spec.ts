@@ -76,10 +76,9 @@ test("un administrateur suspend une boutique, le catalogue la perd, le vendeur g
     // contient « Suspendu », et le bouton voisin s'appelle « Suspendre ». Une correspondance
     // par sous-chaîne attraperait un mot que l'écran portait déjà avant le clic, et le test
     // passerait sans rien prouver.
-    // Délai ALLONGÉ, mesuré pendant T6a : une action serveur, sa revalidation et un
-    // re-rendu en mode développement sous deux workers dépassent les cinq secondes par
-    // défaut. Allonger ne masque rien : si la suspension n'avait pas lieu, le bouton ne
-    // changerait jamais, quel que soit le délai.
+    // Le délai couvre une action serveur, sa revalidation et un re-rendu en mode
+    // développement, qui dépassent le défaut de cinq secondes. Il ne masque rien : si la
+    // suspension n'avait pas lieu, le bouton ne changerait jamais.
     await expect(
         shopRow(bureau, shopName).getByRole("button", { name: "Rétablir" }),
     ).toBeVisible({ timeout: 30_000 });

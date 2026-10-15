@@ -34,7 +34,8 @@
       "reason_unknown": "Ce motif de retrait n'existe pas.",
       "comment_required": "Un motif « autre » exige un commentaire.",
       "not_found": "Ce produit n'existe plus.",
-      "failed": "Le retrait n'a pas pu être enregistré. Réessayez."
+      "failed": "Le retrait n'a pas pu être enregistré. Réessayez.",
+      "mail_failed": "Le produit est retiré, mais l'avertissement n'a pas pu partir. Prévenez la boutique autrement."
     }
   },
   "vendor": {

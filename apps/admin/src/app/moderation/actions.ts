@@ -14,7 +14,6 @@ import { requireAdministrator } from "../../lib/session";
 import type { IModerationState } from "./types/moderation-state.interface";
 
 const ERRORS = messages.errors.moderation as Record<string, string>;
-const REASONS = messages.moderation.reason as Record<string, string>;
 
 // La garde est rappelée ICI. Une action serveur est une route publique, et la page qui a
 // rendu le bouton ne la protège pas.
@@ -70,12 +69,35 @@ export async function retire(
     // un vendeur qui reçoit deux fois le même reproche pour un seul acte croit qu'on
     // s'acharne.
     if (!retrait.alreadyRetired) {
-        const motif = reason === "OTHER" ? (comment ?? "") : (REASONS[reason] ?? reason);
-        const message = buildRetirementMessage(retrait.title, motif, retrait.locale);
-        await createSmtpSender(
-            process.env["SMTP_URL"] ?? "",
-            process.env["EMAIL_FROM"] ?? "",
-        ).send({ ...message, recipient: retrait.contactEmail });
+        // Le CODE du motif, pas son libellé : c'est le domaine qui traduit, dans la langue
+        // du vendeur. Le catalogue de l'administration n'existe qu'en français, et y
+        // prendre le libellé ferait partir un message anglais portant un motif français.
+        //
+        // Les précisions suivent, telles que l'administrateur les a écrites. Le champ
+        // s'affiche pour tous les motifs, donc elles partent pour tous : « description
+        // trompeuse » ne dit pas CE QUI trompe.
+        const message = buildRetirementMessage(
+            retrait.title,
+            reason,
+            comment ?? "",
+            retrait.locale,
+        );
+
+        // Le courriel part APRÈS l'écriture et ne doit pas l'annuler : le produit est
+        // retiré, c'est un fait, et une panne de relais ne le remet pas au catalogue. Mais
+        // elle ne doit pas non plus faire échouer l'action, sinon l'écran garde la ligne,
+        // l'administrateur recommence, et la seconde fois `alreadyRetired` est vrai : le
+        // vendeur ne serait alors JAMAIS prévenu.
+        try {
+            await createSmtpSender(
+                process.env["SMTP_URL"] ?? "",
+                process.env["EMAIL_FROM"] ?? "",
+            ).send({ ...message, recipient: retrait.contactEmail });
+        } catch (error) {
+            console.error("retire: courriel non parti", error);
+            revalidatePath("/moderation");
+            return { message: [ERRORS["mail_failed"] as string] };
+        }
     }
 
     revalidatePath("/moderation");

@@ -133,6 +133,29 @@ premier motif d'office, et confirmer sans choisir aurait accusé de contrefaçon
 qu'on voulait seulement rappeler à l'ordre. Aucune garde ne l'aurait attrapé, le motif étant
 du vocabulaire. Le choix vide est refusé côté serveur aussi.
 
+### Un produit validé se modifie librement, et c'est assumé
+
+Décidé le 2026-10-15, après qu'une revue l'a soulevé.
+
+**Ce qui se passe.** Seule une REPUBLICATION efface la marque `REVIEWED`. Or `saveProduct`
+ne touche ni `status` ni `systemTags`, et le dépôt d'images ne bloque que la suppression de
+la DERNIÈRE image prête d'un produit publié. Un vendeur peut donc faire examiner un article,
+puis en changer le titre, la description et les photos sans jamais quitter `PUBLISHED` : la
+marque demeure, et la file ne le revoit plus.
+
+**La décision.** Un produit validé se modifie à volonté. La remise en file sur édition est
+remise à plus tard, avec la question du renommage.
+
+**Ce qu'il en coûte si on se trompe.** Un vendeur peut publier un article inoffensif, le
+faire valider, puis l'éditer en tout autre chose sans qu'aucun administrateur ne le revoie.
+C'est la route la moins chère pour contourner ce que la modération existe pour empêcher, et
+elle est moins coûteuse que dépublier puis republier, qui ramène en file.
+
+**La sortie, le jour où cela gêne.** Effacer `REVIEWED` dans `saveProduct` et sur toute
+écriture d'image, exactement comme `setProductStatus` le fait déjà. Trois points d'appel, pas
+une refonte. Il faudra alors décider si une correction de faute d'orthographe renvoie en
+file, sans quoi la file se remplira de bruit.
+
 ### Une dette qui ne fait aucun bruit
 
 **Le filtre de `REVIEWED` est écrit pour un futur que rien ne garde.** `setProductStatus`

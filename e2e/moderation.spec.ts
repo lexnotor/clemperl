@@ -81,11 +81,10 @@ test("un administrateur retire un article, le vendeur le republie, et il revient
     // clic ne prouverait rien, `getByText` comparant par sous-chaîne sans tenir compte de
     // la casse.
     //
-    // Délai ALLONGÉ, et mesuré : cinq exécutions isolées passent, et la suite entière a
-    // produit un échec sur cette assertion. Une action serveur, sa revalidation et un
-    // re-rendu en mode développement sous deux workers dépassent les cinq secondes par
-    // défaut. Allonger ne masque aucun défaut : si le retrait n'avait pas lieu, la ligne ne
-    // partirait jamais, quel que soit le délai.
+    // Le délai couvre une action serveur, sa revalidation et un re-rendu en mode
+    // développement, qui dépassent le défaut de cinq secondes. Il ne masque aucun défaut :
+    // si le retrait n'avait pas lieu, la ligne ne partirait jamais, quel que soit le
+    // délai.
     await expect(queueRow(bureau, title)).toHaveCount(0, { timeout: 30_000 });
 
     // Le CATALOGUE l'a perdu.
@@ -139,8 +138,8 @@ test("marquer examiné sort l'article de la file sans le dépublier", async ({
     await bureau.waitForLoadState("networkidle");
 
     await queueRow(bureau, title).getByRole("button", { name: "Examiné", exact: true }).click();
-    // Même délai allongé, et pour la même raison : on attend une écriture serveur suivie
-    // d'un re-rendu, pas un changement local.
+    // Même délai, et pour la même raison : on attend une écriture serveur suivie d'un
+    // re-rendu, pas un changement local.
     await expect(queueRow(bureau, title)).toHaveCount(0, { timeout: 30_000 });
 
     // La DIFFÉRENCE avec un retrait, et la raison d'être de ce second parcours : l'article
