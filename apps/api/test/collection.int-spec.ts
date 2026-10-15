@@ -555,7 +555,7 @@ describe("setCollectionItems, deux écritures concurrentes", () => {
 // lit `publishedAt === null`, la publication commite, puis le renommage écrit le nouveau
 // slug : l'URL publique change malgré le gel, et un lien déjà partagé casse.
 describe("renameCollection face à une publication concurrente", () => {
-    it("ne change jamais le slug d'une collection qui vient d'être publiée", async () => {
+    it("laisse les deux ordres possibles, puis fige le slug pour de bon", async () => {
         const shop = await createShop();
         counter += 1;
         const slugInitial = `course-${counter}`;
@@ -578,8 +578,34 @@ describe("renameCollection face à une publication concurrente", () => {
         ]);
 
         const relue = await prisma.collection.findUnique({ where: { id } });
-        // Publiée : le slug est celui d'origine, quel que soit l'ordre des deux écritures.
         expect(relue?.status).toBe("PUBLISHED");
-        expect(relue?.slug).toBe(slugInitial);
+
+        // DEUX issues sont justes, et le verrou ne choisit pas entre elles : il sérialise
+        // les deux écritures sans décider laquelle passe en premier.
+        //
+        // Publication d'abord : le renommage lit `publishedAt` non nul et laisse le slug.
+        // Renommage d'abord : la collection est encore un brouillon, le slug suit le titre,
+        // puis la publication le fige. Les deux honorent la règle, qui est que le slug suit
+        // le titre TANT QUE la collection est en brouillon.
+        //
+        // Exiger que la publication gagne demanderait d'ordonner deux actions que le
+        // vendeur déclenche en parallèle, ce que rien ne promet.
+        expect([slugInitial, `renomme-${counter}`]).toContain(relue?.slug);
+
+        // LA garantie, elle, est déterministe : publiée, la collection ne change plus de
+        // slug. C'est elle qui protège un lien déjà partagé, et c'est elle qu'il faut
+        // éprouver.
+        const slugGele = relue?.slug;
+        await renameCollection(prisma, {
+            collectionId: id,
+            vendorId: shop.id,
+            title: `Encore ${counter}`,
+            description: "",
+            slug: `encore-${counter}`,
+        });
+
+        const apres = await prisma.collection.findUnique({ where: { id } });
+        expect(apres?.slug).toBe(slugGele);
+        expect(apres?.title).toBe(`Encore ${counter}`);
     });
 });

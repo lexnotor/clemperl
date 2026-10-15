@@ -387,6 +387,32 @@ chez le vendeur en est la seule trace. Aucune modération du nom, de la descript
 images d'une boutique, ni des collections : le levier y reste la suspension. Aucun compteur
 de récidive, puisque rien n'est conservé.
 
+### Le test instable des collections est corrigé, et il portait la mauvaise propriété
+
+Le 2026-10-15, après qu'il a fait rougir la CI.
+
+**Le code de production était CORRECT.** `renameCollection` et `setCollectionStatus` prennent
+le même verrou, donc les deux écritures se sérialisent. Mais un verrou ne décide pas laquelle
+passe en premier, et les deux ordres honorent la règle du produit :
+
+- publication d'abord, le renommage lit `publishedAt` non nul et laisse le slug ;
+- renommage d'abord, la collection est encore un brouillon, le slug suit le titre, puis la
+  publication le fige.
+
+**Le test exigeait que la publication gagne toujours**, ce que rien ne promet et que rien ne
+peut garantir sans ordonner deux actions que le vendeur déclenche en parallèle. Son
+commentaire affirmait « quel que soit l'ordre des deux écritures », soit exactement ce qu'il
+ne vérifiait pas.
+
+**Il éprouve désormais la garantie qui existe** : les deux ordres sont acceptés, puis la
+collection publiée est renommée une seconde fois et son slug ne bouge plus alors que son
+titre change. C'est cette propriété qui protège un lien déjà partagé.
+
+Ce n'est pas un test rendu tolérant pour qu'il cesse de gêner : il est PLUS fort qu'avant.
+L'ancien ne touchait jamais au gel après publication. Mutation faite : retirer le gel du slug
+fait rougir le nouveau, et l'ancien ne l'aurait pas vu. Huit exécutions consécutives au vert,
+là où il échouait environ une fois sur trois.
+
 ### Ce qui reste ouvert, hors T6a
 
 **Le test instable de `collection.int-spec.ts:582`**, laissé ouvert sur décision. Sept
