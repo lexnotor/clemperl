@@ -36,6 +36,16 @@
       "not_found": "Ce produit n'existe plus.",
       "failed": "Le retrait n'a pas pu être enregistré. Réessayez.",
       "mail_failed": "Le produit est retiré, mais l'avertissement n'a pas pu partir. Prévenez la boutique autrement."
+    },
+    "accounts": {
+      "forbidden": "Votre niveau ne permet pas cette action.",
+      "invalid": "Le nom, l'adresse ou le niveau est invalide.",
+      "email_taken": "Un compte existe déjà avec cette adresse.",
+      "not_found": "Ce compte n'existe plus ou n'est plus un compte d'administration.",
+      "last_super_admin": "Ce compte est le dernier super-administrateur : il ne peut pas être retiré.",
+      "not_pending": "Ce compte a déjà choisi son mot de passe : aucune invitation à renvoyer.",
+      "mail_failed": "Le compte est créé, mais le courriel n'a pas pu partir. Utilisez « Renvoyer l'invitation ».",
+      "failed": "Le changement n'a pas pu être enregistré. Réessayez."
     }
   },
   "vendor": {
@@ -122,6 +132,26 @@
       "MISLEADING_CONTENT": "Description ou photo trompeuse",
       "INAPPROPRIATE_IMAGE": "Image inappropriée",
       "OTHER": "Autre"
+    }
+  },
+  "accounts": {
+    "title": "Les administrateurs",
+    "empty": "Aucun compte d'administration.",
+    "invite": "Inviter un administrateur",
+    "name": "Nom",
+    "email": "Adresse e-mail",
+    "level": "Niveau",
+    "levelPlaceholder": "Choisir un niveau",
+    "submit": "Envoyer l'invitation",
+    "invited": "Invitation envoyée.",
+    "pending": "Invitation en attente",
+    "unnamed": "Sans nom",
+    "remove": "Retirer",
+    "resend": "Renvoyer l'invitation",
+    "promote": "Élever en super-administrateur",
+    "role": {
+      "ADMIN": "Administrateur",
+      "SUPER_ADMIN": "Super-administrateur"
     }
   }
 }
