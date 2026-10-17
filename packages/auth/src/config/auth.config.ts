@@ -1,8 +1,10 @@
 import { createSmtpSender } from "@clemperl/core";
-import { prisma } from "@clemperl/db";
+import { isAwaitingFirstPassword, prisma } from "@clemperl/db";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
+    RESET_PASSWORD_TOKEN_EXPIRES_IN,
+    buildAdministratorInvitationMessage,
     buildPasswordResetMessage,
     buildVerificationMessage,
 } from "../utils/index.js";
@@ -64,8 +66,24 @@ export const auth = betterAuth({
         // échanges d'argent, et l'administration doit pouvoir joindre son responsable.
         requireEmailVerification: true,
 
+        // Durée GLOBALE : elle allonge aussi tous les liens d'oubli de mot de passe des
+        // clients, pas seulement ceux des invitations. Better Auth n'offre pas de durée
+        // par parcours ; le risque est accepté, le lien étant à usage unique et ne
+        // donnant rien sans l'accès à la boîte courriel.
+        resetPasswordTokenExpiresIn: RESET_PASSWORD_TOKEN_EXPIRES_IN,
+
         sendResetPassword: async ({ user, url }): Promise<void> => {
-            const message = buildPasswordResetMessage(url, "fr");
+            // Une invitation est un compte sans aucune ligne `Account`, et elle passe par
+            // la même route qu'un oubli de mot de passe. On choisit le texte sur
+            // l'absence de TOUTE ligne `Account`, pas sur l'absence de mot de passe : un
+            // compte Google en porte une sans identifiant, et lui envoyer un accueil
+            // alors qu'il demande une réinitialisation serait faux. Si la lecture échoue,
+            // l'erreur remonte et aucun courriel ne part : mieux vaut un échec visible
+            // qu'un message qui ne correspond pas à la situation.
+            const awaitingFirstPassword = await isAwaitingFirstPassword(prisma, user.id);
+            const message = awaitingFirstPassword
+                ? buildAdministratorInvitationMessage(url, "fr")
+                : buildPasswordResetMessage(url, "fr");
             await createSmtpSender(
                 process.env["SMTP_URL"] ?? "",
                 process.env["EMAIL_FROM"] ?? "",
