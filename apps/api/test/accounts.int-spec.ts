@@ -140,20 +140,39 @@ describe("dépôt des comptes d'administration", () => {
         expect(previousRole).toBe("ADMIN");
     });
 
-    // Deux administrateurs retirent le MÊME compte en même temps : un seul l'a vu
-    // `ADMIN`, l'autre trouve un compte qui a déjà bougé et se voit refusé, au lieu de
-    // rendre un succès pour un retrait qu'il n'a pas fait.
-    it("refuse le second de deux retraits simultanés du même compte", async () => {
+    // Deux administrateurs retirent le MÊME compte en même temps : l'état visé est atteint
+    // et rien ne lève, ni pour l'un ni pour l'autre.
+    it("laisse deux retraits simultanés du même compte aboutir sans lever", async () => {
         const pair = await prisma.user.create({
             data: { email: `${PREFIX}-meme@clemperl.test`, emailVerified: true, role: "ADMIN" },
         });
-        const deux = await Promise.allSettled([
+        await Promise.all([
             setPlatformRole(prisma, { userId: pair.id, role: "CUSTOMER", expectedRole: "ADMIN" }),
             setPlatformRole(prisma, { userId: pair.id, role: "CUSTOMER", expectedRole: "ADMIN" }),
         ]);
-        expect(deux.filter((issue) => issue.status === "fulfilled")).toHaveLength(1);
-        expect(deux.find((issue) => issue.status === "rejected")).toMatchObject({
-            reason: { message: ERROR_ACCOUNT_ROLE_CHANGED },
+        await expect(prisma.user.findUnique({ where: { id: pair.id } })).resolves.toMatchObject({
+            role: "CUSTOMER",
+        });
+    });
+
+    it("laisse deux élévations simultanées du même compte aboutir sans lever", async () => {
+        const pair = await prisma.user.create({
+            data: { email: `${PREFIX}-double@clemperl.test`, emailVerified: true, role: "ADMIN" },
+        });
+        await Promise.all([
+            setPlatformRole(prisma, {
+                userId: pair.id,
+                role: "SUPER_ADMIN",
+                expectedRole: "ADMIN",
+            }),
+            setPlatformRole(prisma, {
+                userId: pair.id,
+                role: "SUPER_ADMIN",
+                expectedRole: "ADMIN",
+            }),
+        ]);
+        await expect(prisma.user.findUnique({ where: { id: pair.id } })).resolves.toMatchObject({
+            role: "SUPER_ADMIN",
         });
     });
 

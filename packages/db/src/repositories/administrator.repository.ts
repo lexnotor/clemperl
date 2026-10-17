@@ -100,8 +100,8 @@ export async function createInvitedAdministrator(
 /**
  * Change le rôle de plateforme d'un compte et rend le rôle qu'il portait avant.
  *
- * Refuse avec `ERROR_ACCOUNT_ROLE_CHANGED` quand le compte ne porte plus le rôle que
- * l'appelant a lu : de deux retraits simultanés du même compte, un seul aboutit.
+ * Un compte déjà au rôle visé rend un succès sans écriture. Un compte qui ne porte plus le
+ * rôle que l'appelant a lu est refusé avec `ERROR_ACCOUNT_ROLE_CHANGED`.
  */
 export async function setPlatformRole(
     prisma: PrismaClient,
@@ -120,10 +120,17 @@ export async function setPlatformRole(
         });
         if (!current) throw new Error(ERROR_ACCOUNT_NOT_FOUND);
 
-        // La comparaison se fait ICI, sous le verrou : l'appelant a décidé d'après le rôle
-        // qu'il a LU, et un compte retiré entre-temps deviendrait sinon super_admin par une
-        // élévation décidée pour un administrateur. Avant le verrou, ce serait la même
-        // course une couche plus bas.
+        // Deux contrôles, DANS CET ORDRE, et sous le verrou.
+        //
+        // D'abord « le compte est déjà là où on le veut » : c'est un succès sans écriture.
+        // Deux retraits ou deux élévations simultanés du même compte atteignent l'état
+        // visé, et le second n'a rien à se voir reprocher.
+        if (current.role === input.role) return { previousRole: current.role };
+
+        // Ensuite « le compte a bougé » : l'appelant a décidé d'après le rôle qu'il a LU, et
+        // un compte retiré entre-temps deviendrait sinon super_admin par une élévation
+        // décidée pour un administrateur. Inverser les deux contrôles refuserait un retrait
+        // déjà fait, que l'on veut tenir pour réussi.
         if (current.role !== input.expectedRole) throw new Error(ERROR_ACCOUNT_ROLE_CHANGED);
 
         if (current.role === "SUPER_ADMIN" && input.role !== "SUPER_ADMIN") {
