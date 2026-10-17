@@ -181,5 +181,5 @@ export async function resendInvitation(
     }
 
     revalidatePath("/accounts");
-    return { message: [] };
+    return { message: [messages.accounts.resent] };
 }

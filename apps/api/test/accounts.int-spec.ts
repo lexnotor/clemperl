@@ -216,9 +216,10 @@ describe("dépôt des comptes d'administration", () => {
         });
     });
 
-    // Retirer un rôle de plateforme ne touche à rien d'autre : sans ce test, une jointure
-    // ajoutée un jour à l'écriture passerait inaperçue jusqu'à ce qu'un ancien administrateur
-    // perde ses commandes.
+    // Retirer un rôle de plateforme ne touche à rien d'autre. On vérifie le panier et
+    // l'appartenance à une boutique, deux tables liées au compte : l'écriture est une mise à
+    // jour d'une seule colonne de `users`, qui ne peut en atteindre une autre, donc ces deux
+    // témoins suffisent à voir passer une jointure ou une cascade ajoutée un jour.
     it("laisse intacts le panier et l'appartenance à une boutique", async () => {
         const compte = await prisma.user.create({
             data: { email: `${PREFIX}-garde@clemperl.test`, emailVerified: true, role: "ADMIN" },
@@ -244,6 +245,14 @@ describe("dépôt des comptes d'administration", () => {
         });
     }
 
+    // Un compte UTILISABLE porte au moins une ligne `Account` : sans elle, personne ne peut
+    // s'y connecter, c'est une invitation jamais honorée.
+    async function makeUsable(userId: string) {
+        await prisma.account.create({
+            data: { id: `${PREFIX}-use-${userId}`, accountId: userId, providerId: "credential", userId },
+        });
+    }
+
     it("laisse retirer un super_admin tant qu'il en reste un autre, et refuse le dernier", async () => {
         const un = await prisma.user.create({
             data: { email: `${PREFIX}-sa-a@clemperl.test`, emailVerified: true, role: "SUPER_ADMIN" },
@@ -252,6 +261,8 @@ describe("dépôt des comptes d'administration", () => {
             data: { email: `${PREFIX}-sa-b@clemperl.test`, emailVerified: true, role: "SUPER_ADMIN" },
         });
         await isolateSuperAdmins([un.id, deux.id]);
+        await makeUsable(un.id);
+        await makeUsable(deux.id);
 
         await setPlatformRole(prisma, { userId: un.id, role: "CUSTOMER", expectedRole: "SUPER_ADMIN" });
         await expect(
@@ -262,6 +273,52 @@ describe("dépôt des comptes d'administration", () => {
         await expect(prisma.user.findUnique({ where: { id: un.id } })).resolves.toMatchObject({
             role: "CUSTOMER",
             email: `${PREFIX}-sa-a@clemperl.test`,
+        });
+    });
+
+    // Une invitation jamais honorée porte le rôle sans que personne puisse s'y connecter : la
+    // compter comme super_admin laisserait le seul compte utilisable se retirer, et plus
+    // aucun humain n'atteindrait l'administration.
+    it("refuse de retirer le seul super_admin utilisable quand l'autre est une invitation en attente", async () => {
+        const utilisable = await prisma.user.create({
+            data: { email: `${PREFIX}-sa-u@clemperl.test`, emailVerified: true, role: "SUPER_ADMIN" },
+        });
+        const attente = await prisma.user.create({
+            data: { email: `${PREFIX}-sa-p@clemperl.test`, emailVerified: true, role: "SUPER_ADMIN" },
+        });
+        await isolateSuperAdmins([utilisable.id, attente.id]);
+        await makeUsable(utilisable.id);
+
+        await expect(
+            setPlatformRole(prisma, {
+                userId: utilisable.id,
+                role: "CUSTOMER",
+                expectedRole: "SUPER_ADMIN",
+            }),
+        ).rejects.toMatchObject({ message: ERROR_LAST_SUPER_ADMIN });
+        await expect(
+            prisma.user.findUnique({ where: { id: utilisable.id } }),
+        ).resolves.toMatchObject({ role: "SUPER_ADMIN" });
+    });
+
+    // Le nettoyage d'une invitation mal adressée doit rester possible.
+    it("laisse retirer un super_admin en attente tant qu'un utilisable reste", async () => {
+        const utilisable = await prisma.user.create({
+            data: { email: `${PREFIX}-sa-u2@clemperl.test`, emailVerified: true, role: "SUPER_ADMIN" },
+        });
+        const attente = await prisma.user.create({
+            data: { email: `${PREFIX}-sa-p2@clemperl.test`, emailVerified: true, role: "SUPER_ADMIN" },
+        });
+        await isolateSuperAdmins([utilisable.id, attente.id]);
+        await makeUsable(utilisable.id);
+
+        await setPlatformRole(prisma, {
+            userId: attente.id,
+            role: "CUSTOMER",
+            expectedRole: "SUPER_ADMIN",
+        });
+        await expect(prisma.user.findUnique({ where: { id: attente.id } })).resolves.toMatchObject({
+            role: "CUSTOMER",
         });
     });
 
@@ -285,6 +342,8 @@ describe("dépôt des comptes d'administration", () => {
                 },
             });
             await isolateSuperAdmins([un.id, deux.id]);
+            await makeUsable(un.id);
+            await makeUsable(deux.id);
 
             // `allSettled` et non `all` : l'un des deux DOIT échouer, et `all` ferait tomber
             // le test sur ce refus au lieu de l'observer.

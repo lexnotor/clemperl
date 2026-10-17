@@ -102,6 +102,9 @@ export async function createInvitedAdministrator(
  *
  * Un compte déjà au rôle visé rend un succès sans écriture. Un compte qui ne porte plus le
  * rôle que l'appelant a lu est refusé avec `ERROR_ACCOUNT_ROLE_CHANGED`.
+ *
+ * `previousRole` ne distingue donc plus une écriture d'un succès sans écriture, et rien ne
+ * le lit aujourd'hui : un appelant ne doit pas s'en servir pour savoir s'il a agi.
  */
 export async function setPlatformRole(
     prisma: PrismaClient,
@@ -134,10 +137,20 @@ export async function setPlatformRole(
         if (current.role !== input.expectedRole) throw new Error(ERROR_ACCOUNT_ROLE_CHANGED);
 
         if (current.role === "SUPER_ADMIN" && input.role !== "SUPER_ADMIN") {
+            // « Au moins un super_admin UTILISABLE, AUTRE que la cible, reste ». Une
+            // invitation jamais honorée porte le rôle sans aucune ligne `Account` : personne
+            // ne peut s'y connecter, et la compter laisserait le seul compte utilisable se
+            // retirer. La cible est exclue : sans cela, retirer une invitation mal adressée
+            // serait refusé dès qu'elle est la seule comptée.
             const remaining = await tx.user.count({
-                where: { role: "SUPER_ADMIN", deletedAt: null },
+                where: {
+                    role: "SUPER_ADMIN",
+                    deletedAt: null,
+                    id: { not: input.userId },
+                    accounts: { some: {} },
+                },
             });
-            if (remaining <= 1) throw new Error(ERROR_LAST_SUPER_ADMIN);
+            if (remaining < 1) throw new Error(ERROR_LAST_SUPER_ADMIN);
         }
 
         await tx.user.update({ where: { id: input.userId }, data: { role: input.role } });

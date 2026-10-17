@@ -216,7 +216,7 @@ describe("resendInvitation", () => {
         isAwaitingFirstPassword.mockResolvedValue(true);
         const result = await resendInvitation(EMPTY, form({ userId: "u1" }));
 
-        expect(result.message).toEqual([]);
+        expect(result.message).toEqual(["Invitation renvoyée."]);
         expect(requestPasswordReset).toHaveBeenCalledWith({
             body: { email: "a@clemperl.test", redirectTo: "/reset-password" },
         });

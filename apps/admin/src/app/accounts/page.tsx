@@ -25,10 +25,15 @@ export default async function AccountsPage(): Promise<JSX.Element> {
         label: roles[value] ?? value,
     }));
 
-    // Le dernier super_admin ne se retire pas, et l'écran ne propose pas ce qu'il sait
-    // refusé. Ce n'est qu'un affichage : le refus qui compte est celui du dépôt, sous
+    // Le dernier super_admin UTILISABLE ne se retire pas, et l'écran ne propose pas ce
+    // qu'il sait refusé. Une invitation en attente ne compte pas : personne ne peut s'y
+    // connecter. Ce n'est qu'un affichage : le refus qui compte est celui du dépôt, sous
     // verrou, quand deux retraits se croisent.
-    const superAdmins = accounts.filter((account) => account.role === "SUPER_ADMIN").length;
+    const usableSuperAdmins = (excluded: string) =>
+        accounts.filter(
+            (account) =>
+                account.role === "SUPER_ADMIN" && !account.pending && account.id !== excluded,
+        ).length;
 
     return (
         <main className="mx-auto max-w-3xl px-6 py-20">
@@ -62,7 +67,7 @@ export default async function AccountsPage(): Promise<JSX.Element> {
                             pending={account.pending}
                             canRemove={
                                 canRemove(actorRole, account.role) &&
-                                !(account.role === "SUPER_ADMIN" && superAdmins <= 1)
+                                !(account.role === "SUPER_ADMIN" && usableSuperAdmins(account.id) < 1)
                             }
                             canResend={account.pending}
                             canPromote={

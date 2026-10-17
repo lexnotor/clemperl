@@ -86,7 +86,7 @@ ne divergent que sur un axe, le droit de toucher à ses pairs du dessus.
 
 ## 4. Ce que « être administrateur » veut dire, et où c'est écrit
 
-`"ADMIN"` est comparé en dur à **huit endroits** du dépôt, pas aux deux que la section
+`"ADMIN"` est comparé en dur à **neuf endroits** du dépôt, pas aux deux que la section
 suivante nomme. Le plus important est `packages/domain/src/utils/vendor-permissions.utils.ts`,
 qui décide qui peut examiner une candidature de vendeur, et dont le type dit
 `role: "CUSTOMER" | "ADMIN"`.
