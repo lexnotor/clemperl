@@ -138,8 +138,12 @@ adresse existante est refusée.
 **Un compte retiré ne peut pas revenir.** Retirer ramène à `CUSTOMER`, les clients ne sont pas
 listés, et promouvoir un client existant est un non-but. Qui est retiré par erreur garde un
 compte qu'aucun écran ne peut re-nommer. C'est la conséquence des non-buts, choisie et non
-découverte ; la sortie, le jour où elle gêne, est de lister les clients ou d'accepter
-l'invitation sur une adresse de client.
+découverte.
+
+*Suggestion de l'implémentation, hors spec, non décidée :* lister les clients, ou accepter
+l'invitation sur l'adresse d'un client, lèverait ce blocage. Cela contredit deux non-buts de
+la spec, aucune gestion des clients et aucune promotion d'un client existant : le décider
+revient à les rouvrir.
 
 ### Pour reprendre
 

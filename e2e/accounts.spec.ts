@@ -57,6 +57,11 @@ test("un super_admin invite un administrateur, qui choisit son mot de passe et e
     // Il est DANS l'administration, et son niveau ne lui laisse pas nommer de
     // super_admin : l'option est absente du DOM, pas seulement masquée.
     await expect(own.getByRole("heading", { level: 1 })).toHaveText("Les administrateurs");
+
+    // La liste de l'invité est RENDUE avant qu'on affirme ce qui lui manque : son propre
+    // compte y figure, ce qui prouve que la page a fini de se construire.
+    await expect(own.locator("li").filter({ hasText: address })).toBeVisible();
+
     const level = own.getByRole("combobox", { name: "Niveau" });
     await expect(level.getByRole("option", { name: "Administrateur", exact: true })).toHaveCount(1);
     await expect(level.getByRole("option", { name: "Super-administrateur" })).toHaveCount(0);
@@ -64,8 +69,20 @@ test("un super_admin invite un administrateur, qui choisit son mot de passe et e
         0,
     );
 
-    // Et il n'est PLUS en attente, vu du bureau qui l'a invité.
+    // Le TÉMOIN positif, avec les mêmes libellés, dans la session de l'invitant, qui est
+    // super_admin : présent pour l'un, absent pour l'autre. Sans lui, un libellé changé
+    // rendrait les deux absences vraies sans rien prouver.
     await page.reload();
+    await expect(
+        page
+            .getByRole("combobox", { name: "Niveau" })
+            .getByRole("option", { name: "Super-administrateur" }),
+    ).toHaveCount(1);
+    await expect(
+        row.getByRole("button", { name: "Élever en super-administrateur" }),
+    ).toBeVisible();
+
+    // Et il n'est PLUS en attente, vu du bureau qui l'a invité.
     await expect(row.getByText(address)).toBeVisible();
     await expect(row.getByText("Invitation en attente")).toHaveCount(0);
 

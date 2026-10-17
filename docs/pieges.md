@@ -1557,8 +1557,11 @@ test qui utilise `raceBehindLock`, vérifier le plafond du pool avant de cherche
 **Un changement de `schema.prisma` n'atteint pas trois des quatre conteneurs d'application, et
 `pnpm --filter @clemperl/db build` y régénère depuis l'ancien schéma en annonçant un succès.**
 
-Symptôme : on ajoute une valeur d'énumération (ici `SUPER_ADMIN`), l'API la connaît, et les trois
-fronts la refusent ou ne la voient pas, sans qu'aucune erreur de build ne l'explique.
+Symptôme : on ajoute une valeur d'énumération (ici `SUPER_ADMIN`), l'API la connaît, et les
+fronts échouent : une erreur TypeScript « not assignable » qui nomme la valeur, ou une erreur de
+validation Prisma de la famille « Invalid value ... Expected UserRole ». Le client généré de
+l'HÔTE n'a pas la valeur non plus, pas seulement celui des conteneurs, et c'est ce qui surprend.
+Aucune erreur de build n'explique l'écart.
 
 Cause : `docker/docker-compose.dev.yml` monte `packages/db/prisma` pour `migrate` et `api`
 seulement. `storefront`, `vendor` et `admin` ne montent que `packages/db/src` : leur schéma et leur
@@ -1580,10 +1583,12 @@ dans les trois fronts, comme `api` le fait déjà, fermerait toute la classe.
 **Prisma `$queryRaw` ne sait pas lire un `interval` PostgreSQL.**
 
 Symptôme : une requête brute qui renvoie une durée (une différence de deux dates, un
-`expires_at - now()`) échoue à la lecture du résultat, alors que la même requête passe sous `psql`.
+`expires_at - now()`) échoue à la lecture du résultat avec une erreur de la famille « Failed to
+deserialize column of type 'interval' », alors que la même requête passe sous `psql`.
 
-Cause : le pilote n'a pas de désérialisation pour le type `interval`. Rencontré à la première
-tâche de T6b, où cela a coûté une exécution.
+Cause : le pilote n'a pas de désérialisation pour le type `interval`, et la requête ne le
+convertit pas en nombre avant de le renvoyer. Rencontré pendant la mesure faite avant tout code
+d'invitation, où cela a coûté une exécution.
 
 Ce qui protège maintenant : rien d'automatique. Convertir en nombre dans le SQL, par exemple
 `EXTRACT(EPOCH FROM (a - b))::float8`, au lieu de renvoyer l'intervalle.
@@ -1594,7 +1599,8 @@ Ce qui protège maintenant : rien d'automatique. Convertir en nombre dans le SQL
 administrateur, donc trois jours aussi pour le lien « mot de passe oublié » de chaque client.**
 
 Symptôme : un lien de réinitialisation de client reste valable bien au-delà d'une heure, et rien
-dans le parcours client n'explique pourquoi.
+dans le parcours client n'explique pourquoi. Le réglage à chercher est
+`resetPasswordTokenExpiresIn`.
 
 Cause : la durée a été portée à trois jours parce qu'un employé invité ouvre son courriel le
 lendemain. Better Auth n'offre aucune durée par parcours :
