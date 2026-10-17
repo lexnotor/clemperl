@@ -1,3 +1,4 @@
+export * from "./administrator-invitation.schema.js";
 export * from "./application-submission.schema.js";
 export * from "./checkout.schema.js";
 export * from "./collection.schema.js";
