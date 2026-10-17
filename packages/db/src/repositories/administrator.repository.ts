@@ -91,7 +91,7 @@ export async function createInvitedAdministrator(
         });
         return { id: user.id };
     } catch (error) {
-        if (isUniqueViolation(error)) throw new Error(ERROR_ACCOUNT_EMAIL_TAKEN);
+        if (isUniqueViolation(error)) throw new Error(ERROR_ACCOUNT_EMAIL_TAKEN, { cause: error });
         throw error;
     }
 }
