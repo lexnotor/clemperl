@@ -4,6 +4,7 @@ import { isUniqueViolation } from "../prisma-errors.js";
 export const ERROR_ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
 export const ERROR_ACCOUNT_EMAIL_TAKEN = "ACCOUNT_EMAIL_TAKEN";
 export const ERROR_LAST_SUPER_ADMIN = "LAST_SUPER_ADMIN";
+export const ERROR_ACCOUNT_ROLE_CHANGED = "ACCOUNT_ROLE_CHANGED";
 
 /**
  * Le nombre de comptes d'administration actifs, tous niveaux confondus.
@@ -99,12 +100,16 @@ export async function createInvitedAdministrator(
 /**
  * Change le rôle de plateforme d'un compte et rend le rôle qu'il portait avant.
  *
- * Deux retraits simultanés du même compte aboutissent tous deux à l'état visé sans lever :
- * seul `previousRole` dit lequel a réellement retiré.
+ * Refuse avec `ERROR_ACCOUNT_ROLE_CHANGED` quand le compte ne porte plus le rôle que
+ * l'appelant a lu : de deux retraits simultanés du même compte, un seul aboutit.
  */
 export async function setPlatformRole(
     prisma: PrismaClient,
-    input: { userId: string; role: "CUSTOMER" | "ADMIN" | "SUPER_ADMIN" },
+    input: {
+        userId: string;
+        role: "CUSTOMER" | "ADMIN" | "SUPER_ADMIN";
+        expectedRole: string;
+    },
 ): Promise<{ previousRole: string }> {
     return prisma.$transaction(async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(${PLATFORM_ROLES_LOCK}::bigint)`;
@@ -114,6 +119,12 @@ export async function setPlatformRole(
             select: { role: true },
         });
         if (!current) throw new Error(ERROR_ACCOUNT_NOT_FOUND);
+
+        // La comparaison se fait ICI, sous le verrou : l'appelant a décidé d'après le rôle
+        // qu'il a LU, et un compte retiré entre-temps deviendrait sinon super_admin par une
+        // élévation décidée pour un administrateur. Avant le verrou, ce serait la même
+        // course une couche plus bas.
+        if (current.role !== input.expectedRole) throw new Error(ERROR_ACCOUNT_ROLE_CHANGED);
 
         if (current.role === "SUPER_ADMIN" && input.role !== "SUPER_ADMIN") {
             const remaining = await tx.user.count({

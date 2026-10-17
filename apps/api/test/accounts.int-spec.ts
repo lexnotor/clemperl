@@ -3,6 +3,7 @@ import {
     createInvitedAdministrator,
     ERROR_ACCOUNT_EMAIL_TAKEN,
     ERROR_ACCOUNT_NOT_FOUND,
+    ERROR_ACCOUNT_ROLE_CHANGED,
     ERROR_LAST_SUPER_ADMIN,
     isAwaitingFirstPassword,
     listAdministrationAccounts,
@@ -119,32 +120,81 @@ describe("dépôt des comptes d'administration", () => {
 
     it("refuse un identifiant qui ne désigne personne", async () => {
         await expect(
-            setPlatformRole(prisma, { userId: "usr_inexistant", role: "CUSTOMER" }),
+            setPlatformRole(prisma, {
+                userId: "usr_inexistant",
+                role: "CUSTOMER",
+                expectedRole: "ADMIN",
+            }),
         ).rejects.toMatchObject({ message: ERROR_ACCOUNT_NOT_FOUND });
     });
 
-    // Deux administrateurs retirent le MÊME compte en même temps. L'état visé est atteint et
-    // rien ne lève ; c'est `previousRole` qui dit lequel des deux a réellement retiré, donc
-    // lequel peut l'annoncer.
-    it("rend le rôle précédent, ce qui dit si le retrait a eu lieu", async () => {
-        const client = await prisma.user.create({
-            data: { email: `${PREFIX}-deja@exemple.test`, emailVerified: true },
+    it("rend le rôle précédent, qui est celui qu'on attendait", async () => {
+        const compte = await prisma.user.create({
+            data: { email: `${PREFIX}-prec@clemperl.test`, emailVerified: true, role: "ADMIN" },
         });
         const { previousRole } = await setPlatformRole(prisma, {
-            userId: client.id,
+            userId: compte.id,
             role: "CUSTOMER",
+            expectedRole: "ADMIN",
         });
-        expect(previousRole).toBe("CUSTOMER");
+        expect(previousRole).toBe("ADMIN");
+    });
 
+    // Deux administrateurs retirent le MÊME compte en même temps : un seul l'a vu
+    // `ADMIN`, l'autre trouve un compte qui a déjà bougé et se voit refusé, au lieu de
+    // rendre un succès pour un retrait qu'il n'a pas fait.
+    it("refuse le second de deux retraits simultanés du même compte", async () => {
         const pair = await prisma.user.create({
             data: { email: `${PREFIX}-meme@clemperl.test`, emailVerified: true, role: "ADMIN" },
         });
-        const deux = await Promise.all([
-            setPlatformRole(prisma, { userId: pair.id, role: "CUSTOMER" }),
-            setPlatformRole(prisma, { userId: pair.id, role: "CUSTOMER" }),
+        const deux = await Promise.allSettled([
+            setPlatformRole(prisma, { userId: pair.id, role: "CUSTOMER", expectedRole: "ADMIN" }),
+            setPlatformRole(prisma, { userId: pair.id, role: "CUSTOMER", expectedRole: "ADMIN" }),
         ]);
-        // `all` et non `allSettled` : aucun des deux ne doit lever. Un seul voit `ADMIN`.
-        expect(deux.filter((issue) => issue.previousRole === "ADMIN")).toHaveLength(1);
+        expect(deux.filter((issue) => issue.status === "fulfilled")).toHaveLength(1);
+        expect(deux.find((issue) => issue.status === "rejected")).toMatchObject({
+            reason: { message: ERROR_ACCOUNT_ROLE_CHANGED },
+        });
+    });
+
+    // Le cas grave : la cible lue `ADMIN` a été retirée entre la lecture et l'écriture. Sans
+    // la comparaison sous verrou, l'élévation transformait un simple client en super_admin.
+    it("refuse d'élever un compte retiré entre-temps, et le laisse CUSTOMER", async () => {
+        const compte = await prisma.user.create({
+            data: { email: `${PREFIX}-retire@clemperl.test`, emailVerified: true, role: "ADMIN" },
+        });
+        await prisma.user.update({ where: { id: compte.id }, data: { role: "CUSTOMER" } });
+
+        await expect(
+            setPlatformRole(prisma, {
+                userId: compte.id,
+                role: "SUPER_ADMIN",
+                expectedRole: "ADMIN",
+            }),
+        ).rejects.toMatchObject({ message: ERROR_ACCOUNT_ROLE_CHANGED });
+        await expect(prisma.user.findUnique({ where: { id: compte.id } })).resolves.toMatchObject({
+            role: "CUSTOMER",
+        });
+    });
+
+    // Le symétrique : un ADMIN lu pour un retrait a été élevé entre-temps. L'acteur n'avait
+    // décidé que pour un `ADMIN`, pas pour un super_admin.
+    it("refuse de retirer un compte élevé entre-temps, et le laisse SUPER_ADMIN", async () => {
+        const compte = await prisma.user.create({
+            data: { email: `${PREFIX}-eleve@clemperl.test`, emailVerified: true, role: "ADMIN" },
+        });
+        await prisma.user.update({ where: { id: compte.id }, data: { role: "SUPER_ADMIN" } });
+
+        await expect(
+            setPlatformRole(prisma, {
+                userId: compte.id,
+                role: "CUSTOMER",
+                expectedRole: "ADMIN",
+            }),
+        ).rejects.toMatchObject({ message: ERROR_ACCOUNT_ROLE_CHANGED });
+        await expect(prisma.user.findUnique({ where: { id: compte.id } })).resolves.toMatchObject({
+            role: "SUPER_ADMIN",
+        });
     });
 
     // Retirer un rôle de plateforme ne touche à rien d'autre : sans ce test, une jointure
@@ -160,7 +210,7 @@ describe("dépôt des comptes d'administration", () => {
         });
         await prisma.cart.create({ data: { userId: compte.id, currency: "EUR" as never } });
 
-        await setPlatformRole(prisma, { userId: compte.id, role: "CUSTOMER" });
+        await setPlatformRole(prisma, { userId: compte.id, role: "CUSTOMER", expectedRole: "ADMIN" });
 
         await expect(prisma.vendorMember.count({ where: { userId: compte.id } })).resolves.toBe(1);
         await expect(prisma.cart.count({ where: { userId: compte.id } })).resolves.toBe(1);
@@ -184,9 +234,9 @@ describe("dépôt des comptes d'administration", () => {
         });
         await isolateSuperAdmins([un.id, deux.id]);
 
-        await setPlatformRole(prisma, { userId: un.id, role: "CUSTOMER" });
+        await setPlatformRole(prisma, { userId: un.id, role: "CUSTOMER", expectedRole: "SUPER_ADMIN" });
         await expect(
-            setPlatformRole(prisma, { userId: deux.id, role: "CUSTOMER" }),
+            setPlatformRole(prisma, { userId: deux.id, role: "CUSTOMER", expectedRole: "SUPER_ADMIN" }),
         ).rejects.toMatchObject({ message: ERROR_LAST_SUPER_ADMIN });
 
         // Le compte reste INTACT : retirer n'est pas supprimer.
@@ -220,8 +270,8 @@ describe("dépôt des comptes d'administration", () => {
             // `allSettled` et non `all` : l'un des deux DOIT échouer, et `all` ferait tomber
             // le test sur ce refus au lieu de l'observer.
             const issues = await Promise.allSettled([
-                setPlatformRole(prisma, { userId: un.id, role: "CUSTOMER" }),
-                setPlatformRole(prisma, { userId: deux.id, role: "CUSTOMER" }),
+                setPlatformRole(prisma, { userId: un.id, role: "CUSTOMER", expectedRole: "SUPER_ADMIN" }),
+                setPlatformRole(prisma, { userId: deux.id, role: "CUSTOMER", expectedRole: "SUPER_ADMIN" }),
             ]);
 
             // L'assertion porte sur l'ÉTAT, pas sur lequel des deux a gagné : les deux ordres

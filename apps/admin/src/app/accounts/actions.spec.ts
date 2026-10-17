@@ -13,6 +13,7 @@ vi.mock("@clemperl/auth", () => ({ auth: { api: { requestPasswordReset } } }));
 vi.mock("@clemperl/db", () => ({
     prisma: { user: { findFirst } },
     ERROR_ACCOUNT_NOT_FOUND: "ACCOUNT_NOT_FOUND",
+    ERROR_ACCOUNT_ROLE_CHANGED: "ACCOUNT_ROLE_CHANGED",
     ERROR_ACCOUNT_EMAIL_TAKEN: "ACCOUNT_EMAIL_TAKEN",
     ERROR_LAST_SUPER_ADMIN: "LAST_SUPER_ADMIN",
     createInvitedAdministrator,
@@ -147,12 +148,25 @@ describe("changeRole", () => {
         expect(setPlatformRole).not.toHaveBeenCalled();
     });
 
-    it("n'annonce pas un retrait que la concurrence a déjà fait", async () => {
+    it("traduit un compte qui a bougé entre la lecture et l'écriture", async () => {
         findFirst.mockResolvedValue({ role: "ADMIN" });
-        setPlatformRole.mockResolvedValue({ previousRole: "CUSTOMER" });
+        setPlatformRole.mockRejectedValue(new Error("ACCOUNT_ROLE_CHANGED"));
         const result = await changeRole(EMPTY, form({ userId: "u1", role: "CUSTOMER" }));
 
-        expect(result.message[0]).toContain("n'existe plus");
+        expect(result.message[0]).toContain("Rechargez");
+    });
+
+    it("passe au dépôt le rôle lu comme rôle attendu", async () => {
+        session.user.role = "SUPER_ADMIN";
+        findFirst.mockResolvedValue({ role: "ADMIN" });
+        setPlatformRole.mockResolvedValue({ previousRole: "ADMIN" });
+        await changeRole(EMPTY, form({ userId: "u1", role: "SUPER_ADMIN" }));
+
+        expect(setPlatformRole).toHaveBeenCalledWith(expect.anything(), {
+            userId: "u1",
+            role: "SUPER_ADMIN",
+            expectedRole: "ADMIN",
+        });
     });
 
     it("traduit le refus du dernier super_admin sans le devancer", async () => {
@@ -173,6 +187,7 @@ describe("changeRole", () => {
         expect(setPlatformRole).toHaveBeenCalledWith(expect.anything(), {
             userId: "u1",
             role: "CUSTOMER",
+            expectedRole: "ADMIN",
         });
     });
 });

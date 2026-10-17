@@ -42,6 +42,7 @@
       "invalid": "Le nom, l'adresse ou le niveau est invalide.",
       "email_taken": "Un compte existe déjà avec cette adresse.",
       "not_found": "Ce compte n'existe plus ou n'est plus un compte d'administration.",
+      "role_changed": "Ce compte a changé pendant que vous regardiez la page. Rechargez-la et recommencez si besoin.",
       "last_super_admin": "Ce compte est le dernier super-administrateur : il ne peut pas être retiré.",
       "not_pending": "Ce compte a déjà choisi son mot de passe : aucune invitation à renvoyer.",
       "mail_failed": "Le compte est créé, mais le courriel n'a pas pu partir. Utilisez « Renvoyer l'invitation ».",

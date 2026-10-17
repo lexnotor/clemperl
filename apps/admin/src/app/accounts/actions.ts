@@ -5,6 +5,7 @@ import {
     createInvitedAdministrator,
     ERROR_ACCOUNT_EMAIL_TAKEN,
     ERROR_ACCOUNT_NOT_FOUND,
+    ERROR_ACCOUNT_ROLE_CHANGED,
     ERROR_LAST_SUPER_ADMIN,
     isAwaitingFirstPassword,
     prisma,
@@ -127,9 +128,10 @@ export async function changeRole(
         return refuse("forbidden");
     }
 
-    let previousRole: string;
     try {
-        ({ previousRole } = await setPlatformRole(prisma, { userId, role }));
+        // Le rôle LU est passé comme rôle attendu : le dépôt le recompare sous verrou, et
+        // refuse un compte qui a bougé entre la lecture et l'écriture.
+        await setPlatformRole(prisma, { userId, role, expectedRole: target.role });
     } catch (error) {
         // Le dernier super_admin est refusé par le dépôt, sous verrou. On ne le devance pas
         // par un décompte ici : ce serait une lecture suivie d'une décision, qui se
@@ -137,17 +139,13 @@ export async function changeRole(
         if (error instanceof Error) {
             if (error.message === ERROR_LAST_SUPER_ADMIN) return refuse("last_super_admin");
             if (error.message === ERROR_ACCOUNT_NOT_FOUND) return refuse("not_found");
+            if (error.message === ERROR_ACCOUNT_ROLE_CHANGED) return refuse("role_changed");
         }
         console.error("changeRole", error);
         return refuse("failed");
     }
 
     revalidatePath("/accounts");
-    // Un autre retrait a pu passer entre la lecture et l'écriture : le compte n'était plus
-    // administrateur, rien n'a été retiré, et l'écran ne doit pas l'annoncer.
-    if (!isAdministrator(previousRole)) {
-        return refuse("not_found");
-    }
     return { message: [] };
 }
 
