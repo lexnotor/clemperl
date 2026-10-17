@@ -4,16 +4,19 @@ import { canDecide, canResubmit, canViewApplication, isMemberOf } from "./vendor
 const CUSTOMER = { id: "usr_1", role: "CUSTOMER" } as const;
 const OTHER = { id: "usr_2", role: "CUSTOMER" } as const;
 const ADMIN = { id: "adm_1", role: "ADMIN" } as const;
+const SUPER_ADMIN = { id: "sa_1", role: "SUPER_ADMIN" } as const;
 
 describe("permissions autour du dossier vendeur", () => {
     it("laisse le candidat voir son dossier et cache celui d'autrui", () => {
         expect(canViewApplication(CUSTOMER, { applicantId: "usr_1" })).toBe(true);
         expect(canViewApplication(OTHER, { applicantId: "usr_1" })).toBe(false);
         expect(canViewApplication(ADMIN, { applicantId: "usr_1" })).toBe(true);
+        expect(canViewApplication(SUPER_ADMIN, { applicantId: "usr_1" })).toBe(true);
     });
 
     it("réserve la décision aux administrateurs", () => {
         expect(canDecide(ADMIN)).toBe(true);
+        expect(canDecide(SUPER_ADMIN)).toBe(true);
         expect(canDecide(CUSTOMER)).toBe(false);
     });
 

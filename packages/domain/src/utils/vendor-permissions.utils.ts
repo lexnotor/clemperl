@@ -1,18 +1,19 @@
 import { E_APPLICATION_ACTION } from "../constants/index.js";
 import type { TApplicationStatus } from "../types/index.js";
 import { canTransition } from "./application-transitions.utils.js";
+import { isAdministrator } from "./platform-roles.utils.js";
 
 interface IActor {
     id: string;
-    role: "CUSTOMER" | "ADMIN";
+    role: string;
 }
 
 export function canViewApplication(actor: IActor, application: { applicantId: string }): boolean {
-    return actor.role === "ADMIN" || actor.id === application.applicantId;
+    return isAdministrator(actor.role) || actor.id === application.applicantId;
 }
 
 export function canDecide(actor: IActor): boolean {
-    return actor.role === "ADMIN";
+    return isAdministrator(actor.role);
 }
 
 // La question « l'état autorise-t-il ? » est déléguée à la machine à états : réécrire
