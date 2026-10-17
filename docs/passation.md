@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-16.
+Dernière mise à jour : 2026-10-17.
 
 ## Où en est le projet
 
@@ -26,7 +26,7 @@ plan, exécution, un commit.
 | T4 | Paiement, point d'extension | **Livrée** |
 | T5 | Activer et suspendre une boutique | **Livrée** |
 | T6a | Modérer le catalogue | **Livrée**, PR #12 |
-| T6b | Gérer les comptes et les rôles | **cadrée et planifiée**, exécution non commencée |
+| T6b | Gérer les comptes et les rôles | **Livrée**, branche `feat/accounts-and-roles` |
 | T6c | Surveiller les commandes et arbitrer | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
@@ -98,7 +98,64 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
+## T6b est livrée, au 2026-10-17
+
+Un super_admin invite un administrateur depuis `/accounts` : la personne reçoit UN courriel
+portant un lien à usage unique, choisit son mot de passe, et entre dans l'administration sans
+voir l'option de nommer un super_admin. Le parcours est prouvé dans un navigateur par
+`e2e/accounts.spec.ts`.
+
+### Ce qui a été livré
+
+- `SUPER_ADMIN` dans `E_USER_ROLE`, et une matrice pure dans `packages/domain` par laquelle
+  passent tous les tests de rôle du dépôt.
+- Un dépôt dans `packages/db` qui protège le dernier super_admin sous verrou consultatif, et
+  refuse un changement de rôle quand la cible a bougé depuis sa lecture.
+- L'écran `/accounts` : inviter, retirer, renvoyer l'invitation, élever en super_admin.
+- L'invitation écrit un `User` SANS `Account`, puis demande une réinitialisation. L'état
+  « en attente » est l'absence de toute ligne `Account`, et c'est `resetPassword` qui crée le
+  justificatif au choix du mot de passe. `sendResetPassword` choisit entre le message de
+  bienvenue et la réinitialisation ordinaire sur cette même condition.
+- Le jeton de réinitialisation vaut trois jours, pour tous les parcours.
+
+### Ce que le parcours navigateur a établi
+
+- `user.id` est bien renseigné dans `sendResetPassword` pour un compte sans `Account` : la
+  personne invitée reçoit le message de bienvenue, objet « Votre compte d'administration
+  ClemPerl est prêt », et non la réinitialisation ordinaire.
+- Un seul courriel part pour une invitation, compté dans Mailpit à la fin du parcours.
+
+### Deux décisions de plan à relire
+
+Elles étaient en tête du plan et ont été suivies telles quelles. Elles sont reportées ici pour
+être relues plutôt qu'oubliées.
+
+**L'élévation en super_admin est rendue sur la ligne de l'administrateur**, visible du seul
+super_admin. Sans ce bouton, la case « nommer un super_admin » de la matrice serait
+inatteignable : l'adresse d'un collègue déjà administrateur est prise, et l'invitation sur une
+adresse existante est refusée.
+
+**Un compte retiré ne peut pas revenir.** Retirer ramène à `CUSTOMER`, les clients ne sont pas
+listés, et promouvoir un client existant est un non-but. Qui est retiré par erreur garde un
+compte qu'aucun écran ne peut re-nommer. C'est la conséquence des non-buts, choisie et non
+découverte ; la sortie, le jour où elle gêne, est de lister les clients ou d'accepter
+l'invitation sur une adresse de client.
+
+### Pour reprendre
+
+- Trois pièges payés par cette tranche sont dans `docs/pieges.md` : le schéma Prisma qui
+  n'atteint pas `storefront`, `vendor` et `admin` dans la pile de développement, `$queryRaw` qui
+  ne lit pas un `interval`, et la durée globale du jeton de réinitialisation.
+- Après un `switch` qui touche `schema.prisma`, régénérer sur l'hôte et rebâtir les images
+  avec `pnpm docker:up`.
+- La suite navigateur complète n'est pas verte sur cette machine, comme avant cette tranche.
+  Au dernier passage, `collection.spec.ts` (correction du titre d'une collection) et
+  `vendor-product-images.spec.ts` ont échoué, et un test n'a pas tourné ; `accounts.spec.ts`
+  a passé cinq fois de suite seul, et dans la suite. La CI sur son poste dédié tranche.
+
 ## Où en est T6b, au 2026-10-16
+
+> Historique de la préparation. La tranche est livrée : voir la section précédente.
 
 Spec approuvée, plan écrit, exécution pas commencée. Tout est sur la branche
 `feat/accounts-and-roles`, qui porte aussi, au passage, le correctif de la ligne du tableau

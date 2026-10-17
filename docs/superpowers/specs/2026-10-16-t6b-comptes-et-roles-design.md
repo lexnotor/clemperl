@@ -271,6 +271,34 @@ dépend de ce que `better-auth@1.7.5` permet réellement :
 Le plan DOIT commencer par une mesure sur ce point, et non par du code : une piste choisie sur
 sa plausibilité coûterait la tranche entière.
 
+**Mesuré le 2026-10-17, sur `better-auth@1.7.5` dans le conteneur `storefront`.** Un
+`User` créé sans aucune ligne `Account` (`emailVerified: true`, `role: "ADMIN"`), puis
+`auth.api.requestPasswordReset` appelé côté serveur avec `redirectTo: "/reset-password"` :
+
+- **Un seul message part** (« Réinitialisation de votre mot de passe »), compté dans
+  Mailpit pour cette adresse.
+- **Un appel serveur direct n'est pas refusé** : `auth.api.requestPasswordReset`, appelé sans
+  requête ni en-têtes, répond `status: true` avec un `redirectTo` relatif. La mesure ne dit
+  pas si le `originCheck` s'est exécuté et a passé, ou s'il ne s'est pas exécuté faute de
+  requête à contrôler. Le `GET` sur le lien n'a pas été exercé non plus : le jeton a été
+  posté directement, donc la redirection portant `?callbackURL=%2Freset-password` n'a jamais
+  été suivie.
+- **`resetPassword` crée le justificatif absent** : après `POST /api/auth/reset-password`
+  avec le jeton du lien, un `Account` `credential` portant un mot de passe existe, et
+  `POST /api/auth/sign-in/email` répond 200 avec la session, rôle `ADMIN`.
+- **Le lien vaut une heure** : `expires_at` dépasse `now()` de 3597 secondes, ce qui est
+  observé. Que ce soit la durée par défaut tant que `resetPasswordTokenExpiresIn` n'est pas
+  posée est lu dans le code de la bibliothèque, non observé.
+
+La piste 1 est retenue : créer le `User` sans `Account`, puis demander la réinitialisation.
+Aucune écriture d'`Account` à la main n'est nécessaire, et les pistes 2 et 3 n'ont pas été
+mesurées faute de raison de le faire. La durée de trois jours reste à poser.
+
+Conséquence, qui devient une contrainte pour la suite de la tranche : le chemin d'invitation
+appelle `auth.api.requestPasswordReset({ body })` sans transmettre les en-têtes, exactement
+comme l'amorçage le fait pour `signUpEmail`. Les transmettre remettrait en jeu un contrôle
+d'origine qui n'a jamais été mesuré face à un `redirectTo` relatif.
+
 ## 11. Tests
 
 **Pur, dans `packages/domain`** : la matrice de la section 2, exhaustivement. Qui peut nommer
