@@ -5,7 +5,7 @@ import {
     ERROR_ACCOUNT_NOT_FOUND,
     ERROR_ACCOUNT_ROLE_CHANGED,
     ERROR_LAST_SUPER_ADMIN,
-    isAwaitingFirstPassword,
+    isPendingAdministratorInvitation,
     listAdministrationAccounts,
     prisma,
     setPlatformRole,
@@ -69,7 +69,7 @@ describe("dépôt des comptes d'administration", () => {
             name: "Awa",
             role: "ADMIN",
         });
-        await expect(isAwaitingFirstPassword(prisma, id)).resolves.toBe(true);
+        await expect(isPendingAdministratorInvitation(prisma, id)).resolves.toBe(true);
         const liste = await listAdministrationAccounts(prisma);
         expect(liste.find((ligne) => ligne.id === id)?.pending).toBe(true);
 
@@ -84,9 +84,25 @@ describe("dépôt des comptes d'administration", () => {
                 password: "x",
             },
         });
-        await expect(isAwaitingFirstPassword(prisma, id)).resolves.toBe(false);
+        await expect(isPendingAdministratorInvitation(prisma, id)).resolves.toBe(false);
         const apres = await listAdministrationAccounts(prisma);
         expect(apres.find((ligne) => ligne.id === id)?.pending).toBe(false);
+    });
+
+    // Un invité retiré avant d'avoir réclamé garde sa ligne `User` SANS justificatif. Sans
+    // la condition de rôle, il recevrait encore « votre compte d'administration est prêt »
+    // le jour où il passe par « mot de passe oublié », alors qu'il n'administre plus rien.
+    it("cesse d'être une invitation dès que le rôle est retiré", async () => {
+        const { id } = await createInvitedAdministrator(prisma, {
+            email: `${PREFIX}-invite-retiree@clemperl.test`,
+            name: "Rémi",
+            role: "ADMIN",
+        });
+        await expect(isPendingAdministratorInvitation(prisma, id)).resolves.toBe(true);
+
+        await setPlatformRole(prisma, { userId: id, expectedRole: "ADMIN", role: "CUSTOMER" });
+
+        await expect(isPendingAdministratorInvitation(prisma, id)).resolves.toBe(false);
     });
 
     it("n'attend pas son premier mot de passe quand le compte vient de Google", async () => {
@@ -99,7 +115,7 @@ describe("dépôt des comptes d'administration", () => {
         await prisma.account.create({
             data: { id: `${PREFIX}-acc-g`, accountId: id, providerId: "google", userId: id },
         });
-        await expect(isAwaitingFirstPassword(prisma, id)).resolves.toBe(false);
+        await expect(isPendingAdministratorInvitation(prisma, id)).resolves.toBe(false);
     });
 
     it("ne liste que les comptes d'administration", async () => {

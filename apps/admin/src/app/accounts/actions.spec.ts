@@ -4,7 +4,7 @@ const session = { user: { id: "actor", role: "ADMIN" } };
 const requestPasswordReset = vi.fn();
 const setPlatformRole = vi.fn();
 const createInvitedAdministrator = vi.fn();
-const isAwaitingFirstPassword = vi.fn();
+const isPendingAdministratorInvitation = vi.fn();
 const findFirst = vi.fn();
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -18,7 +18,7 @@ vi.mock("@clemperl/db", () => ({
     ERROR_LAST_SUPER_ADMIN: "LAST_SUPER_ADMIN",
     createInvitedAdministrator,
     setPlatformRole,
-    isAwaitingFirstPassword,
+    isPendingAdministratorInvitation,
 }));
 
 const { changeRole, invite, resendInvitation } = await import("./actions");
@@ -195,7 +195,7 @@ describe("changeRole", () => {
 describe("resendInvitation", () => {
     it("refuse un compte qui a déjà son mot de passe, sans rien envoyer", async () => {
         findFirst.mockResolvedValue({ email: "a@clemperl.test", role: "ADMIN" });
-        isAwaitingFirstPassword.mockResolvedValue(false);
+        isPendingAdministratorInvitation.mockResolvedValue(false);
         const result = await resendInvitation(EMPTY, form({ userId: "u1" }));
 
         expect(result.message[0]).toContain("déjà choisi son mot de passe");
@@ -213,7 +213,7 @@ describe("resendInvitation", () => {
 
     it("renvoie le lien à une invitation en attente", async () => {
         findFirst.mockResolvedValue({ email: "a@clemperl.test", role: "ADMIN" });
-        isAwaitingFirstPassword.mockResolvedValue(true);
+        isPendingAdministratorInvitation.mockResolvedValue(true);
         const result = await resendInvitation(EMPTY, form({ userId: "u1" }));
 
         expect(result.message).toEqual(["Invitation renvoyée."]);

@@ -159,13 +159,29 @@ export async function setPlatformRole(
 }
 
 /**
- * Vrai tant que le compte n'a aucune ligne `Account`. C'est la même condition que la colonne
- * `pending` de la liste, pour que la liste et le choix du courriel disent la même chose.
+ * Vrai tant que ce compte est une invitation d'administration que personne n'a réclamée.
+ *
+ * Deux conditions, et aucune des deux ne suffit. L'absence de TOUTE ligne `Account`, et non
+ * l'absence de mot de passe : un compte social en porte une sans identifiant, et l'accueillir
+ * parce qu'il demande une réinitialisation serait faux. Et un rôle d'administration, sans quoi
+ * un invité qu'on a retiré avant qu'il réclame garderait une ligne sans justificatif et
+ * recevrait encore « votre compte d'administration est prêt » en demandant un mot de passe
+ * oublié, alors qu'il n'administre plus rien.
+ *
+ * C'est la même condition que la colonne `pending` de la liste, qui ne porte déjà que des
+ * comptes d'administration, pour que la liste et le choix du courriel disent la même chose.
  */
-export async function isAwaitingFirstPassword(
+export async function isPendingAdministratorInvitation(
     prisma: PrismaClient,
     userId: string,
 ): Promise<boolean> {
-    const accounts = await prisma.account.count({ where: { userId } });
-    return accounts === 0;
+    const pending = await prisma.user.count({
+        where: {
+            id: userId,
+            deletedAt: null,
+            role: { in: ["ADMIN", "SUPER_ADMIN"] },
+            accounts: { none: {} },
+        },
+    });
+    return pending === 1;
 }

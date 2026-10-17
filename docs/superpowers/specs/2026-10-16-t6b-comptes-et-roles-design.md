@@ -1,7 +1,7 @@
 # ClemPerl, T6b : gérer les comptes et les rôles
 
 **Date** : 2026-10-16
-**Statut** : cadrée, non commencée
+**Statut** : livrée
 **Tranche** : T6b, deuxième des trois issues du découpage de T6
 **S'appuie sur** : `2026-09-18-t1a-identite-design.md` (les comptes, les sessions, les jetons
 à usage unique et les courriels), `2026-09-19-t1b-vendeurs-design.md` (la forme d'une

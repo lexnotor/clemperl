@@ -1,5 +1,5 @@
 import { createSmtpSender } from "@clemperl/core";
-import { isAwaitingFirstPassword, prisma } from "@clemperl/db";
+import { isPendingAdministratorInvitation, prisma } from "@clemperl/db";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
@@ -73,15 +73,15 @@ export const auth = betterAuth({
         resetPasswordTokenExpiresIn: RESET_PASSWORD_TOKEN_EXPIRES_IN,
 
         sendResetPassword: async ({ user, url }): Promise<void> => {
-            // Une invitation est un compte sans aucune ligne `Account`, et elle passe par
-            // la même route qu'un oubli de mot de passe. On choisit le texte sur
-            // l'absence de TOUTE ligne `Account`, pas sur l'absence de mot de passe : un
-            // compte Google en porte une sans identifiant, et lui envoyer un accueil
-            // alors qu'il demande une réinitialisation serait faux. Si la lecture échoue,
-            // l'erreur remonte et aucun courriel ne part : mieux vaut un échec visible
-            // qu'un message qui ne correspond pas à la situation.
-            const awaitingFirstPassword = await isAwaitingFirstPassword(prisma, user.id);
-            const message = awaitingFirstPassword
+            // Une invitation passe par la même route qu'un oubli de mot de passe, donc
+            // c'est ici que les deux textes se départagent. La condition est lue en base
+            // plutôt que sur l'objet `user` : le rôle n'arrive ici que par les champs
+            // additionnels de la bibliothèque, et le jour où il cesserait d'être peuplé,
+            // un repli silencieux priverait tous les invités de leur accueil. Si la
+            // lecture échoue, l'erreur remonte et aucun courriel ne part : mieux vaut un
+            // échec visible qu'un message qui ne correspond pas à la situation.
+            const invitation = await isPendingAdministratorInvitation(prisma, user.id);
+            const message = invitation
                 ? buildAdministratorInvitationMessage(url, "fr")
                 : buildPasswordResetMessage(url, "fr");
             await createSmtpSender(

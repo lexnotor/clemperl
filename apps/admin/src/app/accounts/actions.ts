@@ -7,7 +7,7 @@ import {
     ERROR_ACCOUNT_NOT_FOUND,
     ERROR_ACCOUNT_ROLE_CHANGED,
     ERROR_LAST_SUPER_ADMIN,
-    isAwaitingFirstPassword,
+    isPendingAdministratorInvitation,
     prisma,
     setPlatformRole,
 } from "@clemperl/db";
@@ -169,7 +169,7 @@ export async function resendInvitation(
     // Sans ce contrôle, l'action enverrait une réinitialisation de mot de passe à quelqu'un
     // qui n'a rien demandé : le bouton n'est rendu que pour une invitation en attente, mais
     // l'action est une route publique.
-    if (!(await isAwaitingFirstPassword(prisma, userId))) {
+    if (!(await isPendingAdministratorInvitation(prisma, userId))) {
         return refuse("not_pending");
     }
 
