@@ -11,17 +11,18 @@ export function isAdministrator(role: string): boolean {
     return role === "ADMIN" || role === "SUPER_ADMIN";
 }
 
-// Nommer quelqu'un `CUSTOMER` n'est jamais une nomination : c'est un retrait, décidé par
+// Seules les cibles `ADMIN` et `SUPER_ADMIN` se nomment ; toute autre valeur est refusée.
+// Nommer quelqu'un `CUSTOMER` n'est pas une nomination : c'est un retrait, décidé par
 // `canRemove`. Un administrateur nomme des administrateurs, un super_admin nomme aussi
 // des super_admins.
 export function canAppoint(actorRole: string, targetRole: string): boolean {
-    if (targetRole === "CUSTOMER") {
-        return false;
+    if (targetRole === "ADMIN") {
+        return isAdministrator(actorRole);
     }
-    if (actorRole === "SUPER_ADMIN") {
-        return true;
+    if (targetRole === "SUPER_ADMIN") {
+        return actorRole === "SUPER_ADMIN";
     }
-    return actorRole === "ADMIN" && targetRole === "ADMIN";
+    return false;
 }
 
 // Retirer un super_admin réclame d'être super_admin. Retirer un administrateur est ouvert

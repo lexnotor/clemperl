@@ -54,4 +54,18 @@ describe("les rôles de plateforme", () => {
     it("laisse un super_admin se retirer lui-même, la garde du dernier étant ailleurs", () => {
         expect(canRemove("SUPER_ADMIN", "SUPER_ADMIN")).toBe(true);
     });
+    // La couverture à 100 % ne voit pas une valeur hors vocabulaire : elle n'est jamais
+    // écrite dans le test, donc la branche qui l'accepte à tort reste invisible. Ces
+    // assertions la nomment, pour que toute valeur inconnue tombe du côté du refus.
+    it("refuse toute valeur hors vocabulaire comme cible de nomination", () => {
+        expect(canAppoint("SUPER_ADMIN", "")).toBe(false);
+        expect(canAppoint("SUPER_ADMIN", "OWNER")).toBe(false);
+        expect(canAppoint("SUPER_ADMIN", "admin")).toBe(false);
+    });
+
+    it("refuse toute valeur hors vocabulaire comme cible de retrait", () => {
+        expect(canRemove("SUPER_ADMIN", "")).toBe(false);
+        expect(canRemove("SUPER_ADMIN", "OWNER")).toBe(false);
+        expect(canRemove("SUPER_ADMIN", "admin")).toBe(false);
+    });
 });
