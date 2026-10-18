@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-17.
+Dernière mise à jour : 2026-10-18.
 
 ## Où en est le projet
 
@@ -27,7 +27,7 @@ plan, exécution, un commit.
 | T5 | Activer et suspendre une boutique | **Livrée** |
 | T6a | Modérer le catalogue | **Livrée**, PR #12 |
 | T6b | Gérer les comptes et les rôles | **Livrée**, PR #13 |
-| T6c | Surveiller les commandes et arbitrer | non commencée |
+| T6c | Surveiller les commandes et arbitrer | **Livrée** |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
 
@@ -97,6 +97,69 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 (`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
+
+## T6c est livrée, au 2026-10-18
+
+L'administration liste les commandes de toutes les boutiques, filtre par état et par boutique,
+et fait avancer n'importe laquelle selon la table des transitions, y compris celle qu'un
+vendeur silencieux a laissée dormir. Le parcours est prouvé dans un navigateur par
+`e2e/order-oversight.spec.ts` : une commande est passée, le vendeur ne fait rien,
+l'administration l'annule, et l'acheteur la voit annulée depuis la vitrine.
+
+### Ce qui a été livré
+
+- Une écriture d'état sans portée de boutique dans `packages/db`, à côté de celle du vendeur,
+  qui exige toujours l'appartenance. Les deux refusent un état lu périmé.
+- Une lecture de toutes les commandes, paginée sur un ordre clos par l'identifiant, avec le
+  décompte lu dans le même instantané que la page.
+- Deux écrans dans l'administration : `/orders` (filtres, pagination, nom de boutique ET
+  slug sur chaque ligne) et `/orders/[id]` (les seules actions possibles, rendues d'après
+  `allowedOrderActions`).
+- Un avertissement avant l'annulation d'une commande dont le paiement est reçu : l'annuler
+  ne rembourse rien. Sa condition est `shouldWarnSettled`.
+
+### Deux décisions du commanditaire, à relire
+
+La spec les consigne comme des décisions du commanditaire, la seconde contre l'avis de son
+rédacteur. Elles sont réversibles à peu de frais : il faut le savoir avant de les trouver
+trop larges.
+
+**L'administration peut effectuer toutes les transitions que le vendeur peut.** Elle peut donc
+déclarer expédié un colis qu'elle n'a jamais vu. La spec en
+assume le coût : le contrepoids est humain, pas technique. *Suggestion, non décidée :* la
+restreindre à l'annulation ne demanderait que de filtrer les actions offertes par la page et
+par l'action serveur, sans toucher à la machine à états.
+
+**Aucun auteur n'est enregistré.** Un vendeur ne peut pas distinguer ce qu'il a fait de ce que
+l'administration a fait à sa place : une commande annulée ou expédiée par elle se lit comme
+s'il l'avait fait lui-même. Deux colonnes sur la commande suffiraient, l'acteur et l'instant,
+écrites par les deux chemins d'écriture.
+
+### Ce que le parcours navigateur a établi
+
+- L'avertissement du paiement reçu est atteint dans un navigateur : le vendeur pointe le
+  paiement à la livraison, la commande reste reçue, et l'administration voit l'avertissement
+  avant le clic sur « Annuler ». Une mutation de la page, qui passe une chaîne vide à la place
+  de l'appel à `shouldWarnSettled`, fait échouer le parcours sur cette assertion. C'est la
+  seule chose qui l'attrape : les tests unitaires ne voient que la fonction.
+- Chaque absence de bouton a sa présence avec le même sélecteur : « Annuler » et « Accepter »
+  sont constatés sur la commande reçue avant d'être constatés absents sur la commande annulée.
+
+### Pour reprendre
+
+- Trois fois dans cette tranche, une condition a dû être sortie d'un composant serveur pour
+  devenir testable : les deux lecteurs de paramètres d'URL et la condition de l'avertissement.
+  Une fonction enfouie dans un composant serveur ne se teste pas, et ce dépôt n'a aucun outil
+  pour la tester en place. Le réflexe à garder : l'extraire dans son propre module dès qu'elle
+  porte une règle, et laisser au navigateur le soin de prouver que la page l'appelle.
+- Deux pièges payés par cette tranche sont dans `docs/pieges.md` : les deux `packages/db/dist`
+  (hôte et conteneur) qui divergent, et le test unitaire qui passe par accident à travers un
+  mock non configuré.
+- La suite navigateur complète a tourné une fois sur cette machine : 33 réussis, et un échec,
+  `collection.spec.ts` (correction du titre d'une collection, « Soldes d ete » reçu au lieu de
+  « Soldes d été »), qui est antérieur à cette tranche. `order-oversight.spec.ts` a passé quatre
+  fois de suite seul, et dans la suite. Le lancement s'est fait contre `pnpm docker:up`, jamais
+  `pnpm e2e:up`, dont le limiteur de débit refuse les créations de comptes.
 
 ## T6b est livrée, au 2026-10-17
 
