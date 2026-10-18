@@ -46,7 +46,6 @@ Elles s'appliquent à **chaque** tâche, sans être répétées dans chacune.
 - **Les planchers de couverture sont à 100 %** pour `@clemperl/domain` et `@clemperl/ui`.
   Le cliquet monte, il ne descend jamais : tout code ajouté à ces deux packages doit être
   couvert.
-- **Branche de travail :** `feat/vendor-shop`, déjà sortie.
 
 ---
 
