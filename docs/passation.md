@@ -26,7 +26,7 @@ plan, exécution, un commit.
 | T4 | Paiement, point d'extension | **Livrée** |
 | T5 | Activer et suspendre une boutique | **Livrée** |
 | T6a | Modérer le catalogue | **Livrée**, PR #12 |
-| T6b | Gérer les comptes et les rôles | **Livrée**, branche `feat/accounts-and-roles` |
+| T6b | Gérer les comptes et les rôles | **Livrée**, PR #13 |
 | T6c | Surveiller les commandes et arbitrer | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
