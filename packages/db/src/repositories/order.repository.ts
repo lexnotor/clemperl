@@ -371,3 +371,71 @@ export async function setOrderStatusAsAdministrator(
 ): Promise<void> {
     return writeOrderStatus(prisma, input);
 }
+
+// La boutique arrive imbriquée et repart à plat : l'écran lit une ligne, pas un arbre.
+const ADMINISTRATION_ORDER = {
+    id: true,
+    reference: true,
+    status: true,
+    currency: true,
+    totalAmount: true,
+    paymentStatus: true,
+    createdAt: true,
+    shipToName: true,
+    vendor: { select: { shopName: true, slug: true } },
+} as const;
+
+function flattenAdministrationOrder(row: {
+    id: string;
+    reference: string;
+    status: string;
+    currency: string;
+    totalAmount: number;
+    paymentStatus: string;
+    createdAt: Date;
+    shipToName: string;
+    vendor: { shopName: string; slug: string };
+}) {
+    const { vendor, ...reste } = row;
+    return { ...reste, shopName: vendor.shopName, shopSlug: vendor.slug };
+}
+
+// Le tri se CLÔT sur l'identifiant, et ce n'est pas décoratif. Sans colonne finale unique,
+// `LIMIT ... OFFSET` n'est pas déterministe dès que deux lignes partagent la valeur triée :
+// une ligne se répète d'une page à l'autre et une autre est sautée, invisible et
+// silencieuse. Deux commandes passées dans la même seconde suffisent. Même raison que le
+// tri du catalogue.
+//
+// Le compte et la page partent dans la MÊME transaction : lus séparément, une commande
+// créée entre les deux donnerait un total qui ne correspond pas aux lignes rendues, et la
+// dernière page annoncerait une ligne qu'elle ne montre pas.
+export async function listOrdersForAdministration(
+    prisma: PrismaClient,
+    input: { status?: string; vendorId?: string; skip: number; take: number },
+) {
+    const where = {
+        ...(input.status === undefined ? {} : { status: input.status as never }),
+        ...(input.vendorId === undefined ? {} : { vendorId: input.vendorId }),
+    };
+
+    const [rows, total] = await prisma.$transaction([
+        prisma.order.findMany({
+            where,
+            orderBy: [{ createdAt: "desc" as const }, { id: "asc" as const }],
+            skip: input.skip,
+            take: input.take,
+            select: ADMINISTRATION_ORDER,
+        }),
+        prisma.order.count({ where }),
+    ]);
+
+    return { rows: rows.map(flattenAdministrationOrder), total };
+}
+
+export async function readOrderForAdministration(prisma: PrismaClient, orderId: string) {
+    const row = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: ADMINISTRATION_ORDER,
+    });
+    return row === null ? null : flattenAdministrationOrder(row);
+}

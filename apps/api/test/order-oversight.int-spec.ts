@@ -3,8 +3,10 @@ import {
     ERROR_ORDER_STATUS_STALE,
     addCartItem,
     createProduct,
+    listOrdersForAdministration,
     placeOrders,
     prisma,
+    readOrderForAdministration,
     setOrderStatus,
     setOrderStatusAsAdministrator,
     setProductStatus,
@@ -190,5 +192,122 @@ describe("écrire un état de commande sans boutique", () => {
                 status: "ACCEPTED",
             }),
         ).rejects.toMatchObject({ message: ERROR_ORDER_NOT_FOUND });
+    });
+});
+
+describe("lire les commandes de toutes les boutiques", () => {
+    it("rend les commandes de boutiques différentes, et dit le total", async () => {
+        const a = await placedOrder();
+        const b = await placedOrder();
+
+        const { rows, total } = await listOrdersForAdministration(prisma, {
+            skip: 0,
+            take: 100,
+        });
+
+        expect(rows.map((l) => l.id)).toEqual(expect.arrayContaining([a.orderId, b.orderId]));
+        expect(total).toBeGreaterThanOrEqual(2);
+    });
+
+    it("porte le nom de la boutique et son slug", async () => {
+        const { orderId, shop } = await placedOrder();
+
+        const ligne = (
+            await listOrdersForAdministration(prisma, { skip: 0, take: 100 })
+        ).rows.find((l) => l.id === orderId);
+
+        expect(ligne?.shopName).toBe(shop.shopName);
+        expect(ligne?.shopSlug).toBe(shop.slug);
+    });
+
+    it("filtre par état", async () => {
+        const { orderId } = await placedOrder();
+        await setOrderStatusAsAdministrator(prisma, {
+            orderId,
+            from: "PLACED",
+            status: "CANCELLED",
+        });
+
+        const { rows } = await listOrdersForAdministration(prisma, {
+            status: "PLACED",
+            skip: 0,
+            take: 100,
+        });
+
+        expect(rows.find((l) => l.id === orderId)).toBeUndefined();
+    });
+
+    it("filtre par boutique", async () => {
+        const mienne = await placedOrder();
+        const autre = await placedOrder();
+
+        const { rows } = await listOrdersForAdministration(prisma, {
+            vendorId: mienne.shop.id,
+            skip: 0,
+            take: 100,
+        });
+
+        expect(rows.find((l) => l.id === mienne.orderId)).toBeDefined();
+        expect(rows.find((l) => l.id === autre.orderId)).toBeUndefined();
+    });
+
+    // LE test qui justifie l'ordre clos sur l'identifiant. Trois
+    // commandes au même horodatage, lues page par page : sans `id` final, PostgreSQL est
+    // libre de les rendre dans un ordre différent à chaque requête, donc une ligne se
+    // répète d'une page à l'autre et une autre disparaît sans que rien ne le signale.
+    it("pagine sans sauter ni répéter quand les horodatages sont identiques", async () => {
+        const quand = new Date();
+        const faites = [await placedOrder(), await placedOrder(), await placedOrder()];
+        const miennes = faites.map((f) => f.orderId);
+        await prisma.order.updateMany({
+            where: { id: { in: miennes } },
+            data: { createdAt: quand },
+        });
+
+        const vues: string[] = [];
+        for (let skip = 0; skip < 60; skip += 2) {
+            const { rows } = await listOrdersForAdministration(prisma, { skip, take: 2 });
+            if (rows.length === 0) break;
+            vues.push(...rows.map((l) => l.id));
+        }
+
+        const miennesVues = vues.filter((id) => miennes.includes(id));
+        expect(new Set(miennesVues).size).toBe(3);
+        expect(miennesVues).toHaveLength(3);
+    });
+
+    // La suspension retire la boutique du catalogue, elle n'efface pas les engagements
+    // pris avant. Une commande d'une boutique suspendue reste donc visible, et l'écran
+    // d'administration doit pouvoir la débloquer comme une autre.
+    it("rend aussi les commandes d'une boutique suspendue", async () => {
+        const { orderId, shop } = await placedOrder();
+        await prisma.vendor.update({
+            where: { id: shop.id },
+            data: { suspendedAt: new Date() },
+        });
+
+        const { rows } = await listOrdersForAdministration(prisma, { skip: 0, take: 100 });
+
+        expect(rows.find((l) => l.id === orderId)).toBeDefined();
+    });
+
+    it("rend une page vide au-delà du total, sans lever", async () => {
+        await expect(
+            listOrdersForAdministration(prisma, { skip: 100_000, take: 20 }),
+        ).resolves.toMatchObject({ rows: [] });
+    });
+
+    it("lit une commande par son identifiant, sans boutique", async () => {
+        const { orderId, shop } = await placedOrder();
+
+        const commande = await readOrderForAdministration(prisma, orderId);
+
+        expect(commande?.shopSlug).toBe(shop.slug);
+    });
+
+    it("rend null pour une commande qui n'existe pas", async () => {
+        await expect(
+            readOrderForAdministration(prisma, "c00000000000000000000000"),
+        ).resolves.toBeNull();
     });
 });
