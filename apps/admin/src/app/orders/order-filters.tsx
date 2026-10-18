@@ -4,7 +4,7 @@ import { Button } from "@clemperl/ui";
 import type { JSX } from "react";
 
 interface OrderFiltersProps {
-    shops: { id: string; shopName: string }[];
+    shops: { id: string; shopName: string; slug: string }[];
     statuses: { value: string; label: string }[];
     selectedShop: string;
     selectedStatus: string;
@@ -45,7 +45,7 @@ export function OrderFilters(props: OrderFiltersProps): JSX.Element {
                     <option value="">{props.labels.allShops}</option>
                     {props.shops.map((boutique) => (
                         <option key={boutique.id} value={boutique.id}>
-                            {boutique.shopName}
+                            {boutique.shopName} · {boutique.slug}
                         </option>
                     ))}
                 </select>

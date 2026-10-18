@@ -78,7 +78,7 @@ export default async function OrdersPage({
             <h1 className="font-titre text-4xl tracking-tight">{t.title}</h1>
 
             <OrderFilters
-                shops={shops.map((s) => ({ id: s.id, shopName: s.shopName }))}
+                shops={shops.map((s) => ({ id: s.id, shopName: s.shopName, slug: s.slug }))}
                 statuses={statuses}
                 selectedShop={shop ?? ""}
                 selectedStatus={status ?? ""}
@@ -92,7 +92,7 @@ export default async function OrdersPage({
             />
 
             <p data-testid="orders-count" className="mt-4 text-sm text-muet">
-                {t.counted.replace("{count}", () => String(total))}
+                {total === 1 ? t.countedOne : t.counted.replace("{count}", () => String(total))}
             </p>
 
             {rows.length === 0 ? (

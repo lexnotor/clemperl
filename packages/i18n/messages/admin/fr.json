@@ -167,6 +167,7 @@
     "previous": "Précédentes",
     "next": "Suivantes",
     "counted": "{count} commandes",
+    "countedOne": "1 commande",
     "status": {
       "PLACED": "Reçue",
       "ACCEPTED": "Acceptée",
