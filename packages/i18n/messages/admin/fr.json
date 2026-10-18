@@ -47,6 +47,11 @@
       "not_pending": "Ce compte a déjà choisi son mot de passe : aucune invitation à renvoyer.",
       "mail_failed": "Le compte est créé, mais le courriel n'a pas pu partir. Utilisez « Renvoyer l'invitation ».",
       "failed": "Le changement n'a pas pu être enregistré. Réessayez."
+    },
+    "order": {
+      "not_found": "Cette commande n'existe plus.",
+      "moved": "Cette commande a changé d'état pendant que vous regardiez la page. Rechargez-la.",
+      "failed": "L'action n'a pas pu être enregistrée. Réessayez."
     }
   },
   "vendor": {
@@ -181,6 +186,15 @@
         "SETTLED": "Reçu",
         "FAILED": "Refusé"
       }
+    },
+    "backToList": "Toutes les commandes",
+    "placedOn": "Passée le",
+    "buyer": "Destinataire",
+    "settledWarning": "Ce paiement est reçu. L'annuler ici ne le rembourse pas : un remboursement se fait entre le vendeur et son acheteur, par le canal de l'encaissement.",
+    "action": {
+      "ACCEPT": "Accepter",
+      "SHIP": "Expédier",
+      "CANCEL": "Annuler"
     }
   }
 }
