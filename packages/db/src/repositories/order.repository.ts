@@ -314,9 +314,43 @@ export async function readOrderForVendor(
     });
 }
 
+// La portée de boutique est optionnelle ICI et nulle part ailleurs. Les deux fonctions
+// exportées plus bas sont les seules entrées, et celle du vendeur exige un `vendorId` que
+// son appelant ne peut pas omettre. Porter cette option dans une signature publique ferait
+// de la garde d'appartenance un paramètre qu'on oublie sans que rien ne proteste.
+async function writeOrderStatus(
+    prisma: PrismaClient,
+    input: { vendorId?: string; orderId: string; from: string; status: string },
+): Promise<void> {
+    const scope = input.vendorId === undefined ? {} : { vendorId: input.vendorId };
+
+    // `from` dans le `where`, et c'est le cœur de cette fonction. L'appelant a LU un état
+    // puis calculé la transition : sans cette condition, l'écriture écrase une décision
+    // plus récente. Ne pas la retirer.
+    //
+    // Deux écrans peuvent regarder la même commande, deux membres d'une boutique comme un
+    // vendeur et un administrateur. Celui qui clique sur un écran périmé ramènerait une
+    // commande expédiée à « acceptée », et un `count === 0` sans condition de statut ne
+    // verrait rien.
+    const change = await prisma.order.updateMany({
+        where: { id: input.orderId, ...scope, status: input.from as never },
+        data: { status: input.status as never },
+    });
+
+    if (change.count === 0) {
+        // On distingue les deux refus : une commande hors de portée est introuvable, une
+        // commande qui a bougé demande à l'écran de se recharger. Les confondre ferait lire
+        // « commande introuvable » à quelqu'un qui regarde la sienne.
+        const exists = await prisma.order.findFirst({
+            where: { id: input.orderId, ...scope },
+            select: { id: true },
+        });
+        throw new Error(exists ? ERROR_ORDER_STATUS_STALE : ERROR_ORDER_NOT_FOUND);
+    }
+}
+
 // Le filtre par boutique vit dans la SIGNATURE, pas dans une vérification d'appelant :
-// `orderId` vient de l'URL, donc du client. C'est la règle que T2c a écrite et que T2e a
-// dû réapprendre.
+// `orderId` vient de l'URL, donc du client.
 //
 // La transition elle-même est décidée par le domaine, qui ne peut pas être importé ici.
 // L'appelant la calcule et passe l'état visé ; ce dépôt vérifie seulement l'appartenance.
@@ -324,27 +358,15 @@ export async function setOrderStatus(
     prisma: PrismaClient,
     input: { vendorId: string; orderId: string; from: string; status: string },
 ): Promise<void> {
-    // `from` dans le `where`, et c'est le cœur de cette fonction. L'appelant a LU un état
-    // puis calculé la transition : sans cette condition, l'écriture écrase une décision
-    // plus récente. Ne pas la retirer.
-    //
-    // Une boutique a plusieurs membres, donc deux écrans peuvent regarder la même commande.
-    // Un collègue qui accepte puis expédie pendant qu'une page reste ouverte sur « commande
-    // passée » : le clic suivant sur « Accepter » ramènerait une commande EXPÉDIÉE à
-    // « acceptée », et un `count === 0` sans condition de statut ne verrait rien.
-    const change = await prisma.order.updateMany({
-        where: { id: input.orderId, vendorId: input.vendorId, status: input.from as never },
-        data: { status: input.status as never },
-    });
+    return writeOrderStatus(prisma, input);
+}
 
-    if (change.count === 0) {
-        // On distingue les deux refus : une commande d'une autre boutique est introuvable,
-        // une commande qui a bougé demande à l'écran de se recharger. Les confondre ferait
-        // lire « commande introuvable » à un vendeur qui regarde la sienne.
-        const exists = await prisma.order.findFirst({
-            where: { id: input.orderId, vendorId: input.vendorId },
-            select: { id: true },
-        });
-        throw new Error(exists ? ERROR_ORDER_STATUS_STALE : ERROR_ORDER_NOT_FOUND);
-    }
+// L'administration n'appartient à aucune boutique, et c'est tout ce qui la distingue ici :
+// elle emprunte les mêmes transitions, sous la même comparaison-et-échange. Le nom dit qui
+// a le droit d'appeler, parce que la signature ne peut plus le dire.
+export async function setOrderStatusAsAdministrator(
+    prisma: PrismaClient,
+    input: { orderId: string; from: string; status: string },
+): Promise<void> {
+    return writeOrderStatus(prisma, input);
 }
