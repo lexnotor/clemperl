@@ -88,9 +88,49 @@ paramètre qu'on omet sans qu'aucun type ne proteste.
 
 - [ ] **Step 1 : écrire les tests d'intégration**
 
-Créer `apps/api/test/order-oversight.int-spec.ts`, `PREFIX` vaut `"over"`. Reprendre la
-forme des aides de `apps/api/test/accounts.int-spec.ts` pour la boutique, et de
-`apps/api/test/shop-suspension.int-spec.ts` pour le produit et la commande.
+Créer `apps/api/test/order-oversight.int-spec.ts`, `PREFIX` vaut `"over"`.
+
+**Les aides se reprennent de `apps/api/test/order-repository.int-spec.ts`**, seul fichier du
+dépôt qui sache construire une commande : y copier `createUser`, `createShop`,
+`publishedVariant`, `addItem`, `offPlatform` et `SHIP_TO`, en changeant le `PREFIX`. Ne pas
+chercher ailleurs : aucun test ne crée de commande par `prisma.order.create`, parce qu'une
+commande naît d'un panier validé.
+
+Ajouter par-dessus l'aide dont les deux premières tâches se servent. Son contrat compte,
+parce que `placeOrders` rend des RÉFÉRENCES et non des identifiants : il faut relire la
+commande par sa référence pour obtenir son `id`.
+
+```ts
+/** Une commande en `PLACED`, et la boutique qui l'a reçue. */
+async function placedOrder(): Promise<{
+    orderId: string;
+    shop: { id: string; shopName: string; slug: string };
+}> {
+    const userId = await createUser();
+    const shop = await createShop("EUR");
+    const { variantId } = await publishedVariant(shop.id, "EUR", 5000);
+    await addItem({ userId, variantId, quantity: 1 });
+
+    const { references } = await placeOrders(prisma, {
+        userId,
+        expectedTotal: 5000,
+        shipTo: SHIP_TO,
+        notes: {},
+        methods: offPlatform(shop),
+        lines: [{ variantId, label: "" }],
+    });
+
+    // `placeOrders` ne rend que des références : l'identifiant se relit.
+    const order = await prisma.order.findFirstOrThrow({
+        where: { reference: references[0] },
+        select: { id: true },
+    });
+    return { orderId: order.id, shop };
+}
+```
+
+Si la signature d'une aide copiée diffère de ce qui est écrit ici, c'est le fichier source
+qui fait foi : l'adapter et le dire dans le rapport.
 
 ```ts
 describe("écrire un état de commande sans boutique", () => {
@@ -264,7 +304,10 @@ git commit -m "Let an administrator advance an order without owning the shop"
 - Test : `apps/api/test/order-oversight.int-spec.ts`
 
 **Interfaces:**
-- Consumes : rien de la tâche 1 ; même fichier, fonctions indépendantes.
+- Consumes : `setOrderStatusAsAdministrator` de la tâche 1, dans un seul test ; l'aide
+  `placedOrder` que la tâche 1 a posée dans ce même fichier de test, qui rend
+  `{ orderId, shop }`. Les deux tâches modifient `order.repository.ts`, mais des fonctions
+  disjointes.
 - Produces :
   ```ts
   export async function listOrdersForAdministration(
