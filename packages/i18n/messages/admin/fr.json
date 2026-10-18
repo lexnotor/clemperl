@@ -155,5 +155,31 @@
       "ADMIN": "Administrateur",
       "SUPER_ADMIN": "Super-administrateur"
     }
+  },
+  "orders": {
+    "title": "Les commandes",
+    "empty": "Aucune commande.",
+    "allShops": "Toutes les boutiques",
+    "allStatuses": "Tous les états",
+    "shopFilter": "Boutique",
+    "statusFilter": "État",
+    "apply": "Filtrer",
+    "previous": "Précédentes",
+    "next": "Suivantes",
+    "counted": "{count} commandes",
+    "status": {
+      "PLACED": "Reçue",
+      "ACCEPTED": "Acceptée",
+      "SHIPPED": "Expédiée",
+      "CANCELLED": "Annulée"
+    },
+    "payment": {
+      "title": "Paiement",
+      "status": {
+        "PENDING": "En attente",
+        "SETTLED": "Reçu",
+        "FAILED": "Refusé"
+      }
+    }
   }
 }

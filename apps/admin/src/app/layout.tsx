@@ -43,6 +43,9 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
                             <a href="/accounts" className="text-sm text-muet hover:text-texte">
                                 Administrateurs
                             </a>
+                            <a href="/orders" className="text-sm text-muet hover:text-texte">
+                                Commandes
+                            </a>
                         </nav>
                     </div>
                 </header>
