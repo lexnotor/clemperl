@@ -38,10 +38,28 @@ describe("advance", () => {
     // `E_ORDER_ACTION` est un objet littéral : `constructor` y rend une fonction et non
     // `undefined`, que le domaine prendrait pour une action valide.
     it("refuse une action inventée, y compris `constructor`", async () => {
+        // Une vraie commande est rendue : sans la garde, l'action irait jusqu'à la lire, et
+        // c'est ce que la dernière assertion attrape.
+        readOrderForAdministration.mockResolvedValue({ id: "o1", status: "PLACED" });
         for (const invente of ["", "BANANA", "constructor", "toString"]) {
             const state = await advance(INITIAL_STATE, form({ orderId: "o1", action: invente }));
             expect(state.error).toBe(messages.errors.order.failed);
         }
+        expect(setOrderStatusAsAdministrator).not.toHaveBeenCalled();
+        expect(readOrderForAdministration).not.toHaveBeenCalled();
+    });
+
+    // La garde est rappelée dans l'action : un refus de la session arrête tout avant la
+    // moindre lecture.
+    it("s'arrête quand la session refuse l'accès", async () => {
+        requireAdministrator.mockRejectedValue(new Error("FORBIDDEN"));
+
+        await expect(
+            advance(INITIAL_STATE, form({ orderId: "o1", action: "ACCEPT" })),
+        ).rejects.toThrow("FORBIDDEN");
+
+        expect(requireAdministrator).toHaveBeenCalled();
+        expect(readOrderForAdministration).not.toHaveBeenCalled();
         expect(setOrderStatusAsAdministrator).not.toHaveBeenCalled();
     });
 

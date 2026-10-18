@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import type { JSX } from "react";
 import { requireAdministrator } from "../../../lib/session";
 import { OrderActions } from "./order-actions";
+import { shouldWarnSettled } from "./should-warn-settled";
 
 export const dynamic = "force-dynamic";
 
@@ -80,9 +81,7 @@ export default async function OrderPage({
                     // annulation possible ET un paiement déjà reçu. Le dire sur une commande
                     // impayée inquiéterait pour rien.
                     settledWarning={
-                        order.paymentStatus === "SETTLED" && allowed.includes("CANCEL")
-                            ? t.settledWarning
-                            : ""
+                        shouldWarnSettled(order.paymentStatus, allowed) ? t.settledWarning : ""
                     }
                 />
             )}
