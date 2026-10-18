@@ -1623,7 +1623,7 @@ Le compose monte `packages/db/src` dans les conteneurs, pas `dist/`, qui est ign
 conteneur a le sien, écrit par le dernier build qui y a tourné, et l'hôte a le sien. Un `pnpm --filter @clemperl/db build` lancé sur
 l'hôte écrit l'`dist` de l'hôte, un build lancé par `docker exec` écrit celui du conteneur, et
 rien ne les réconcilie. La suite d'intégration tourne dans le conteneur et lit
-`dist/src/` de celui-ci, voir l'entrée précédente sur `exports`.
+`dist/src/` de celui-ci, voir l'entrée sur `packages/db/dist` ignoré par Git, plus haut.
 
 Symptôme, mesuré deux fois pendant T6c. Premièrement : une mutation vérifiée par un `grep` sur
 `packages/db/dist/src/` côté hôte montrait le code ANCIEN, et en conclure que « la mutation n'a

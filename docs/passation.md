@@ -27,7 +27,8 @@ plan, exécution, un commit.
 | T5 | Activer et suspendre une boutique | **Livrée** |
 | T6a | Modérer le catalogue | **Livrée**, PR #12 |
 | T6b | Gérer les comptes et les rôles | **Livrée**, PR #13 |
-| T6c | Surveiller les commandes et arbitrer | **Livrée** |
+| T6c | Surveiller les commandes et débloquer | **Livrée** |
+| T6d | Litige et remboursement constaté | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
 
@@ -106,6 +107,11 @@ vendeur silencieux a laissée dormir. Le parcours est prouvé dans un navigateur
 `e2e/order-oversight.spec.ts` : une commande est passée, le vendeur ne fait rien,
 l'administration l'annule, et l'acheteur la voit annulée depuis la vitrine.
 
+La T6c d'origine, « surveiller les commandes et arbitrer », a été coupée en deux au cadrage : le
+chemin du litige demande un modèle que cette tranche n'ajoute pas, et la plateforme ne détient
+jamais les fonds, donc un remboursement ne peut qu'être constaté, pas effectué. Cette part est
+T6d, non commencée.
+
 ### Ce qui a été livré
 
 - Une écriture d'état sans portée de boutique dans `packages/db`, à côté de celle du vendeur,
@@ -143,7 +149,9 @@ s'il l'avait fait lui-même. Deux colonnes sur la commande suffiraient, l'acteur
   de l'appel à `shouldWarnSettled`, fait échouer le parcours sur cette assertion. C'est la
   seule chose qui l'attrape : les tests unitaires ne voient que la fonction.
 - Chaque absence de bouton a sa présence avec le même sélecteur : « Annuler » et « Accepter »
-  sont constatés sur la commande reçue avant d'être constatés absents sur la commande annulée.
+  sont constatés sur la commande reçue, « Expédier » sur la commande acceptée par
+  l'administration, avant que chacun soit constaté absent. L'acceptation par l'administration,
+  transition qu'aucun autre parcours ne lui voit faire, est elle-même exercée.
 
 ### Pour reprendre
 
@@ -157,8 +165,8 @@ s'il l'avait fait lui-même. Deux colonnes sur la commande suffiraient, l'acteur
   mock non configuré.
 - La suite navigateur complète a tourné une fois sur cette machine : 33 réussis, et un échec,
   `collection.spec.ts` (correction du titre d'une collection, « Soldes d ete » reçu au lieu de
-  « Soldes d été »), qui est antérieur à cette tranche. `order-oversight.spec.ts` a passé quatre
-  fois de suite seul, et dans la suite. Le lancement s'est fait contre `pnpm docker:up`, jamais
+  « Soldes d été »), qui est antérieur à cette tranche. `order-oversight.spec.ts` a passé trois fois de
+  suite seul dans sa forme finale, et dans la suite complète avant l'ajout de l'acceptation. Le lancement s'est fait contre `pnpm docker:up`, jamais
   `pnpm e2e:up`, dont le limiteur de débit refuse les créations de comptes.
 
 ## T6b est livrée, au 2026-10-17
@@ -560,7 +568,8 @@ ne partagent ni modèle, ni écran, ni risque :
 - **T6c, surveiller les commandes et arbitrer.** La plus lourde : elle touche la machine à
   états de T3, bâtie sur la règle « seul le vendeur fait avancer ». Un arbitrage est une
   exception à cette règle, et il faudra décider si elle reste une règle avec une porte ou
-  cesse d'en être une.
+  cesse d'en être une. *La tranche a été coupée depuis : voir « T6c est livrée » plus haut pour
+  ce qui a été livré, et T6d pour l'arbitrage.*
 
 ### Reprendre T6a
 

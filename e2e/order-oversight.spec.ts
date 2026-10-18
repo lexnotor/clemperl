@@ -15,9 +15,6 @@ function inMain(page: Page, text: string): Locator {
     return page.locator("main").getByText(text);
 }
 
-// Sériel : le premier test amorce l'administrateur, que les autres trouvent déjà là.
-test.describe.configure({ mode: "serial" });
-
 // Ce parcours traverse trois applications, crée un produit avec photo qui passe par le
 // worker d'images, et passe deux commandes.
 test.setTimeout(240_000);
@@ -103,11 +100,26 @@ test("une commande que le vendeur laisse dormir est annulée par l'administratio
     // l'absence vise plus bas. Un libellé renommé casse ici au lieu de vider l'absence.
     await expect(action(admin, "Accepter")).toBeVisible();
     await expect(action(admin, "Annuler")).toBeVisible();
-    // Une commande reçue ne s'expédie pas : l'étape « Accepter » ne se saute pas.
+    // Une commande reçue ne s'expédie pas : l'étape « Accepter » ne se saute pas. Le positif de
+    // cette absence est plus bas, sur la commande acceptée, avec le même sélecteur.
     await expect(action(admin, "Expédier")).toHaveCount(0);
     // Impayée : rien à avertir. Le positif est dans la seconde commande, avec le même
     // sélecteur.
     await expect(admin.getByTestId("settled-warning")).toHaveCount(0);
+
+    // L'administration fait avancer la commande à la place du vendeur : une transition qu'aucun
+    // autre parcours navigateur ne lui voit faire. On attend ce que l'action a PRODUIT, le
+    // statut et le bouton qui n'existait pas avant.
+    await action(admin, "Accepter").click();
+    await expect(admin.getByTestId("order-status")).toHaveText("Acceptée");
+    // Contrôle positif de « Expédier » : il est offert sur une commande acceptée, et « Accepter »
+    // ne l'est plus.
+    await expect(action(admin, "Expédier")).toBeVisible();
+    await expect(action(admin, "Accepter")).toHaveCount(0);
+    await expect(action(admin, "Annuler")).toBeVisible();
+
+    await buyer.reload();
+    await expect(inMain(buyer, "Acceptée")).toBeVisible();
 
     await action(admin, "Annuler").click();
 
