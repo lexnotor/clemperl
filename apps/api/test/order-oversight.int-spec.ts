@@ -222,6 +222,7 @@ describe("lire les commandes de toutes les boutiques", () => {
 
     it("filtre par état", async () => {
         const { orderId } = await placedOrder();
+        const restee = await placedOrder();
         await setOrderStatusAsAdministrator(prisma, {
             orderId,
             from: "PLACED",
@@ -235,6 +236,8 @@ describe("lire les commandes de toutes les boutiques", () => {
         });
 
         expect(rows.find((l) => l.id === orderId)).toBeUndefined();
+        expect(rows.find((l) => l.id === restee.orderId)).toBeDefined();
+        expect(rows.every((l) => l.status === "PLACED")).toBe(true);
     });
 
     it("filtre par boutique", async () => {
@@ -251,29 +254,24 @@ describe("lire les commandes de toutes les boutiques", () => {
         expect(rows.find((l) => l.id === autre.orderId)).toBeUndefined();
     });
 
-    // LE test qui justifie l'ordre clos sur l'identifiant. Trois
-    // commandes au même horodatage, lues page par page : sans `id` final, PostgreSQL est
-    // libre de les rendre dans un ordre différent à chaque requête, donc une ligne se
-    // répète d'une page à l'autre et une autre disparaît sans que rien ne le signale.
-    it("pagine sans sauter ni répéter quand les horodatages sont identiques", async () => {
+    // Les trois commandes partagent un horodatage, et leurs lignes sont réécrites une à
+    // une dans l'ordre DÉCROISSANT des identifiants : l'ordre physique s'oppose ainsi à
+    // l'ordre des identifiants. Le test vérifie que les trois reviennent triées par
+    // identifiant croissant, c'est-à-dire que la clause `id` du tri est bien appliquée. Un
+    // tri sur des clés égales n'est pas tenu de suivre l'ordre physique, donc l'absence de
+    // clause finale peut passer inaperçue ici selon le plan de requête.
+    it("départage par identifiant croissant les commandes de même horodatage", async () => {
         const quand = new Date();
         const faites = [await placedOrder(), await placedOrder(), await placedOrder()];
         const miennes = faites.map((f) => f.orderId);
-        await prisma.order.updateMany({
-            where: { id: { in: miennes } },
-            data: { createdAt: quand },
-        });
-
-        const vues: string[] = [];
-        for (let skip = 0; skip < 60; skip += 2) {
-            const { rows } = await listOrdersForAdministration(prisma, { skip, take: 2 });
-            if (rows.length === 0) break;
-            vues.push(...rows.map((l) => l.id));
+        for (const id of [...miennes].sort().reverse()) {
+            await prisma.order.update({ where: { id }, data: { createdAt: quand } });
         }
 
-        const miennesVues = vues.filter((id) => miennes.includes(id));
-        expect(new Set(miennesVues).size).toBe(3);
-        expect(miennesVues).toHaveLength(3);
+        const { rows } = await listOrdersForAdministration(prisma, { skip: 0, take: 10_000 });
+
+        const miennesVues = rows.map((l) => l.id).filter((id) => miennes.includes(id));
+        expect(miennesVues).toEqual([...miennes].sort());
     });
 
     // La suspension retire la boutique du catalogue, elle n'efface pas les engagements

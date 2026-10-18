@@ -406,9 +406,10 @@ function flattenAdministrationOrder(row: {
 // silencieuse. Deux commandes passées dans la même seconde suffisent. Même raison que le
 // tri du catalogue.
 //
-// Le compte et la page partent dans la MÊME transaction : lus séparément, une commande
-// créée entre les deux donnerait un total qui ne correspond pas aux lignes rendues, et la
-// dernière page annoncerait une ligne qu'elle ne montre pas.
+// Le compte et la page partent dans la MÊME transaction, en `RepeatableRead` : au niveau
+// par défaut (`ReadCommitted`) chaque requête prend son propre instantané, et une commande
+// validée entre les deux donnerait un total que la page ne peut pas expliquer. Ici les deux
+// requêtes lisent le même instantané, donc le total correspond toujours aux lignes.
 export async function listOrdersForAdministration(
     prisma: PrismaClient,
     input: { status?: string; vendorId?: string; skip: number; take: number },
@@ -418,16 +419,19 @@ export async function listOrdersForAdministration(
         ...(input.vendorId === undefined ? {} : { vendorId: input.vendorId }),
     };
 
-    const [rows, total] = await prisma.$transaction([
-        prisma.order.findMany({
-            where,
-            orderBy: [{ createdAt: "desc" as const }, { id: "asc" as const }],
-            skip: input.skip,
-            take: input.take,
-            select: ADMINISTRATION_ORDER,
-        }),
-        prisma.order.count({ where }),
-    ]);
+    const [rows, total] = await prisma.$transaction(
+        [
+            prisma.order.findMany({
+                where,
+                orderBy: [{ createdAt: "desc" as const }, { id: "asc" as const }],
+                skip: input.skip,
+                take: input.take,
+                select: ADMINISTRATION_ORDER,
+            }),
+            prisma.order.count({ where }),
+        ],
+        { isolationLevel: "RepeatableRead" },
+    );
 
     return { rows: rows.map(flattenAdministrationOrder), total };
 }
