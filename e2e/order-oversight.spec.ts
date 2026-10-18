@@ -56,9 +56,15 @@ async function placeOrder(buyer: Page, title: string): Promise<string> {
 }
 
 // Ouvre le détail d'une commande depuis la liste de l'administration, comme le ferait une
-// personne qui cherche une référence.
-async function openInAdministration(admin: Page, reference: string): Promise<void> {
-    await admin.goto(`${URL_ADMIN}/orders`);
+// personne qui cherche une référence. La liste est filtrée par l'état : sur une base qui a
+// vécu, la commande ne tient pas forcément sur la première des pages de vingt lignes, et
+// l'échec ressemblerait à un écran cassé plutôt qu'à une pagination.
+async function openInAdministration(
+    admin: Page,
+    reference: string,
+    status: string,
+): Promise<void> {
+    await admin.goto(`${URL_ADMIN}/orders?status=${status}`);
     await admin.getByRole("link", { name: new RegExp(reference) }).click();
     await admin.waitForURL(/\/orders\/[^/]+$/);
     await expect(admin.getByRole("heading", { level: 1 })).toHaveText(reference);
@@ -93,7 +99,7 @@ test("une commande que le vendeur laisse dormir est annulée par l'administratio
     const sleeping = await placeOrder(buyer, title);
     await expect(inMain(buyer, "Reçue")).toBeVisible();
 
-    await openInAdministration(admin, sleeping);
+    await openInAdministration(admin, sleeping, "PLACED");
     await expect(admin.getByTestId("order-status")).toHaveText("Reçue");
 
     // Contrôle positif : les boutons SONT là sur une commande reçue, avec les libellés que
@@ -146,7 +152,7 @@ test("une commande que le vendeur laisse dormir est annulée par l'administratio
     await page.getByRole("button", { name: "Paiement reçu" }).click();
     await expect(page.locator("main").getByText("Reçu", { exact: true })).toBeVisible();
 
-    await openInAdministration(admin, settled);
+    await openInAdministration(admin, settled, "PLACED");
     await expect(admin.getByTestId("order-status")).toHaveText("Reçue");
     const warning = admin.getByTestId("settled-warning");
     await expect(warning).toBeVisible();

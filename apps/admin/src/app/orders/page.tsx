@@ -1,4 +1,5 @@
 import { listOrdersForAdministration, listShopsForAdministration, prisma } from "@clemperl/db";
+import { E_ORDER_STATUS } from "@clemperl/db/enums";
 import { formatPrice } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/admin/fr.json";
 import type { JSX } from "react";
@@ -9,10 +10,6 @@ import { pageFrom, statusFrom } from "./search-params";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
-
-// Le dépôt rend la devise en `string` : la colonne est une énumération, mais la ligne aplatie
-// ne porte pas ce type. Le type attendu par `formatPrice` se déduit de sa signature.
-type Currency = Parameters<typeof formatPrice>[1];
 
 const DATE = new Intl.DateTimeFormat("fr", { dateStyle: "long" });
 
@@ -45,8 +42,8 @@ export default async function OrdersPage({
 }): Promise<JSX.Element> {
     await requireAdministrator();
     const t = messages.orders;
-    const statusLabels = t.status as Record<string, string>;
-    const paymentLabels = t.payment.status as Record<string, string>;
+    const statusLabels = t.status;
+    const paymentLabels = t.payment.status;
 
     const params = await searchParams;
     const page = pageFrom(firstOf(params["page"]));
@@ -64,10 +61,11 @@ export default async function OrdersPage({
         listShopsForAdministration(prisma),
     ]);
 
-    // Les états viennent du catalogue, jamais de la valeur de l'énumération brute.
-    const statuses = Object.keys(statusLabels).map((value) => ({
+    // Les états viennent de l'énumération et leur libellé du catalogue, jamais de la valeur
+    // brute : un état ajouté au schéma sans libellé arrête la compilation ici.
+    const statuses = Object.values(E_ORDER_STATUS).map((value) => ({
         value,
-        label: statusLabels[value] ?? value,
+        label: statusLabels[value],
     }));
 
     const hasPrevious = page > 1;
@@ -91,9 +89,11 @@ export default async function OrdersPage({
                 }}
             />
 
-            <p data-testid="orders-count" className="mt-4 text-sm text-muet">
-                {total === 1 ? t.countedOne : t.counted.replace("{count}", () => String(total))}
-            </p>
+            {total > 0 && (
+                <p data-testid="orders-count" className="mt-4 text-sm text-muet">
+                    {total === 1 ? t.countedOne : t.counted.replace("{count}", () => String(total))}
+                </p>
+            )}
 
             {rows.length === 0 ? (
                 <p className="mt-8 border-t border-bordure pt-8 text-base text-muet">{t.empty}</p>
@@ -119,13 +119,13 @@ export default async function OrdersPage({
                                     </span>
                                 </div>
                                 <div className="flex flex-col items-end gap-1 text-sm">
-                                    <span>{formatPrice(row.totalAmount, row.currency as Currency)}</span>
-                                    <span>{statusLabels[row.status] ?? row.status}</span>
+                                    <span>{formatPrice(row.totalAmount, row.currency)}</span>
+                                    <span>{statusLabels[row.status]}</span>
                                     {/* « Paiement » devant l'état : « Reçue » la commande et
                                         « Reçu » l'argent se confondent sans lui. */}
                                     <span className="text-muet">
                                         {t.payment.title} :{" "}
-                                        {paymentLabels[row.paymentStatus] ?? row.paymentStatus}
+                                        {paymentLabels[row.paymentStatus]}
                                     </span>
                                 </div>
                             </a>

@@ -153,6 +153,25 @@ s'il l'avait fait lui-même. Deux colonnes sur la commande suffiraient, l'acteur
   l'administration, avant que chacun soit constaté absent. L'acceptation par l'administration,
   transition qu'aucun autre parcours ne lui voit faire, est elle-même exercée.
 
+### Où ranger ce genre d'aide, et l'index à ajouter
+
+- **Les trois aides pures de cette tranche vivent au mauvais endroit.** Les deux lecteurs de
+  paramètres d'URL et la condition de l'avertissement sont dans `apps/admin`, qui n'a aucun
+  seuil de couverture : rien en CI ne remarque qu'une de leurs branches perd son test.
+  `packages/domain` existe pour cela et porte un seuil de 100 pour cent. Il contient déjà leur
+  jumelle, `src/utils/catalog-filters.utils.ts`, qui résout les mêmes problèmes pour le
+  catalogue : lecture de la page, assainissement des paramètres, premier d'un paramètre
+  répété, constructeur de lien et taille de page. La prochaine tranche les y déplace plutôt
+  que d'écrire une quatrième copie.
+- **La garde contre la pollution de prototype est écrite deux fois**, dans l'action du
+  vendeur et dans celle de l'administration. Un garde de type à côté de `advanceOrder`
+  rendrait un troisième appelant sûr par construction.
+- **L'index que la nouvelle requête voudra.** La liste non filtrée de l'administration trie
+  toute la table des commandes par date de création, avec un décompte sur chaque ligne, et
+  aucun index ne la sert. Une migration est volontairement hors de cette tranche.
+  `@@index([createdAt, id])` sur la commande est la première chose qu'un test de charge ou la
+  tranche suivante réclamera.
+
 ### Pour reprendre
 
 - Trois fois dans cette tranche, une condition a dû être sortie d'un composant serveur pour

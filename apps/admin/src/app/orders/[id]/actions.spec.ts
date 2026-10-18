@@ -20,7 +20,7 @@ vi.mock("@clemperl/db", () => ({
 
 const { advance } = await import("./actions");
 const { INITIAL_STATE } = await import("./types/order-action-state.interface");
-const { ERROR_ORDER_STATUS_STALE } = await import("@clemperl/db");
+const { ERROR_ORDER_NOT_FOUND, ERROR_ORDER_STATUS_STALE } = await import("@clemperl/db");
 
 function form(fields: Record<string, string>): FormData {
     const data = new FormData();
@@ -107,6 +107,17 @@ describe("advance", () => {
             const state = await advance(INITIAL_STATE, form({ orderId: "o1", action: "ACCEPT" }));
             expect(state.error).toBe("");
         }
+    });
+
+    // Une commande supprimée entre la lecture et l'écriture : le dépôt refuse avec l'erreur
+    // « introuvable », que l'action traduit comme une commande qui n'existe pas.
+    it("traduit le refus du dépôt quand la commande a disparu entre la lecture et l'écriture", async () => {
+        readOrderForAdministration.mockResolvedValue({ id: "o1", status: "PLACED" });
+        setOrderStatusAsAdministrator.mockRejectedValue(new Error(ERROR_ORDER_NOT_FOUND));
+
+        const state = await advance(INITIAL_STATE, form({ orderId: "o1", action: "ACCEPT" }));
+
+        expect(state.error).toBe(messages.errors.order.not_found);
     });
 
     it("traduit le refus du dépôt quand la commande a bougé", async () => {

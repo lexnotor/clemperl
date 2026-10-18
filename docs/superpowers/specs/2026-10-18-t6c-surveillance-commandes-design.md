@@ -27,10 +27,10 @@ les boutiques, et faire avancer celle qui dort.
 
 ### La règle « seul le vendeur fait avancer » cesse d'exister
 
-T3 l'avait posée, et elle n'a jamais été écrite dans le domaine : `ORDER_TRANSITIONS` dit
-quelles transitions existent, jamais qui peut les emprunter. La règle tenait au seul fait
-que l'unique appelant vivait dans l'application vendeur, derrière la garde d'appartenance à
-la boutique.
+T3 l'avait posée, et elle était écrite dans le domaine, en commentaire, sans que le domaine
+la fasse jamais respecter : `ORDER_TRANSITIONS` dit quelles transitions existent, jamais qui
+peut les emprunter. Elle n'était appliquée que par l'emplacement de l'unique appelant, qui
+vivait dans l'application vendeur, derrière la garde d'appartenance à la boutique.
 
 Il y a désormais un second appelant, et **l'administration peut tout ce que le vendeur
 peut** : accepter, expédier, annuler.

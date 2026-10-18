@@ -385,17 +385,11 @@ const ADMINISTRATION_ORDER = {
     vendor: { select: { shopName: true, slug: true } },
 } as const;
 
-function flattenAdministrationOrder(row: {
-    id: string;
-    reference: string;
-    status: string;
-    currency: string;
-    totalAmount: number;
-    paymentStatus: string;
-    createdAt: Date;
-    shipToName: string;
-    vendor: { shopName: string; slug: string };
-}) {
+// Générique : les types déduits par Prisma, dont les énumérations générées, traversent
+// l'aplatissement jusqu'aux écrans, comme pour les lectures du vendeur.
+function flattenAdministrationOrder<T extends { vendor: { shopName: string; slug: string } }>(
+    row: T,
+) {
     const { vendor, ...reste } = row;
     return { ...reste, shopName: vendor.shopName, shopSlug: vendor.slug };
 }
@@ -415,6 +409,8 @@ export async function listOrdersForAdministration(
     input: { status?: string; vendorId?: string; skip: number; take: number },
 ) {
     const where = {
+        // Cette entrée est publique : une chaîne non validée atteint Prisma et produit une
+        // erreur du moteur plutôt qu'un refus localisé. L'appelant valide avant d'appeler.
         ...(input.status === undefined ? {} : { status: input.status as never }),
         ...(input.vendorId === undefined ? {} : { vendorId: input.vendorId }),
     };

@@ -10,10 +10,6 @@ import { shouldWarnSettled } from "./should-warn-settled";
 
 export const dynamic = "force-dynamic";
 
-// Le dépôt rend la devise en `string` : le type attendu par `formatPrice` se déduit de sa
-// signature.
-type Currency = Parameters<typeof formatPrice>[1];
-
 const DATE = new Intl.DateTimeFormat("fr", { dateStyle: "long", timeStyle: "short" });
 
 export default async function OrderPage({
@@ -24,9 +20,9 @@ export default async function OrderPage({
     await requireAdministrator();
     const { id } = await params;
     const t = messages.orders;
-    const statusLabels = t.status as Record<string, string>;
-    const paymentLabels = t.payment.status as Record<string, string>;
-    const actionLabels = t.action as Record<string, string>;
+    const statusLabels = t.status;
+    const paymentLabels = t.payment.status;
+    const actionLabels = t.action;
 
     const order = await readOrderForAdministration(prisma, id);
     if (order === null) {
@@ -35,7 +31,7 @@ export default async function OrderPage({
 
     // Les boutons viennent de CETTE liste, et de rien d'autre. Une action impossible ne
     // s'affiche pas grisée, elle ne s'affiche pas.
-    const allowed = allowedOrderActions(order.status as never) as readonly string[];
+    const allowed = allowedOrderActions(order.status);
 
     return (
         <main className="mx-auto max-w-3xl px-6 py-16">
@@ -48,7 +44,7 @@ export default async function OrderPage({
                     {order.reference}
                 </h1>
                 <span data-testid="order-status" className="text-sm text-muet">
-                    {statusLabels[order.status] ?? order.status}
+                    {statusLabels[order.status]}
                 </span>
             </div>
             <p className="mt-2 text-sm text-muet">
@@ -60,10 +56,10 @@ export default async function OrderPage({
 
             <section className="mt-10 text-sm">
                 <p className="flex justify-between gap-6">
-                    <span>{formatPrice(order.totalAmount, order.currency as Currency)}</span>
+                    <span>{formatPrice(order.totalAmount, order.currency)}</span>
                     <span className="text-muet">
                         {t.payment.title} :{" "}
-                        {paymentLabels[order.paymentStatus] ?? order.paymentStatus}
+                        {paymentLabels[order.paymentStatus]}
                     </span>
                 </p>
                 <p className="mt-6 text-muet">{t.buyer}</p>
@@ -75,7 +71,7 @@ export default async function OrderPage({
                     orderId={order.id}
                     actions={allowed.map((value) => ({
                         value,
-                        label: actionLabels[value] ?? value,
+                        label: actionLabels[value],
                     }))}
                     // L'avertissement ne s'affiche que s'il y a quelque chose à avertir : une
                     // annulation possible ET un paiement déjà reçu. Le dire sur une commande
