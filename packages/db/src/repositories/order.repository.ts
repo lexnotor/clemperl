@@ -350,7 +350,8 @@ async function writeOrderStatus(
 }
 
 // Le filtre par boutique vit dans la SIGNATURE, pas dans une vérification d'appelant :
-// `orderId` vient de l'URL, donc du client.
+// `orderId` vient de l'URL, donc du client. C'est la règle que T2c a écrite et que T2e a
+// dû réapprendre.
 //
 // La transition elle-même est décidée par le domaine, qui ne peut pas être importé ici.
 // L'appelant la calcule et passe l'état visé ; ce dépôt vérifie seulement l'appartenance.

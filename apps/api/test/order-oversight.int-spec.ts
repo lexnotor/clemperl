@@ -175,9 +175,9 @@ describe("écrire un état de commande sans boutique", () => {
         ).rejects.toMatchObject({ message: ERROR_ORDER_NOT_FOUND });
     });
 
-    // La régression à empêcher. Le chemin vendeur doit rester exactement aussi fermé
-    // qu'avant : une commande d'une autre boutique lui est introuvable, et aucun appel ne
-    // doit pouvoir omettre la portée.
+    // La régression à empêcher. Ce test établit qu'à l'exécution le chemin vendeur reste
+    // aussi fermé qu'avant : la commande d'une autre boutique lui est introuvable. Que la
+    // portée ne puisse pas être omise est une propriété de types, que ce test ne vérifie pas.
     it("laisse le chemin vendeur refuser la commande d'une autre boutique", async () => {
         const { orderId } = await placedOrder();
         const autre = await createShop("EUR");
