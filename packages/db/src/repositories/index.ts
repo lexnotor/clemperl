@@ -1,3 +1,4 @@
+export * from "./administrator.repository.js";
 export * from "./cart.repository.js";
 export * from "./catalog.repository.js";
 export * from "./collection.repository.js";

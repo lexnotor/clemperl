@@ -9,6 +9,7 @@ export * from "./media-type.utils.js";
 export * from "./moderation-decision.utils.js";
 export * from "./order-transitions.utils.js";
 export * from "./payment-methods.utils.js";
+export * from "./platform-roles.utils.js";
 export * from "./price.utils.js";
 export * from "./product-slug.utils.js";
 export * from "./shop-slug.utils.js";

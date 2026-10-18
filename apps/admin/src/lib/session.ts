@@ -1,5 +1,6 @@
 import { auth } from "@clemperl/auth";
-import { prisma } from "@clemperl/db";
+import { countAdministrators, prisma } from "@clemperl/db";
+import { isAdministrator } from "@clemperl/domain";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
@@ -11,7 +12,7 @@ const STOREFRONT = process.env["NEXT_PUBLIC_STOREFRONT_URL"] ?? "";
 export async function requireAdministrator() {
     // Sur une base vierge, renvoyer vers la connexion mènerait à un formulaire qu'aucun
     // compte ne peut passer : c'est l'amorçage qu'il faut proposer.
-    if ((await prisma.user.count({ where: { role: "ADMIN" } })) === 0) {
+    if ((await countAdministrators(prisma)) === 0) {
         redirect("/setup");
     }
 
@@ -26,7 +27,7 @@ export async function requireAdministrator() {
 
     // `notFound()` et non une page « interdit » : répondre 403 confirmerait à un compte
     // ordinaire que la route existe.
-    if (session.user.role !== "ADMIN") {
+    if (!isAdministrator(session.user.role)) {
         notFound();
     }
 

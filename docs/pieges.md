@@ -566,6 +566,18 @@ est bien `dist/src/...` et non `dist/...`.
 Les deux routes ont la même forme : quelque chose entre l'intention et l'exécution a échoué
 en silence, et le vert qui suit se lit comme une preuve alors qu'il n'en est pas une.
 
+**Une TROISIÈME route, la plus banale : un `replace` qui ne trouve rien.** `str.replace` en
+Python et `String.replace` en JavaScript rendent la chaîne inchangée quand le motif est
+absent, sans lever et sans rien dire. Éditer un fichier par script en s'appuyant sur un texte
+qu'une autre main a modifié entre-temps produit donc un succès apparent et aucun changement.
+
+Le symétrique coûte autant : `str.replace` sans compteur remplace TOUTES les occurrences.
+Deux sections d'un même document qui partagent un titre se font écraser l'une par l'autre.
+
+Ce qui protège, dans les trois cas : ne pas se fier au silence. Un `assert` que le texte
+recherché est bien présent avant de remplacer, un `count=1` quand une seule occurrence est
+visée, et une relecture de ce que le fichier porte APRÈS, pas de ce que la commande a dit.
+
 ---
 
 **Remplacer l'hôte `postgres` par `localhost` peut atteindre la base d'un AUTRE projet.**
@@ -1539,3 +1551,65 @@ comme une configuration du pool.
 
 Ce qui protège maintenant : rien d'automatique. Devant un délai de pool ou un `P2028` dans un
 test qui utilise `raceBehindLock`, vérifier le plafond du pool avant de chercher la course.
+
+---
+
+**Un changement de `schema.prisma` n'atteint pas trois des quatre conteneurs d'application, et
+`pnpm --filter @clemperl/db build` y régénère depuis l'ancien schéma en annonçant un succès.**
+
+Symptôme : on ajoute une valeur d'énumération (ici `SUPER_ADMIN`), l'API la connaît, et les
+fronts échouent : une erreur TypeScript « not assignable » qui nomme la valeur, ou une erreur de
+validation Prisma de la famille « Invalid value ... Expected UserRole ». Le client généré de
+l'HÔTE n'a pas la valeur non plus, pas seulement celui des conteneurs, et c'est ce qui surprend.
+Aucune erreur de build n'explique l'écart.
+
+Cause : `docker/docker-compose.dev.yml` monte `packages/db/prisma` pour `migrate` et `api`
+seulement. `storefront`, `vendor` et `admin` ne montent que `packages/db/src` : leur schéma et leur
+client généré viennent de l'IMAGE. Lancer `pnpm --filter @clemperl/db build` dans l'un d'eux
+régénère le client, mais depuis le schéma de l'image, donc l'ancien. La commande réussit, et
+ce succès ressemble exactement à celui d'une régénération qui a pris.
+
+Mesuré pendant T6b : après l'ajout de `SUPER_ADMIN`, la valeur était présente dans
+`clemperl_dev_api` et absente de `admin`, `storefront`, `vendor` et de l'hôte. Le remède employé :
+régénérer sur l'hôte, puis rebâtir les images avec `pnpm docker:up`.
+
+Ce qui protège maintenant : rien d'automatique. Après toute modification de `schema.prisma`,
+vérifier la valeur dans chaque conteneur avant de conclure, et rebâtir les images plutôt que de
+relancer le build du paquet dedans. Suggestion, non appliquée : monter `../packages/db/prisma`
+dans les trois fronts, comme `api` le fait déjà, fermerait toute la classe.
+
+---
+
+**Prisma `$queryRaw` ne sait pas lire un `interval` PostgreSQL.**
+
+Symptôme : une requête brute qui renvoie une durée (une différence de deux dates, un
+`expires_at - now()`) échoue à la lecture du résultat avec une erreur de la famille « Failed to
+deserialize column of type 'interval' », alors que la même requête passe sous `psql`.
+
+Cause : le pilote n'a pas de désérialisation pour le type `interval`, et la requête ne le
+convertit pas en nombre avant de le renvoyer. Rencontré pendant la mesure faite avant tout code
+d'invitation, où cela a coûté une exécution.
+
+Ce qui protège maintenant : rien d'automatique. Convertir en nombre dans le SQL, par exemple
+`EXTRACT(EPOCH FROM (a - b))::float8`, au lieu de renvoyer l'intervalle.
+
+---
+
+**La durée du jeton de réinitialisation est GLOBALE : trois jours pour l'invitation d'un
+administrateur, donc trois jours aussi pour le lien « mot de passe oublié » de chaque client.**
+
+Symptôme : un lien de réinitialisation de client reste valable bien au-delà d'une heure, et rien
+dans le parcours client n'explique pourquoi. Le réglage à chercher est
+`resetPasswordTokenExpiresIn`.
+
+Cause : la durée a été portée à trois jours parce qu'un employé invité ouvre son courriel le
+lendemain. Better Auth n'offre aucune durée par parcours :
+`node_modules/better-auth/dist/api/routes/password.mjs` lit
+`ctx.context.options.emailAndPassword.resetPasswordTokenExpiresIn || 3600`. Un seul réglage sert
+donc les deux usages. La spec de T6b a accepté ce compromis explicitement : le lien est à usage
+unique et ne donne rien sans l'accès à la boîte courriel.
+
+Ce qui protège maintenant : un commentaire sur la constante, dans
+`packages/auth/src/config/auth.config.ts`, qui dit que la durée est globale. Qui voudrait
+raccourcir le lien des clients doit d'abord trouver comment donner à l'invitation sa propre
+durée, par exemple un jeton posé à la main, sans quoi l'invitation du lendemain échoue.

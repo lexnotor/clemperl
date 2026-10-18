@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-15.
+Dernière mise à jour : 2026-10-17.
 
 ## Où en est le projet
 
@@ -25,8 +25,8 @@ plan, exécution, un commit.
 | T3 | Panier et commande | **Livrée** |
 | T4 | Paiement, point d'extension | **Livrée** |
 | T5 | Activer et suspendre une boutique | **Livrée** |
-| T6a | Modérer le catalogue | **en cours**, tâches 1 à 4 sur 5 |
-| T6b | Gérer les comptes et les rôles | non commencée |
+| T6a | Modérer le catalogue | **Livrée**, PR #12 |
+| T6b | Gérer les comptes et les rôles | **Livrée**, branche `feat/accounts-and-roles` |
 | T6c | Surveiller les commandes et arbitrer | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
@@ -97,6 +97,158 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 (`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
+
+## T6b est livrée, au 2026-10-17
+
+Un super_admin invite un administrateur depuis `/accounts` : la personne reçoit UN courriel
+portant un lien à usage unique, choisit son mot de passe, et entre dans l'administration sans
+voir l'option de nommer un super_admin. Le parcours est prouvé dans un navigateur par
+`e2e/accounts.spec.ts`.
+
+### Ce qui a été livré
+
+- `SUPER_ADMIN` dans `E_USER_ROLE`, et une matrice pure dans `packages/domain` par laquelle
+  passent tous les tests de rôle du dépôt.
+- Un dépôt dans `packages/db` qui protège le dernier super_admin sous verrou consultatif, et
+  refuse un changement de rôle quand la cible a bougé depuis sa lecture.
+- L'écran `/accounts` : inviter, retirer, renvoyer l'invitation, élever en super_admin.
+- L'invitation écrit un `User` SANS `Account`, puis demande une réinitialisation. L'état
+  « en attente » est l'absence de toute ligne `Account`, et c'est `resetPassword` qui crée le
+  justificatif au choix du mot de passe. `sendResetPassword` choisit entre le message de
+  bienvenue et la réinitialisation ordinaire sur cette même condition.
+- Le jeton de réinitialisation vaut trois jours, pour tous les parcours.
+
+### Ce que le parcours navigateur a établi
+
+- `user.id` est bien renseigné dans `sendResetPassword` pour un compte sans `Account` : la
+  personne invitée reçoit le message de bienvenue, objet « Votre compte d'administration
+  ClemPerl est prêt », et non la réinitialisation ordinaire.
+- Un seul courriel part pour une invitation, compté dans Mailpit à la fin du parcours.
+
+### Deux décisions de plan à relire
+
+Elles étaient en tête du plan et ont été suivies telles quelles. Elles sont reportées ici pour
+être relues plutôt qu'oubliées.
+
+**L'élévation en super_admin est rendue sur la ligne de l'administrateur**, visible du seul
+super_admin. Sans ce bouton, la case « nommer un super_admin » de la matrice serait
+inatteignable : l'adresse d'un collègue déjà administrateur est prise, et l'invitation sur une
+adresse existante est refusée.
+
+**Un compte retiré ne peut pas revenir.** Retirer ramène à `CUSTOMER`, les clients ne sont pas
+listés, et promouvoir un client existant est un non-but. Qui est retiré par erreur garde un
+compte qu'aucun écran ne peut re-nommer. C'est la conséquence des non-buts, choisie et non
+découverte.
+
+*Suggestion de l'implémentation, hors spec, non décidée :* lister les clients, ou accepter
+l'invitation sur l'adresse d'un client, lèverait ce blocage. Cela contredit deux non-buts de
+la spec, aucune gestion des clients et aucune promotion d'un client existant : le décider
+revient à les rouvrir.
+
+### Pour reprendre
+
+- Trois pièges payés par cette tranche sont dans `docs/pieges.md` : le schéma Prisma qui
+  n'atteint pas `storefront`, `vendor` et `admin` dans la pile de développement, `$queryRaw` qui
+  ne lit pas un `interval`, et la durée globale du jeton de réinitialisation.
+- Après un `switch` qui touche `schema.prisma`, régénérer sur l'hôte et rebâtir les images
+  avec `pnpm docker:up`.
+- La suite navigateur complète n'est pas verte sur cette machine, comme avant cette tranche.
+  Au dernier passage, `collection.spec.ts` (correction du titre d'une collection) et
+  `vendor-product-images.spec.ts` ont échoué, et un test n'a pas tourné ; `accounts.spec.ts`
+  a passé cinq fois de suite seul, et dans la suite. La CI sur son poste dédié tranche.
+
+## Où en est T6b, au 2026-10-16
+
+> Historique de la préparation. La tranche est livrée : voir la section précédente.
+
+Spec approuvée, plan écrit, exécution pas commencée. Tout est sur la branche
+`feat/accounts-and-roles`, qui porte aussi, au passage, le correctif de la ligne du tableau
+que T6a avait laissée « en cours » : la branche `docs/t6a-roadmap-row` a été repliée dedans
+plutôt que laissée à pendre.
+
+- La spec : `docs/superpowers/specs/2026-10-16-t6b-comptes-et-roles-design.md`, commit
+  `f827ef5`.
+- Le plan : `docs/superpowers/plans/2026-10-16-t6b-comptes-et-roles.md`, sept tâches.
+
+### Reprendre : la question qui attend une réponse
+
+Le plan est posé, pas lancé. Il se termine sur le choix de la méthode d'exécution, et c'est
+la seule chose qui bloque : sous-agents, un par tâche avec un relecteur neuf entre chaque,
+ou natif, les sept tâches dans la session puis une revue de branche à la fin.
+
+**Le natif était recommandé**, pour deux raisons : les tâches s'enchaînent par leurs
+interfaces, la 3 consommant la 2, la 4 la 3, les 5 et 6 la 4 ; et le plan porte déjà les
+signatures et les assertions, donc le modèle qui exécute n'a pas de conception à refaire.
+C'est aussi ce vers quoi T3 avait basculé en cours de route.
+
+### Deux décisions de plan à relire avant de lancer
+
+Ce sont les deux endroits où la spec laisse deux lectures. Elles sont en tête du plan, et
+elles changent ce qui se construit.
+
+**L'élévation d'un administrateur en super_admin est rendue sur sa ligne.** La matrice de la
+section 2 accorde « Nommer un super_admin » à un super_admin, mais la section 6 ne décrit que
+le formulaire de création. Sans bouton sur la ligne, cette case est inatteignable : l'adresse
+d'un collègue déjà administrateur est prise, et la section 9 refuse l'invitation sur une
+adresse existante. Le bouton est donc rendu, visible du seul super_admin.
+
+**Un compte retiré ne peut pas revenir.** Retirer ramène à `CUSTOMER`, les clients ne sont
+pas listés, et promouvoir un client existant est un non-but explicite. Qui est retiré par
+erreur garde donc un compte qu'aucun écran ne peut re-nommer. C'est la conséquence des
+non-buts, pas un oubli, mais elle mérite d'être choisie plutôt que découverte.
+
+### Ce que la préparation a établi, et qui n'est pas dans la spec
+
+**Le `grep` de la section 4 donne neuf sites de production, pas huit.** Le neuvième est
+`apps/admin/src/app/setup/page.tsx:12`, la barrière d'amorçage au rendu, qui double celle de
+l'action. Le tableau complet est dans la tâche 3 du plan.
+
+**`canDecide` et `canViewApplication` ne sont appelées par aucun code de production.**
+L'écran de décision sur une candidature s'appuie sur `requireAdministrator` seul. Le risque
+que nomme la section 4 de la spec, « un super_admin perdrait le droit d'examiner les
+dossiers », est donc porté par `apps/admin/src/lib/session.ts`, pas par le domaine. Les deux
+fonctions restent à élargir pour ne pas piéger leur premier appelant, mais ce n'est pas là
+que la garde se joue.
+
+**Le risque de la section 10 est largement tranché par lecture, et la mesure reste à
+faire.** `better-auth@1.7.5` crée le justificatif de mot de passe quand il n'en existe aucun,
+au moment du `resetPassword` : `dist/api/routes/password.mjs`, branche
+`if (!await findCredentialAccount(userId))`. La piste 1 n'a donc pas besoin d'écrire une
+ligne `Account` à la main : écrire la ligne `User` seule, puis demander une
+réinitialisation, suffit, et c'est la personne qui crée son justificatif en choisissant son
+mot de passe. Cela donne aussi une dérivation propre de l'état « en attente », à savoir
+l'absence de toute ligne `Account`.
+
+La tâche 1 mesure quand même, et surtout les trois points qu'une lecture ne tranche pas :
+combien de messages partent réellement, si `resetPassword` crée bien le justificatif absent,
+et si `auth.api.requestPasswordReset` appelée **côté serveur** traverse le `originCheck`
+posé sur `redirectTo`. Ce dernier point est le plus susceptible de casser : ce paramètre
+relatif n'a jamais été exercé que depuis le navigateur, par la page `/forgot-password`.
+
+**La piste 2 de la section 10 n'existe pas sous la forme où la spec l'imagine.**
+`emailVerification.sendOnSignUp` est lue à l'inscription comme
+`sendOnSignUp ?? requireEmailVerification` : la poser à `false` coupe le courriel de
+vérification de TOUTES les inscriptions, pas de ce chemin seul.
+
+**`resetPasswordTokenExpiresIn` existe, est typée, et vaut des SECONDES**, un défaut d'une
+heure. Trois jours valent donc `259200`. Elle est bien globale, comme la spec le supposait :
+aucun réglage par flux n'existe dans cette version.
+
+**Le courriel d'invitation ne peut pas être celui de réinitialisation.** Le texte existant
+dit « Si vous n'êtes pas à l'origine de cette demande, ignorez ce message ». Envoyé à
+quelqu'un qu'on vient d'embaucher, il lui conseille d'ignorer la seule chose qui lui ouvre
+son compte. `sendResetPassword` choisira donc entre deux messages, sur la même condition que
+la colonne « en attente ».
+
+### Avant de lancer la tâche 1
+
+Elle a besoin de la pile de développement levée, Mailpit compris : c'est une mesure contre
+le vrai relais, pas contre un bouchon. `pnpm docker:up`, puis vider la boîte avant de
+compter.
+
+Et le rappel habituel après un `switch` qui touche `schema.prisma` :
+`packages/db/generated/` est ignoré par Git, donc rebâtir. Ici, rien ne touche encore au
+schéma, mais la tâche 3 le fera.
 
 ## T6a est livrée, au 2026-10-15
 

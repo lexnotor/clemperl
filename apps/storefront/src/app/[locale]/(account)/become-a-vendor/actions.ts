@@ -213,7 +213,7 @@ export async function resubmitApplicationAction(
         application === null ||
         application.id !== applicationId ||
         !canResubmit(
-            { id: session.user.id, role: session.user.role as "CUSTOMER" | "ADMIN" },
+            { id: session.user.id, role: session.user.role },
             { applicantId: application.applicantId, status: application.status },
         )
     ) {

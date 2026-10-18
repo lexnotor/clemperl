@@ -40,6 +40,9 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
                             <a href="/moderation" className="text-sm text-muet hover:text-texte">
                                 Modération
                             </a>
+                            <a href="/accounts" className="text-sm text-muet hover:text-texte">
+                                Administrateurs
+                            </a>
                         </nav>
                     </div>
                 </header>

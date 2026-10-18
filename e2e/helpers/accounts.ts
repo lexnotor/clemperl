@@ -46,6 +46,19 @@ export async function linkFor(
     return found as string;
 }
 
+// Compte les messages reçus par une adresse. Sert à prouver qu'une invitation en produit
+// UN, ce qui est l'anti-but le plus facile à rater de la tranche : le parcours
+// fonctionnerait à l'identique avec deux courriels, dont un qui ne sert à rien.
+export async function messageCountFor(
+    request: APIRequestContext,
+    address: string,
+): Promise<number> {
+    const search = await request.get(
+        `${URL_MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}`,
+    );
+    return (await search.json()).messages_count as number;
+}
+
 // Attend qu'un courriel PORTANT ce fragment arrive, au lieu de lire le dernier message
 // à l'instant de l'appel. Le courriel part hors transaction : il suit l'écriture de
 // quelques dizaines de millisecondes, et une lecture unique attrape parfois le message

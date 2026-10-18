@@ -33,6 +33,7 @@ datasource db {
 enum E_USER_ROLE {
   CUSTOMER
   ADMIN
+  SUPER_ADMIN
 
   @@map("user_role")
 }

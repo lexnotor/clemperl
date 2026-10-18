@@ -1,4 +1,4 @@
-import { prisma } from "@clemperl/db";
+import { countAdministrators, prisma } from "@clemperl/db";
 import messages from "@clemperl/i18n/messages/admin/fr.json";
 import { notFound } from "next/navigation";
 import type { JSX } from "react";
@@ -9,7 +9,7 @@ import { SetupForm } from "./setup-form";
 export const dynamic = "force-dynamic";
 
 export default async function SetupPage(): Promise<JSX.Element> {
-    if ((await prisma.user.count({ where: { role: "ADMIN" } })) > 0) {
+    if ((await countAdministrators(prisma)) > 0) {
         notFound();
     }
 
