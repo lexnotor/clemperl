@@ -27,7 +27,7 @@ plan, exécution, un commit.
 | T5 | Activer et suspendre une boutique | **Livrée** |
 | T6a | Modérer le catalogue | **Livrée**, PR #12 |
 | T6b | Gérer les comptes et les rôles | **Livrée**, PR #13 |
-| T6c | Surveiller les commandes et débloquer | **Livrée** |
+| T6c | Surveiller les commandes et débloquer | **Livrée**, PR #14 |
 | T6d | Litige et remboursement constaté | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
@@ -187,6 +187,36 @@ s'il l'avait fait lui-même. Deux colonnes sur la commande suffiraient, l'acteur
   « Soldes d été »), qui est antérieur à cette tranche. `order-oversight.spec.ts` a passé trois fois de
   suite seul dans sa forme finale, et dans la suite complète avant l'ajout de l'acceptation. Le lancement s'est fait contre `pnpm docker:up`, jamais
   `pnpm e2e:up`, dont le limiteur de débit refuse les créations de comptes.
+
+
+### Où reprendre, au 2026-10-19
+
+La PR #14 est ouverte et fusionnable, la branche est poussée, l'arbre est propre. Il ne reste
+aucun travail de code : 262 tests d'intégration, 32 unitaires côté administration, le domaine
+à 100 %, `lint` et `typecheck` à 15 sur 15, et le parcours navigateur au vert.
+
+CodeRabbit a rendu deux constats, tous deux classés mineurs par lui, et AUCUN n'est corrigé.
+C'est la décision qui attend.
+
+**Le premier, sur `apps/admin/src/app/orders/[id]/actions.ts`.** Un paiement peut passer à
+`SETTLED` entre le rendu de la page et la soumission, par un évènement de fournisseur ou un
+pointage hors ligne, sans que l'état de la COMMANDE bouge. La comparaison-et-échange porte sur
+l'état de la commande, elle ne voit donc rien, l'annulation passe, et l'administrateur n'a
+jamais vu l'avertissement que le cinquième critère d'acceptation lui promet. C'est une course
+sur un AUTRE axe que celle qu'on a gardée. Remède proposé : soumettre l'état de paiement rendu
+avec le formulaire et le comparer à la relecture. CodeRabbit note lui-même que la fenêtre est
+étroite et que l'avertissement est informatif, aucun remboursement n'ayant lieu de toute façon.
+
+**Le second, sur `apps/admin/src/app/orders/search-params.ts`.** `Number.parseInt("2junk")`
+rend 2, donc une URL malformée ouvre la page deux au lieu de la première que la fonction
+promet ; et un très grand entier sûr passe le garde tout en produisant un décalage hors de la
+précision sûre. Remède proposé : exiger un nombre décimal complet, et plafonner.
+
+**Celui-là pèse plus que son classement.** La revue de branche l'avait déjà trouvé, sous deux
+angles : l'absence de plafond, alors que le module jumeau `packages/domain/src/utils/catalog-filters.utils.ts`
+plafonne à mille avec une raison mesurée, et la tolérance de `"7abc"` qui rend 7, relevée comme
+non épinglée. Deux lecteurs indépendants sur le même point, et un jumeau dans le dépôt qui a
+déjà tranché la question : c'est le candidat le plus clair à corriger avant la fusion.
 
 ## T6b est livrée, au 2026-10-17
 
