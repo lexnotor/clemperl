@@ -1,4 +1,5 @@
 export * from "./document-path.utils.js";
+export * from "./document-batch.utils.js";
 export * from "./document-storage.utils.js";
 export * from "./media-storage.utils.js";
 export * from "./redis-connection.utils.js";

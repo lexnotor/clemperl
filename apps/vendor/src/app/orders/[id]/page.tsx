@@ -1,4 +1,4 @@
-import { ERROR_PAYMENT_ALREADY_SETTLED, prisma, readOrderForVendor } from "@clemperl/db";
+import { ERROR_PAYMENT_ALREADY_SETTLED, prisma, readDisputeForVendor, readOrderForVendor } from "@clemperl/db";
 import { E_ORDER_STATUS, E_PAYMENT_STATUS } from "@clemperl/db/enums";
 import { allowedOrderActions, formatPrice, isOnlinePaymentMethod } from "@clemperl/domain";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
@@ -6,6 +6,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { JSX } from "react";
 import { requireVendorMembership } from "../../../lib/session";
+import { DisputeReplyForm } from "./dispute-reply-form";
+import { DisputeThread } from "./dispute-thread";
 import { OrderActions } from "./order-actions";
 import { SettleButton } from "./settle-button";
 
@@ -14,6 +16,7 @@ export const dynamic = "force-dynamic";
 
 const t = messages.orders;
 const METHODS = messages.shop.payment.method;
+const TD = messages.disputes;
 const DATE = new Intl.DateTimeFormat("fr", { dateStyle: "long", timeStyle: "short" });
 
 // Le navigateur doit savoir où joindre l'API. Lue ICI, à l'exécution, puis passée au bouton
@@ -35,6 +38,13 @@ export default async function OrderPage({
     if (!order) {
         notFound();
     }
+
+    // Lu par la même portée que la commande : un litige d'une autre boutique est
+    // introuvable, même par un identifiant deviné.
+    const dispute =
+        order.dispute === null
+            ? null
+            : await readDisputeForVendor(prisma, { vendorId: vendor.id, orderId: order.id });
 
     // La devise est copiée dans une CONSTANTE locale : la restriction de type d'un accès
     // à une propriété est abandonnée dès qu'on entre dans une fermeture, et `formatPrice`
@@ -177,6 +187,44 @@ export default async function OrderPage({
                 <section className="mt-10 text-sm">
                     <h2 className="font-titre text-xl">{t.note}</h2>
                     <p className="mt-4">{order.note}</p>
+                </section>
+            )}
+
+            {dispute !== null && (
+                <section className="mt-10 border-t border-bordure pt-8 text-sm" data-testid="dispute">
+                    <h2 className="font-titre text-xl">{TD.title}</h2>
+                    <p className="mt-2 text-muet">{TD.intro}</p>
+                    <p className="mt-4">
+                        <span className="text-muet">{TD.statusLabel} : </span>
+                        <span data-testid="dispute-status">{TD.status[dispute.status]}</span>
+                    </p>
+                    <p>
+                        <span className="text-muet">{TD.reasonLabel} : </span>
+                        {TD.reasons[dispute.reason]}
+                    </p>
+                    <h3 className="mt-4 text-muet">{TD.lines}</h3>
+                    <ul className="mt-1">
+                        {dispute.items.map(({ orderItem }) => (
+                            <li key={orderItem.id}>
+                                {orderItem.productTitle}
+                                {orderItem.variantLabel !== "" && ` (${orderItem.variantLabel})`} x{orderItem.quantity}
+                            </li>
+                        ))}
+                    </ul>
+                    {/* La décision reste lisible après que le client s'est déclaré servi. */}
+                    {dispute.decidedAt !== null && (
+                        <div className="mt-6">
+                            <h3 className="text-muet">{TD.decisionTitle}</h3>
+                            <p className="mt-1">
+                                {dispute.status === "DECIDED_FOR_VENDOR"
+                                    ? TD.decision.DECIDED_FOR_VENDOR
+                                    : TD.decision.DECIDED_FOR_BUYER}
+                            </p>
+                            <p className="mt-1 whitespace-pre-wrap">{dispute.decisionComment}</p>
+                        </div>
+                    )}
+                    <DisputeThread messages={dispute.messages} />
+                    {dispute.status === "OPEN" && <DisputeReplyForm disputeId={dispute.id} />}
                 </section>
             )}
 

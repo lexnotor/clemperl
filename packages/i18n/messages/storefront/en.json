@@ -124,6 +124,15 @@
       "already_open": "You already have an application under review.",
       "submit_failed": "Your application could not be saved. Try again in a moment.",
       "not_resubmittable": "This application cannot be sent again as it stands."
+    },
+    "dispute": {
+      "lines_required": "Choose at least one item.",
+      "reason_unknown": "Choose a reason.",
+      "body_required": "Say what happened.",
+      "body_too_long": "This text is longer than {maximum} characters.",
+      "too_many_attachments": "Attach {maximum} files at most.",
+      "unsupported_media_type": "This format is not accepted. Upload a PDF, a JPEG or a PNG.",
+      "attachment_too_large": "A file is larger than 5 MB."
     }
   },
   "catalog": {
@@ -237,5 +246,55 @@
     "shipToCity": "City",
     "shipToCountry": "Country (two-letter code)",
     "confirm": "Confirm the order"
+  },
+  "disputes": {
+    "report": "Report a problem",
+    "view": "View the dispute",
+    "title": "Dispute on order {reference}",
+    "backToOrder": "Back to the order",
+    "openIntro": "Tell us what is wrong, and attach your proof. The shop will answer you here. If nothing new is said for seven days, the administration will decide on the evidence provided.",
+    "lines": "Items concerned",
+    "reason": "Reason",
+    "reasonPlaceholder": "Choose a reason",
+    "reasons": {
+      "DAMAGED": "Arrived damaged",
+      "WRONG_ITEM": "Not the item I ordered",
+      "NOT_RECEIVED": "Never received"
+    },
+    "body": "What happened",
+    "attachments": "Proof: photos or PDF, three at most, 5 MB each",
+    "submit": "Open the dispute",
+    "submitting": "Sending…",
+    "statusLabel": "Dispute status",
+    "status": {
+      "OPEN": "Open",
+      "DECIDED_FOR_BUYER": "Decided in your favour",
+      "DECIDED_FOR_VENDOR": "Closed, no further action",
+      "SERVED": "Served"
+    },
+    "party": {
+      "BUYER": "You",
+      "VENDOR": "The shop"
+    },
+    "attachmentsOf": "Attachments",
+    "reply": "Your reply",
+    "send": "Send",
+    "sending": "Sending…",
+    "served": "I have been served",
+    "servedHint": "The dispute will be closed for good, and this order cannot open another one. Confirm only if the shop has fixed the problem.",
+    "decisionTitle": "The administration's decision",
+    "decision": {
+      "DECIDED_FOR_BUYER": "The administration has decided in your favour. The shop must serve you properly, in its own way.",
+      "DECIDED_FOR_VENDOR": "The administration has not upheld your claim. The dispute is closed."
+    },
+    "noRefund": "The platform does not refund anything itself, as it never holds the funds.",
+    "opened": "Your dispute is open. The shop has been notified.",
+    "mailFailed": "Your dispute is open, but the shop could not be notified by email. It will see it in its vendor area.",
+    "moved": "This dispute changed while you were looking at the page. Reload it.",
+    "failed": "Your message could not be saved. Try again.",
+    "exists": "A dispute already exists on this order.",
+    "notEligible": "This order can no longer be disputed.",
+    "invalidLines": "Choose items from this order.",
+    "servedConfirm": "Yes, I have been served"
   }
 }

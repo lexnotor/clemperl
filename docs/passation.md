@@ -28,7 +28,7 @@ plan, exécution, un commit.
 | T6a | Modérer le catalogue | **Livrée**, PR #12 |
 | T6b | Gérer les comptes et les rôles | **Livrée**, PR #13 |
 | T6c | Surveiller les commandes et débloquer | **Livrée**, PR #14 |
-| T6d | Litiges | **cadrée et planifiée**, exécution non commencée |
+| T6d | Litiges | **exécutée**, PR #15 à fusionner |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
 
@@ -99,32 +99,142 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
-## Où en est T6d, au 2026-10-19
+## T6d est exécutée, au 2026-10-19
 
-Spec approuvée, plan écrit, exécution pas commencée. La tranche s'appelait « litige et
-remboursement constaté » ; elle devient « Litiges », parce que la plateforme ne constate
-aucun remboursement : elle enregistre que l'acheteur se déclare servi.
+Un acheteur conteste une commande expédiée depuis moins de quatorze jours : il désigne les
+articles, choisit un motif, raconte, joint jusqu'à trois preuves. La boutique est prévenue
+par courriel et répond dans le même fil. Un litige sans échange depuis sept jours est à
+trancher ; l'administration tranche, avant ou après, pour l'un ou pour l'autre, avec un
+commentaire que les deux parties reçoivent par courriel. L'acheteur, et lui seul, se déclare
+servi. Prouvé dans un navigateur par `e2e/disputes.spec.ts`, de la commande jusqu'à
+« Servi ».
 
-- La spec : `docs/superpowers/specs/2026-10-19-t6d-litiges-design.md`. Un relecteur neuf l'a
-  lue comme s'il devait la planifier ; ses deux questions sont tranchées dedans.
-- Le plan : `docs/superpowers/plans/2026-10-19-t6d-litiges.md`, dix tâches, du modèle au
-  parcours navigateur.
+La tranche s'appelait « litige et remboursement constaté » ; elle devient « Litiges ». La
+spec : `docs/superpowers/specs/2026-10-19-t6d-litiges-design.md`. Le plan :
+`docs/superpowers/plans/2026-10-19-t6d-litiges.md`, dix tâches, exécutées dans une seule
+session, sans commit d'étape : le travail part en un commit de chantier.
 
-**C'est un MVP, voulu comme tel.** Les deux délais sont en dur, quatorze jours pour ouvrir
-et sept de silence avant d'être à trancher ; les rendre réglables par l'administration, et
-par boutique, est voulu et repoussé. Le vendeur ne règle jamais le délai d'ouverture :
-libre de le mettre à zéro, il ne recevrait plus aucun litige.
+### Les décisions qui comptent
 
-**La commande gagne `shippedAt`, sans rattrapage.** Les commandes déjà expédiées n'ouvrent
-donc aucun litige. C'est sans coût parce que la plateforme n'a aucune commande réelle,
-confirmé au cadrage ; si elle était déployée avant cette tranche, il faudrait trancher à
-nouveau.
+**La plateforme tranche, elle ne rembourse pas.** Elle ne détient jamais les fonds : une
+décision pour l'acheteur somme le vendeur de le servir, à sa façon. Après la décision, la
+plateforme ne fait plus rien ; la suite se règle hors de ClemPerl, et la suspension de T5
+reste un geste séparé.
 
-### Reprendre
+**Le litige est un objet à côté de la commande**, qui garde `SHIPPED`. La machine à états de
+T3 n'a pas bougé, et la règle « l'acheteur n'a aucune action sur sa commande » tient : il agit
+sur un litige.
 
-Il faut une branche : `git switch -c feat/disputes` depuis `main` à jour. La spec et le plan
-ne sont pas suivis tant que la tâche 1 n'est pas commitée, donc ils ne voyagent pas d'une
-machine à l'autre avant. La méthode d'exécution reste à choisir.
+**Aucune horloge.** « À trancher » est une condition calculée à la lecture par
+`isDisputeRipe`, jamais un état écrit. La liste de l'administration rend TOUS les litiges
+ouverts, du plus ancien échange au plus récent, ce qui met d'office les mûrs en tête.
+
+**Les deux délais sont en dur**, quatorze et sept jours, dans
+`packages/domain/src/constants/dispute.constant.ts`. Les rendre réglables est voulu et
+repoussé ; le vendeur n'en règlera jamais aucun, libre de mettre zéro il ne recevrait plus
+aucun litige.
+
+**`Order.shippedAt` s'écrit dans `writeOrderStatus`**, l'aide commune au vendeur et à
+l'administration, et nulle part ailleurs : un chemin qui l'oublierait retirerait en silence
+tout recours à ses acheteurs. Aucun rattrapage : les commandes expédiées avant n'ouvrent rien,
+sans coût puisque la plateforme n'a aucune commande réelle.
+
+**La langue de l'acheteur est retenue sur le litige**, à l'ouverture : elle n'est enregistrée
+nulle part ailleurs.
+
+**Les preuves vont dans le bucket privé des justificatifs**, sous `disputes/<uuid>/`, et
+chaque application les sert par sa propre route, qui revérifie la portée à chaque requête.
+Tout refus répond 404. L'espace vendeur accepte désormais 16 Mo par action, pour trois
+preuves de 5 Mo.
+
+**Une ouverture réussie, comme une décision, redirige** vers la page du litige avec un avis
+dans l'URL (`?notice=opened`, `decided` ou `mail_failed`). Un message porté par l'état du
+formulaire disparaîtrait avec lui, puisque la page le remplace aussitôt. Un courriel raté ne
+défait rien, et l'écran le dit.
+
+**Les pièces se contrôlent aussi dans le navigateur, avant l'envoi**, par la même règle du
+domaine, `attachmentViolations`, exportée par `browser.ts`. Au-delà de 16 Mo, Next refuse le
+corps de l'action sans qu'elle tourne : quatre photos de téléphone feraient sinon tomber la
+page et perdre le récit, sans qu'un message dise pourquoi. Le serveur reste juge.
+
+**« J'ai été servi » demande une confirmation**, derrière un `details` : la décision clôt le
+litige pour de bon, et la commande n'en ouvre pas de second.
+
+### Ce que la revue de branche a changé
+
+Un relecteur neuf a lu la branche entière : aucun défaut critique. Cinq points ont été
+corrigés, chacun avec un test vu rouge : l'avis d'échec de courriel perdu après une décision,
+la page d'erreur au-delà de 16 Mo, la confirmation de « J'ai été servi », deux gardes
+d'action sans test, et un parcours navigateur qui n'exerçait ni la route des pièces du
+vendeur ni son dépôt. Huit points mineurs restent ouverts, listés plus bas.
+
+### Ce que T6d ne fait pas
+
+Aucun délai réglable, aucune quantité ni motif par ligne, aucun second litige sur la même
+commande, aucun courriel à chaque message, aucun message de l'administration dans le fil,
+aucun mouvement d'argent ni constat de remboursement, aucune sanction automatique. Le type et
+la taille des pièces sont ceux que le navigateur déclare : les octets ne sont pas lus, comme
+pour les justificatifs de candidature.
+
+### Deux pièges payés, consignés dans `docs/pieges.md`
+
+**Un champ de fichier vide arrive en `File` nommé `blob`** dans une action serveur Next. Le
+filtre sur le nom vide le laissait passer, et toute réponse sans pièce était refusée « format
+non accepté ». Trouvé par le parcours navigateur, alors que tous les tests unitaires étaient
+verts ; `submittedFiles` filtre désormais sur la taille seule.
+
+**Les conteneurs des fronts gardent l'ancien client Prisma** après un changement de schéma,
+et le régénérer dedans relit l'ancien schéma de leur image : seul `pnpm docker:up` les
+répare. Symptôme : la boutique en 500 et six échecs sans rapport dans
+`media-route.int-spec.ts`.
+
+### Les décomptes, mesurés
+
+| Couche | Résultat |
+| --- | --- |
+| `disputes.int-spec.ts`, neuf | 27 tests |
+| Intégration, couche entière | 21 suites, 289 tests |
+| Domaine | 249 tests, couverture 100 % |
+| `packages/core` | 45 tests, couverture 100 % |
+| Boutique, vendeur, administration | 50, 9 et 47 tests unitaires |
+| `lint`, `typecheck`, `test` | 15/15 chacun ; `verify:thresholds` sans orphelin |
+| `build` | 9/9 |
+| `e2e/disputes.spec.ts`, seul | 3 exécutions au vert avant la revue, 2 après |
+| Suite navigateur complète, `--workers=1` | avant la revue : 34 passés, 1 en échec ; après : 35 passés |
+
+### Ce que la vérification n'a PAS établi
+
+**`sign-up.spec.ts:80` est instable, et ce n'est pas T6d.** La réinitialisation de mot de
+passe tombe parfois sur l'attente du retour à l'accueil après la connexion : rouge dans la
+première suite complète, puis une fois vert et une fois rouge seul, enfin vert dans la
+seconde suite complète. T6d ne touche aucun fichier de ce parcours, et ce test échouait déjà
+dans la CI le 2026-10-10, sur `main`. Non diagnostiqué, signalé tel quel.
+
+**La maturité à sept jours n'est pas jouée dans un navigateur.** Elle est éprouvée aux deux
+frontières par le domaine, et l'ordre qui met les mûrs en tête par l'intégration.
+
+**Les refus d'écran périmé** (un message posté sur un litige tranché entre-temps, servir un
+litige qui a bougé) ne sont épinglés que par les tests unitaires des actions et par
+l'intégration. Aucun parcours navigateur ne les provoque.
+
+**Le lien du courriel de décision vers un acheteur anglophone**, préfixé `/en`, n'est vérifié
+que par le test unitaire de l'action : le parcours navigateur est joué en français.
+
+**Un formulaire de plus de 16 Mo n'a pas été soumis pour de vrai.** Le parcours vérifie que
+le navigateur bloque quatre pièces avant l'envoi ; il ne force pas le refus 413 de Next.
+
+### Les mineurs laissés ouverts par la revue
+
+- Une violation par fichier : trois pièces trop lourdes affichent trois fois la même phrase.
+- Le champ de fichier natif est libellé dans la langue du navigateur ; donner un mode
+  `multiple` au `FileField` du kit le réglerait.
+- La page du litige de l'acheteur ne rappelle ni le motif ni les articles contestés.
+- La liste des commandes du vendeur ne signale pas un litige tranché contre lui.
+- La forme d'un message de litige est déclarée deux fois dans des props `.tsx`.
+- Des identifiants français dans le code neuf (`envois`, `litiges`, `lignes`, `fil`,
+  `piece`, `langue`, `motif`), contre la règle du dépôt.
+- Deux styles de lecture des tables de traduction, accès direct et `Object.hasOwn`.
+- Les en-têtes de réponse d'une pièce existent en quatre copies.
 
 ## T6c est livrée, au 2026-10-18
 

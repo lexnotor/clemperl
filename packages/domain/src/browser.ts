@@ -18,6 +18,11 @@ export * from "./utils/media-path.utils.js";
 export * from "./utils/media-type.utils.js";
 export * from "./utils/cart.utils.js";
 
+// Les formulaires de litige contrôlent leurs pièces avant l'envoi : ce fichier n'importe que
+// des constantes, sans erreur du domaine ni client Prisma.
+export * from "./utils/dispute-attachments.utils.js";
+export type { IDisputeViolation } from "./interfaces/dispute.interface.js";
+
 // Le formulaire vendeur construit ses options depuis `PRODUCT_CATEGORIES`. Ce fichier
 // n'importe que zod, donc il ne fait entrer ni le client Prisma ni `@clemperl/core`.
 export * from "./schemas/product.schema.js";

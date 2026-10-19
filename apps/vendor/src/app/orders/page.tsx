@@ -48,6 +48,9 @@ export default async function OrdersPage(): Promise<JSX.Element> {
                                 {t.payment.status[order.paymentStatus]} · {order.shipToName} ·{" "}
                                 {DATE.format(order.createdAt)}
                             </p>
+                            {order.dispute?.status === "OPEN" && (
+                                <p className="mt-1 text-xs text-accent">{messages.disputes.badge}</p>
+                            )}
                         </li>
                     ))}
                 </ul>
