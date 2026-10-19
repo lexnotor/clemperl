@@ -203,5 +203,47 @@
   },
   "shopOffline": {
     "message": "Votre boutique n'apparaît pas au catalogue, et ses articles ne sont pas achetables. Vos commandes en cours restent à traiter normalement."
+  },
+  "disputes": {
+    "badge": "Litige ouvert",
+    "title": "Litige",
+    "intro": "Le client conteste cette commande. Répondez-lui ici, avec vos preuves. Sans nouvel échange pendant sept jours, l'administration tranchera sur les pièces déposées.",
+    "reasonLabel": "Motif",
+    "reasons": {
+      "DAMAGED": "Arrivé abîmé",
+      "WRONG_ITEM": "Ce n'est pas l'article commandé",
+      "NOT_RECEIVED": "Jamais reçu"
+    },
+    "lines": "Articles concernés",
+    "statusLabel": "État du litige",
+    "status": {
+      "OPEN": "En cours",
+      "DECIDED_FOR_BUYER": "Tranché en faveur du client",
+      "DECIDED_FOR_VENDOR": "Clos en votre faveur",
+      "SERVED": "Le client s'est déclaré servi"
+    },
+    "party": {
+      "BUYER": "Le client",
+      "VENDOR": "Votre boutique"
+    },
+    "attachmentsOf": "Pièces jointes",
+    "reply": "Votre réponse",
+    "attachments": "Preuves : photos ou PDF, trois au plus, 5 Mo chacune",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "decisionTitle": "La décision de l'administration",
+    "decision": {
+      "DECIDED_FOR_BUYER": "L'administration donne raison au client. Vous devez le servir correctement, comme vous l'entendez : renvoi, remplacement ou remboursement. La plateforme ne prélève rien.",
+      "DECIDED_FOR_VENDOR": "L'administration vous donne raison. Le litige est clos, sans suite."
+    },
+    "moved": "Ce litige a changé pendant que vous regardiez la page. Rechargez-la.",
+    "failed": "L'envoi n'a pas pu être enregistré. Réessayez.",
+    "violations": {
+      "body_required": "Écrivez votre réponse.",
+      "body_too_long": "Ce texte dépasse {maximum} caractères.",
+      "too_many_attachments": "Joignez {maximum} pièces au plus.",
+      "unsupported_media_type": "Ce format n'est pas accepté. Déposez un PDF, un JPEG ou un PNG.",
+      "attachment_too_large": "Une pièce dépasse 5 Mo."
+    }
   }
 }

@@ -53,6 +53,14 @@
       "moved": "Cette commande a changé d'état pendant que vous regardiez la page. Rechargez-la.",
       "settled": "Le paiement de cette commande vient d'être reçu, et l'annuler ne le rembourserait pas. Rechargez la page avant de décider.",
       "failed": "L'action n'a pas pu être enregistrée. Réessayez."
+    },
+    "dispute": {
+      "outcome_required": "Choisissez une issue.",
+      "comment_required": "Un commentaire est exigé : c'est la seule explication que les deux parties recevront.",
+      "not_found": "Ce litige n'existe plus.",
+      "moved": "Ce litige a changé pendant que vous regardiez la page. Rechargez-la.",
+      "mail_failed": "La décision est enregistrée, mais un courriel au moins n'a pas pu partir.",
+      "failed": "La décision n'a pas pu être enregistrée. Réessayez."
     }
   },
   "vendor": {
@@ -197,5 +205,47 @@
       "SHIP": "Expédier",
       "CANCEL": "Annuler"
     }
+  },
+  "disputes": {
+    "title": "Litiges",
+    "empty": "Aucun litige ouvert.",
+    "ripeCount": "{count} à trancher",
+    "ripe": "À trancher",
+    "lastActivity": "Dernier échange",
+    "backToList": "Retour aux litiges",
+    "order": "Commande",
+    "reasonLabel": "Motif",
+    "reasons": {
+      "DAMAGED": "Arrivé abîmé",
+      "WRONG_ITEM": "Mauvais article",
+      "NOT_RECEIVED": "Jamais reçu"
+    },
+    "lines": "Articles concernés",
+    "statusLabel": "État",
+    "status": {
+      "OPEN": "Ouvert",
+      "DECIDED_FOR_BUYER": "Tranché pour l'acheteur",
+      "DECIDED_FOR_VENDOR": "Tranché pour le vendeur",
+      "SERVED": "L'acheteur s'est déclaré servi"
+    },
+    "party": {
+      "BUYER": "L'acheteur",
+      "VENDOR": "La boutique"
+    },
+    "attachmentsOf": "Pièces jointes",
+    "decisionTitle": "Trancher",
+    "outcome": "Issue",
+    "outcomePlaceholder": "Choisissez une issue",
+    "outcomes": {
+      "DECIDE_FOR_BUYER": "Donner raison à l'acheteur",
+      "DECIDE_FOR_VENDOR": "Donner raison au vendeur"
+    },
+    "comment": "Commentaire, lu par les deux parties",
+    "submit": "Trancher",
+    "submitting": "Envoi…",
+    "noRefund": "La plateforme ne rembourse rien : une décision pour l'acheteur somme le vendeur de le servir, à sa façon.",
+    "decided": "Décision",
+    "decisionComment": "Commentaire de la décision",
+    "decidedNotice": "La décision est enregistrée, et les deux parties ont été prévenues par courriel."
   }
 }

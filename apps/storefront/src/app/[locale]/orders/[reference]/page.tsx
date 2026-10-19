@@ -1,7 +1,8 @@
 import { prisma, readOrderForBuyer } from "@clemperl/db";
 import { E_ORDER_STATUS, E_PAYMENT_STATUS } from "@clemperl/db/enums";
-import { formatPrice, isOnlinePaymentMethod, paymentHintMethod } from "@clemperl/domain";
+import { canOpenDispute, formatPrice, isOnlinePaymentMethod, paymentHintMethod } from "@clemperl/domain";
 import { getFormatter, getTranslations } from "next-intl/server";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { JSX } from "react";
 import { requireVerifiedSession } from "../../../../lib/session";
@@ -22,6 +23,7 @@ export default async function OrderPage({
     const { locale, reference } = await params;
     const session = await requireVerifiedSession(`/orders/${reference}`);
     const t = await getTranslations("orders");
+    const tDisputes = await getTranslations("disputes");
     const format = await getFormatter();
 
     const order = await readOrderForBuyer(prisma, {
@@ -63,6 +65,24 @@ export default async function OrderPage({
             <h1 className="font-titre text-4xl tracking-tight">{order.reference}</h1>
             <p className="mt-2 text-sm">{t(`status.${order.status}`)}</p>
             <p className="text-sm text-muet">{order.vendor.shopName}</p>
+
+            {/* Le lien suit le DROIT d'ouvrir, calculé par le domaine : passé le délai, sans
+                date d'expédition, ou commande non expédiée, il n'apparaît pas. Un litige
+                existant reste joignable, quel que soit le délai. */}
+            {order.dispute !== null ? (
+                <Link href={`/orders/${order.reference}/dispute`} className="mt-4 inline-block text-sm underline">
+                    {tDisputes("view")}
+                </Link>
+            ) : (
+                canOpenDispute(
+                    { status: order.status, shippedAt: order.shippedAt, hasDispute: false },
+                    new Date(),
+                ) && (
+                    <Link href={`/orders/${order.reference}/dispute`} className="mt-4 inline-block text-sm underline">
+                        {tDisputes("report")}
+                    </Link>
+                )
+            )}
 
             <ul className="mt-8 divide-y divide-bordure">
                 {order.items.map((line) => (

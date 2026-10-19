@@ -1496,6 +1496,45 @@ Ce qui protège maintenant : rien d'automatique. Après avoir tiré, rebâtir to
 
 ---
 
+**Après un changement de `schema.prisma`, les conteneurs des fronts gardent l'ancien client,
+et le régénérer dedans ne sert à rien : seule une reconstruction des images les répare.**
+
+Les conteneurs `storefront`, `vendor` et `admin` montent les sources des paquets, mais pas
+`packages/db/prisma`. Leur `tsc --watch` recompile donc des sources neuves contre le client
+généré figé dans l'image, et lancer `prisma generate` dedans relit l'ANCIEN schéma de
+l'image. Le conteneur `api`, lui, monte `prisma` : il se répare par
+`pnpm --filter @clemperl/db build` lancé dans le conteneur.
+
+Constaté le 2026-10-19 sur T6d : une énumération neuve importée par `packages/domain`,
+« Export E_DISPUTE_REASON doesn't exist in target module » dans les journaux de la boutique,
+toutes ses routes en 500, et six échecs de `media-route.int-spec.ts` qui n'avaient rien à
+voir avec le changement.
+
+Ce qui protège maintenant : rien d'automatique. Après un changement de schéma,
+`pnpm docker:up`, qui reconstruit les images, puis vérifier dans chaque conteneur que
+`packages/db/dist/generated/prisma/enums.js` connaît la valeur neuve.
+
+---
+
+**Dans une action serveur Next, un champ de fichier laissé vide arrive en `File` nommé
+`blob`, pas avec un nom vide : un filtre qui compte sur le nom vide le laisse passer.**
+
+Le navigateur poste un champ de fichier vide avec `filename=""`. Le décodeur multipart des
+actions serveur, le `busboy` que Next embarque, rend alors un `filename` indéfini, et
+`FormData.append(clé, blob, undefined)` nomme le fichier `blob`. Le même corps décodé par
+`Request.formData()` garde le nom vide : un test qui fabrique le `File` à la main, ou qui
+passe par undici, ne voit rien.
+
+Constaté le 2026-10-19 par le parcours navigateur de T6d : un vendeur qui répondait sans
+pièce se voyait refuser « Ce format n'est pas accepté », le fichier vide étant de type
+`application/octet-stream`. Tous les tests unitaires étaient verts.
+
+Ce qui protège maintenant : `submittedFiles`, dans `packages/core`, écarte toute entrée de
+taille nulle, quel que soit son nom, et son test reproduit la forme que Next produit. Ne pas
+y remettre une condition sur le nom.
+
+---
+
 **Le motif `*.spec.ts` ne reconnaît pas `*.int-spec.ts` : le séparateur est un tiret, et une
 recherche qui ne rend rien ressemble à une absence de test, pas à une erreur de motif.**
 

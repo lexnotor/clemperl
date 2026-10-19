@@ -276,6 +276,8 @@ export async function readOrderForBuyer(
                 select: { shopName: true, slug: true, contactEmail: true, contactPhone: true },
             },
             payments: PAYMENT_TRACE,
+            // La page de commande offre d'ouvrir un litige, ou mène à celui qui existe.
+            dispute: { select: { id: true, status: true } },
         },
     });
 }
@@ -297,6 +299,8 @@ export async function listOrdersForVendor(
             paymentStatus: true,
             createdAt: true,
             shipToName: true,
+            // La liste signale les commandes qui ont un litige ouvert.
+            dispute: { select: { status: true } },
         },
     });
 }
@@ -310,6 +314,7 @@ export async function readOrderForVendor(
         include: {
             items: { orderBy: { id: "asc" } },
             payments: VENDOR_PAYMENT_TRACE,
+            dispute: { select: { id: true, status: true } },
         },
     });
 }
@@ -332,9 +337,18 @@ async function writeOrderStatus(
     // vendeur et un administrateur. Celui qui clique sur un écran périmé ramènerait une
     // commande expédiée à « acceptée », et un `count === 0` sans condition de statut ne
     // verrait rien.
+    //
+    // La date d'expédition s'écrit ICI, dans la même instruction que l'état : c'est le seul
+    // endroit où l'état s'écrit, donc le seul où ni le vendeur ni l'administration ne peut
+    // l'oublier. Sans elle, l'acheteur perd en silence tout recours sur sa commande. La
+    // comparaison porte sur la chaîne : ce paquet ne peut pas importer la table des
+    // transitions.
     const change = await prisma.order.updateMany({
         where: { id: input.orderId, ...scope, status: input.from as never },
-        data: { status: input.status as never },
+        data: {
+            status: input.status as never,
+            ...(input.status === "SHIPPED" ? { shippedAt: new Date() } : {}),
+        },
     });
 
     if (change.count === 0) {

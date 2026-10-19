@@ -59,6 +59,8 @@ model User {
   cart               Cart?
   orders             Order[]
   settledPayments    OrderPayment[]
+  decidedDisputes    Dispute[]           @relation("DecidedDisputes")
+  disputeMessages    DisputeMessage[]
 
   @@map("users")
 }
@@ -572,6 +574,37 @@ enum E_PAYMENT_STATUS {
   @@map("payment_status")
 }
 
+// Ce que l'acheteur reproche à une commande expédiée. Vocabulaire FERMÉ, sur la forme du
+// motif de retrait : un type de litige qui entre coûte une migration, et cette friction
+// oblige à décider qu'il existe.
+enum E_DISPUTE_REASON {
+  DAMAGED
+  WRONG_ITEM
+  NOT_RECEIVED
+
+  @@map("dispute_reason")
+}
+
+// Un litige tranché pour l'acheteur n'est pas fini : il le reste jusqu'à ce que l'acheteur
+// se déclare servi. Tranché pour le vendeur, il est clos.
+enum E_DISPUTE_STATUS {
+  OPEN
+  DECIDED_FOR_BUYER
+  DECIDED_FOR_VENDOR
+  SERVED
+
+  @@map("dispute_status")
+}
+
+// Le côté d'un message, et non le rôle de son auteur : un membre de la boutique écrit
+// pour elle, quel que soit le compte.
+enum E_DISPUTE_PARTY {
+  BUYER
+  VENDOR
+
+  @@map("dispute_party")
+}
+
 // Une collection range des articles d'UNE boutique sous une intention d'achat que la
 // catégorie ne capte pas : la catégorie dit ce qu'est un article, la collection dit
 // pourquoi on le met en avant maintenant.
@@ -683,12 +716,18 @@ model Order {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  // Le délai d'ouverture d'un litige court depuis cette date. `updatedAt` ne la remplace
+  // pas : il bouge aussi quand le paiement change. Nulle sur les commandes expédiées avant
+  // que la colonne existe, qui n'ouvrent donc aucun litige.
+  shippedAt DateTime? @map("shipped_at")
+
   // `Restrict` et non `Cascade` : fermer une boutique ne doit pas effacer l'historique
   // d'achat de ses clients. C'est l'inverse du catalogue, qui n'a aucun sens sans elle.
   buyer    User           @relation(fields: [buyerId], references: [id], onDelete: Restrict)
   vendor   Vendor         @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   items    OrderItem[]
   payments OrderPayment[]
+  dispute  Dispute?
 
   @@index([vendorId, status])
   @@index([buyerId, createdAt])
@@ -749,9 +788,99 @@ model OrderItem {
   unitAmount   Int    @map("unit_amount")
   quantity     Int
 
-  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  order        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  disputeItems DisputeItem[]
 
   @@index([variantId])
   @@map("order_items")
+}
+
+// Un litige est un objet À CÔTÉ de la commande, pas un état de sa machine : la commande
+// garde `SHIPPED`, et aucun écran de commande n'a à connaître une contestation qui peut
+// être infondée.
+model Dispute {
+  id      String           @id @default(cuid(2))
+  // UNIQUE : un litige par commande. C'est aussi la garde finale contre deux ouvertures
+  // simultanées, que la base départage.
+  orderId String           @unique @map("order_id")
+  reason  E_DISPUTE_REASON
+  status  E_DISPUTE_STATUS @default(OPEN)
+
+  // La langue de l'acheteur à l'ouverture. Elle n'est enregistrée nulle part ailleurs, et
+  // sans elle la décision lui parviendrait dans une langue qu'il ne lit peut-être pas.
+  locale String
+
+  // Ce que la file de l'administration compare : un litige silencieux depuis sept jours
+  // est à trancher. C'est une condition calculée à la lecture, jamais un état écrit.
+  lastActivityAt DateTime @map("last_activity_at")
+
+  decisionComment String?   @map("decision_comment")
+  decidedAt       DateTime? @map("decided_at")
+  decidedById     String?   @map("decided_by_id")
+  servedAt        DateTime? @map("served_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  order     Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  // `SetNull` : supprimer le compte qui a tranché ne défait pas la décision.
+  decidedBy User?            @relation("DecidedDisputes", fields: [decidedById], references: [id], onDelete: SetNull)
+  items     DisputeItem[]
+  messages  DisputeMessage[]
+
+  @@index([status, lastActivityAt])
+  @@map("disputes")
+}
+
+// Les lignes contestées. Une ligne désignée l'est en entier : la quantité touchée n'est pas
+// retenue.
+model DisputeItem {
+  id          String @id @default(cuid(2))
+  disputeId   String @map("dispute_id")
+  orderItemId String @map("order_item_id")
+
+  dispute   Dispute   @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@unique([disputeId, orderItemId])
+  @@map("dispute_items")
+}
+
+// Le fil. Le récit d'ouverture est le premier message de l'acheteur, pas un champ à part :
+// un seul fil, une seule façon de le lire.
+model DisputeMessage {
+  id        String          @id @default(cuid(2))
+  disputeId String          @map("dispute_id")
+  // `SetNull` : supprimer un compte ne doit pas effacer ce qu'il a dit dans un litige.
+  authorId  String?         @map("author_id")
+  party     E_DISPUTE_PARTY
+  body      String
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  dispute     Dispute             @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  author      User?               @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  attachments DisputeAttachment[]
+
+  @@index([disputeId, createdAt])
+  @@map("dispute_messages")
+}
+
+// Une preuve, sur la forme de `VendorDocument` : privée, lue seulement à travers une route
+// qui revérifie la garde à chaque requête.
+model DisputeAttachment {
+  id         String @id @default(cuid(2))
+  messageId  String @map("message_id")
+  objectPath String @map("object_path")
+  mimeType   String @map("mime_type")
+  sizeBytes  Int    @map("size_bytes")
+
+  // Pour l'affichage seulement : le nom de l'objet stocké est généré.
+  originalName String @map("original_name")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  message DisputeMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("dispute_attachments")
 }

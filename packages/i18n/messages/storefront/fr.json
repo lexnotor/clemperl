@@ -124,6 +124,15 @@
       "already_open": "Vous avez déjà une demande en cours d'examen.",
       "submit_failed": "Votre demande n'a pas pu être enregistrée. Réessayez dans un instant.",
       "not_resubmittable": "Ce dossier ne peut pas être renvoyé en l'état."
+    },
+    "dispute": {
+      "lines_required": "Choisissez au moins un article.",
+      "reason_unknown": "Choisissez un motif.",
+      "body_required": "Dites ce qui s'est passé.",
+      "body_too_long": "Ce texte dépasse {maximum} caractères.",
+      "too_many_attachments": "Joignez {maximum} pièces au plus.",
+      "unsupported_media_type": "Ce format n'est pas accepté. Déposez un PDF, un JPEG ou un PNG.",
+      "attachment_too_large": "Une pièce dépasse 5 Mo."
     }
   },
   "catalog": {
@@ -237,5 +246,55 @@
     "shipToCity": "Ville",
     "shipToCountry": "Pays (code à deux lettres)",
     "confirm": "Confirmer la commande"
+  },
+  "disputes": {
+    "report": "Signaler un problème",
+    "view": "Voir le litige",
+    "title": "Litige sur la commande {reference}",
+    "backToOrder": "Retour à la commande",
+    "openIntro": "Dites ce qui ne va pas, et joignez vos preuves. La boutique vous répondra ici. Sans nouvel échange pendant sept jours, l'administration tranchera sur les pièces déposées.",
+    "lines": "Articles concernés",
+    "reason": "Motif",
+    "reasonPlaceholder": "Choisissez un motif",
+    "reasons": {
+      "DAMAGED": "Arrivé abîmé",
+      "WRONG_ITEM": "Ce n'est pas l'article commandé",
+      "NOT_RECEIVED": "Jamais reçu"
+    },
+    "body": "Ce qui s'est passé",
+    "attachments": "Preuves : photos ou PDF, trois au plus, 5 Mo chacune",
+    "submit": "Ouvrir le litige",
+    "submitting": "Envoi…",
+    "statusLabel": "État du litige",
+    "status": {
+      "OPEN": "En cours",
+      "DECIDED_FOR_BUYER": "Tranché en votre faveur",
+      "DECIDED_FOR_VENDOR": "Clos sans suite",
+      "SERVED": "Servi"
+    },
+    "party": {
+      "BUYER": "Vous",
+      "VENDOR": "La boutique"
+    },
+    "attachmentsOf": "Pièces jointes",
+    "reply": "Votre réponse",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "served": "J'ai été servi",
+    "servedHint": "Le litige sera clos pour de bon, et cette commande n'en ouvrira pas d'autre. Confirmez seulement si la boutique a réglé le problème.",
+    "decisionTitle": "La décision de l'administration",
+    "decision": {
+      "DECIDED_FOR_BUYER": "L'administration vous donne raison. La boutique est tenue de vous servir correctement, à sa façon.",
+      "DECIDED_FOR_VENDOR": "L'administration n'a pas retenu votre réclamation. Le litige est clos."
+    },
+    "noRefund": "La plateforme ne rembourse rien elle-même : elle ne détient pas les fonds.",
+    "opened": "Votre litige est ouvert. La boutique a été prévenue.",
+    "mailFailed": "Votre litige est ouvert, mais la boutique n'a pas pu être prévenue par courriel. Elle le verra dans son espace.",
+    "moved": "Ce litige a changé pendant que vous regardiez la page. Rechargez-la.",
+    "failed": "L'envoi n'a pas pu être enregistré. Réessayez.",
+    "exists": "Un litige existe déjà sur cette commande.",
+    "notEligible": "Cette commande ne peut plus être contestée.",
+    "invalidLines": "Choisissez des articles de cette commande.",
+    "servedConfirm": "Oui, j'ai été servi"
   }
 }
