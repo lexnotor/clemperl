@@ -96,7 +96,7 @@ d'examiner les dossiers. Un niveau supérieur qui peut moins que celui du dessou
 niveau supérieur.
 
 **Tous ces tests deviennent « administrateur OU super_admin », par une fonction unique** dans
-`packages/domain`. Les recopier huit fois rouvrirait la seconde vérité que ce dépôt a déjà
+`packages/domain`. Les recopier neuf fois rouvrirait la seconde vérité que ce dépôt a déjà
 payée deux fois.
 
 La liste exacte est à établir par le plan avec un `grep`, et non recopiée ici : une liste

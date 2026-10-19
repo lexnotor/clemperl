@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-17.
+Dernière mise à jour : 2026-10-19.
 
 ## Où en est le projet
 
@@ -26,8 +26,9 @@ plan, exécution, un commit.
 | T4 | Paiement, point d'extension | **Livrée** |
 | T5 | Activer et suspendre une boutique | **Livrée** |
 | T6a | Modérer le catalogue | **Livrée**, PR #12 |
-| T6b | Gérer les comptes et les rôles | **Livrée**, branche `feat/accounts-and-roles` |
-| T6c | Surveiller les commandes et arbitrer | non commencée |
+| T6b | Gérer les comptes et les rôles | **Livrée**, PR #13 |
+| T6c | Surveiller les commandes et débloquer | **Livrée**, PR #14 |
+| T6d | Litige et remboursement constaté | non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
 
@@ -97,6 +98,149 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 (`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
+
+## T6c est livrée, au 2026-10-18
+
+L'administration liste les commandes de toutes les boutiques, filtre par état et par boutique,
+et fait avancer n'importe laquelle selon la table des transitions, y compris celle qu'un
+vendeur silencieux a laissée dormir. Le parcours est prouvé dans un navigateur par
+`e2e/order-oversight.spec.ts` : une commande est passée, le vendeur ne fait rien,
+l'administration l'annule, et l'acheteur la voit annulée depuis la vitrine.
+
+La T6c d'origine, « surveiller les commandes et arbitrer », a été coupée en deux au cadrage : le
+chemin du litige demande un modèle que cette tranche n'ajoute pas, et la plateforme ne détient
+jamais les fonds, donc un remboursement ne peut qu'être constaté, pas effectué. Cette part est
+T6d, non commencée.
+
+### Ce qui a été livré
+
+- Une écriture d'état sans portée de boutique dans `packages/db`, à côté de celle du vendeur,
+  qui exige toujours l'appartenance. Les deux refusent un état lu périmé.
+- Une lecture de toutes les commandes, paginée sur un ordre clos par l'identifiant, avec le
+  décompte lu dans le même instantané que la page.
+- Deux écrans dans l'administration : `/orders` (filtres, pagination, nom de boutique ET
+  slug sur chaque ligne) et `/orders/[id]` (les seules actions possibles, rendues d'après
+  `allowedOrderActions`).
+- Un avertissement avant l'annulation d'une commande dont le paiement est reçu : l'annuler
+  ne rembourse rien. Sa condition est `shouldWarnSettled`.
+
+### Deux décisions du commanditaire, à relire
+
+La spec les consigne comme des décisions du commanditaire, la seconde contre l'avis de son
+rédacteur. Elles sont réversibles à peu de frais : il faut le savoir avant de les trouver
+trop larges.
+
+**L'administration peut effectuer toutes les transitions que le vendeur peut.** Elle peut donc
+déclarer expédié un colis qu'elle n'a jamais vu. La spec en
+assume le coût : le contrepoids est humain, pas technique. *Suggestion, non décidée :* la
+restreindre à l'annulation ne demanderait que de filtrer les actions offertes par la page et
+par l'action serveur, sans toucher à la machine à états.
+
+**Aucun auteur n'est enregistré.** Un vendeur ne peut pas distinguer ce qu'il a fait de ce que
+l'administration a fait à sa place : une commande annulée ou expédiée par elle se lit comme
+s'il l'avait fait lui-même. Deux colonnes sur la commande suffiraient, l'acteur et l'instant,
+écrites par les deux chemins d'écriture.
+
+### Ce que le parcours navigateur a établi
+
+- L'avertissement du paiement reçu est atteint dans un navigateur : le vendeur pointe le
+  paiement à la livraison, la commande reste reçue, et l'administration voit l'avertissement
+  avant le clic sur « Annuler ». Une mutation de la page, qui passe une chaîne vide à la place
+  de l'appel à `shouldWarnSettled`, fait échouer le parcours sur cette assertion. C'est la
+  seule chose qui l'attrape : les tests unitaires ne voient que la fonction.
+- Chaque absence de bouton a sa présence avec le même sélecteur : « Annuler » et « Accepter »
+  sont constatés sur la commande reçue, « Expédier » sur la commande acceptée par
+  l'administration, avant que chacun soit constaté absent. L'acceptation par l'administration,
+  transition qu'aucun autre parcours ne lui voit faire, est elle-même exercée.
+
+### Où ranger ce genre d'aide, et l'index à ajouter
+
+- **Les trois aides pures de cette tranche vivent au mauvais endroit.** Les deux lecteurs de
+  paramètres d'URL et la condition de l'avertissement sont dans `apps/admin`, qui n'a aucun
+  seuil de couverture : rien en CI ne remarque qu'une de leurs branches perd son test.
+  `packages/domain` existe pour cela et porte un seuil de 100 pour cent. Il contient déjà leur
+  jumelle, `src/utils/catalog-filters.utils.ts`, qui résout les mêmes problèmes pour le
+  catalogue : lecture de la page, assainissement des paramètres, premier d'un paramètre
+  répété, constructeur de lien et taille de page. La prochaine tranche les y déplace plutôt
+  que d'écrire une quatrième copie.
+- **La garde contre la pollution de prototype est écrite deux fois**, dans l'action du
+  vendeur et dans celle de l'administration. Un garde de type à côté de `advanceOrder`
+  rendrait un troisième appelant sûr par construction.
+- **L'index que la nouvelle requête voudra.** La liste non filtrée de l'administration trie
+  toute la table des commandes par date de création, avec un décompte sur chaque ligne, et
+  aucun index ne la sert. Une migration est volontairement hors de cette tranche.
+  `@@index([createdAt, id])` sur la commande est la première chose qu'un test de charge ou la
+  tranche suivante réclamera.
+
+### Pour reprendre
+
+- Trois fois dans cette tranche, une condition a dû être sortie d'un composant serveur pour
+  devenir testable : les deux lecteurs de paramètres d'URL et la condition de l'avertissement.
+  Une fonction enfouie dans un composant serveur ne se teste pas, et ce dépôt n'a aucun outil
+  pour la tester en place. Le réflexe à garder : l'extraire dans son propre module dès qu'elle
+  porte une règle, et laisser au navigateur le soin de prouver que la page l'appelle.
+- Deux pièges payés par cette tranche sont dans `docs/pieges.md` : les deux `packages/db/dist`
+  (hôte et conteneur) qui divergent, et le test unitaire qui passe par accident à travers un
+  mock non configuré.
+- La suite navigateur complète a tourné une fois sur cette machine : 33 réussis, et un échec,
+  `collection.spec.ts` (correction du titre d'une collection, « Soldes d ete » reçu au lieu de
+  « Soldes d été »), qui est antérieur à cette tranche. `order-oversight.spec.ts` a passé trois fois de
+  suite seul dans sa forme finale, et dans la suite complète avant l'ajout de l'acceptation. Le lancement s'est fait contre `pnpm docker:up`, jamais
+  `pnpm e2e:up`, dont le limiteur de débit refuse les créations de comptes.
+
+
+### Les deux constats de CodeRabbit, vérifiés puis traités, au 2026-10-19
+
+Chacun a été confronté au code avant d'être appliqué. Le premier est juste en entier, le
+second à moitié. Il ne reste qu'à fusionner la PR #14.
+
+**Un paiement reçu entre l'affichage et le clic : juste.** `applyProviderEvent` et
+`settleOffline` écrivent `paymentStatus` sans toucher à `status`, et la comparaison-et-échange
+de `writeOrderStatus` ne porte que sur `status`. L'annulation passait donc sans que
+l'administrateur ait vu l'avertissement que le cinquième critère d'acceptation promet.
+
+Le formulaire renvoie désormais l'état de paiement affiché, et l'action refuse une annulation
+quand la relecture dit `SETTLED` alors que l'écran ne le disait pas, avec son propre message.
+Elle ne refuse que dans ce sens, et c'est plus étroit que ce que CodeRabbit proposait : un
+paiement reçu ne revient jamais en arrière, et un passage de `PENDING` à `FAILED` ne change
+rien à l'avertissement, donc le refuser ferait recharger pour rien.
+
+Ce qui reste ouvert, et c'est assumé : la relecture et l'écriture sont deux instructions. Un
+paiement reçu dans les millisecondes qui les séparent passe encore. Fermer cette fenêtre-là
+demanderait de porter l'état de paiement dans le `where` de `writeOrderStatus`, donc d'ouvrir
+le dépôt pour un avertissement qui n'est qu'informatif. La fenêtre fermée est celle où la page
+reste ouverte, qui se compte en minutes.
+
+**Le numéro de page : à moitié juste.** `"2junk"` rendait bien 2, comme `"7abc"`, `"3.9"`,
+`"+4"` et `" 3"`. La fonction exige désormais des chiffres et rien d'autre.
+
+**Le plafond, en revanche, n'a PAS été posé, et c'est la partie du constat qu'il ne fallait
+pas suivre.** Deux raisons, l'une mesurée, l'autre lue :
+
+- contre une base jetable aux migrations à jour, Prisma 7 accepte un `skip` de 1,8·10¹⁷ et
+  rend une liste vide, sans erreur. Le décalage sort bien de la précision sûre, mais une page
+  au-delà des données est vide quelle que soit sa valeur exacte ;
+- recopier le plafond du catalogue, mille, ferait boucler le lien « suivant » sur la page
+  mille dès que la liste dépasse vingt mille commandes, en répétant les mêmes lignes. C'est
+  exactement ce que le premier critère d'acceptation interdit. Le catalogue plafonne pour borner
+  le coût du tri final sur une vitrine que personne ne parcourt si loin ; l'administration, elle,
+  doit pouvoir atteindre chaque commande.
+
+Un commentaire dans `search-params.ts` le dit, pour que personne ne recopie le jumeau.
+
+**Ce qui épingle les deux correctifs.** Quatre tests unitaires neufs, 36 au lieu de 32 côté
+administration. Chacun a été vu en échec avant le code, sauf les deux qui gardent contre une
+correction excessive : « laisse annuler une commande impayée » et « laisse annuler une
+commande payée quand l'écran l'affichait déjà payée ». Cinq mutations jouées, chacune tuée
+par un seul test : refuser toute annulation payée, oublier la condition sur le paiement reçu
+(qui bloquait toute annulation d'une commande impayée), rendre le message générique, et
+retirer chacune des deux ancres de l'expression. `lint`, `typecheck` et `test` à 15 sur 15.
+
+`order-oversight.spec.ts` passe contre `pnpm docker:up`, sur un conteneur vérifié porteur du
+nouveau code. Il annule une commande impayée puis une commande payée sous avertissement : le
+champ caché fait donc l'aller-retour dans les deux cas. Le REFUS lui-même, un paiement reçu
+pendant que la page est ouverte, n'est épinglé que par le test unitaire de l'action. Aucun
+parcours navigateur ne le provoque.
 
 ## T6b est livrée, au 2026-10-17
 
@@ -497,7 +641,8 @@ ne partagent ni modèle, ni écran, ni risque :
 - **T6c, surveiller les commandes et arbitrer.** La plus lourde : elle touche la machine à
   états de T3, bâtie sur la règle « seul le vendeur fait avancer ». Un arbitrage est une
   exception à cette règle, et il faudra décider si elle reste une règle avec une porte ou
-  cesse d'en être une.
+  cesse d'en être une. *La tranche a été coupée depuis : voir « T6c est livrée » plus haut pour
+  ce qui a été livré, et T6d pour l'arbitrage.*
 
 ### Reprendre T6a
 

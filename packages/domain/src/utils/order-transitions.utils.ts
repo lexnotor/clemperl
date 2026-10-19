@@ -17,7 +17,7 @@ export function advanceOrder(from: TOrderStatus, action: TOrderAction): TOrderSt
     return to;
 }
 
-// L'écran vendeur construit ses boutons depuis CETTE liste. Une action impossible ne
+// L'écran qui offre ces actions construit ses boutons depuis CETTE liste. Une action impossible ne
 // s'affiche pas grisée, elle ne s'affiche pas : un bouton qu'on ne peut pas presser est
 // une promesse que l'écran ne tient pas.
 export function allowedOrderActions(from: TOrderStatus): TOrderAction[] {

@@ -47,7 +47,6 @@ Elles s'appliquent à **chaque** tâche, sans être répétées dans chacune.
   ce paquet dépend déjà de `@clemperl/db`, et l'inverse fermerait un cycle.
 - **Les planchers de couverture sont à 100 %** pour `@clemperl/domain` et `@clemperl/ui`.
   Le cliquet monte, il ne descend jamais.
-- **Branche de travail :** `feat/product-collections`, déjà sortie.
 
 ---
 

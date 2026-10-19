@@ -47,6 +47,12 @@
       "not_pending": "Ce compte a déjà choisi son mot de passe : aucune invitation à renvoyer.",
       "mail_failed": "Le compte est créé, mais le courriel n'a pas pu partir. Utilisez « Renvoyer l'invitation ».",
       "failed": "Le changement n'a pas pu être enregistré. Réessayez."
+    },
+    "order": {
+      "not_found": "Cette commande n'existe plus.",
+      "moved": "Cette commande a changé d'état pendant que vous regardiez la page. Rechargez-la.",
+      "settled": "Le paiement de cette commande vient d'être reçu, et l'annuler ne le rembourserait pas. Rechargez la page avant de décider.",
+      "failed": "L'action n'a pas pu être enregistrée. Réessayez."
     }
   },
   "vendor": {
@@ -154,6 +160,42 @@
     "role": {
       "ADMIN": "Administrateur",
       "SUPER_ADMIN": "Super-administrateur"
+    }
+  },
+  "orders": {
+    "title": "Les commandes",
+    "empty": "Aucune commande.",
+    "allShops": "Toutes les boutiques",
+    "allStatuses": "Tous les états",
+    "shopFilter": "Boutique",
+    "statusFilter": "État",
+    "apply": "Filtrer",
+    "previous": "Précédentes",
+    "next": "Suivantes",
+    "counted": "{count} commandes",
+    "countedOne": "1 commande",
+    "status": {
+      "PLACED": "Reçue",
+      "ACCEPTED": "Acceptée",
+      "SHIPPED": "Expédiée",
+      "CANCELLED": "Annulée"
+    },
+    "payment": {
+      "title": "Paiement",
+      "status": {
+        "PENDING": "En attente",
+        "SETTLED": "Reçu",
+        "FAILED": "Refusé"
+      }
+    },
+    "backToList": "Toutes les commandes",
+    "placedOn": "Passée le",
+    "buyer": "Destinataire",
+    "settledWarning": "Ce paiement est reçu. L'annuler ici ne le rembourse pas : un remboursement se fait entre le vendeur et son acheteur, par le canal de l'encaissement.",
+    "action": {
+      "ACCEPT": "Accepter",
+      "SHIP": "Expédier",
+      "CANCEL": "Annuler"
     }
   }
 }

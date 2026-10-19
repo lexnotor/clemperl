@@ -21,7 +21,9 @@ export type TOrderStatus = (typeof E_ORDER_STATUS)[keyof typeof E_ORDER_STATUS];
 // système, et un état sans entrée est terminal. Même forme que les transitions de
 // candidature écrites en T1b, pour la même raison.
 //
-// Seul le VENDEUR fait avancer. L'acheteur lit le même état et n'annule pas : une
+// La table dit quelles transitions existent, jamais qui peut les emprunter : le vendeur et
+// l'administration sont tous deux des appelants, chacun derrière sa propre garde. L'acheteur
+// lit le même état mais n'a aucune action sur sa commande, et cette décision tient : une
 // annulation touche un vendeur qui a peut-être déjà emballé, et ce qu'il faut alors est un
 // échange, pas un bouton.
 //

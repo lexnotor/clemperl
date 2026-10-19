@@ -314,6 +314,41 @@ export async function readOrderForVendor(
     });
 }
 
+// La portée de boutique est optionnelle ICI et nulle part ailleurs. Les deux fonctions
+// exportées plus bas sont les seules entrées, et celle du vendeur exige un `vendorId` que
+// son appelant ne peut pas omettre. Porter cette option dans une signature publique ferait
+// de la garde d'appartenance un paramètre qu'on oublie sans que rien ne proteste.
+async function writeOrderStatus(
+    prisma: PrismaClient,
+    input: { vendorId?: string; orderId: string; from: string; status: string },
+): Promise<void> {
+    const scope = input.vendorId === undefined ? {} : { vendorId: input.vendorId };
+
+    // `from` dans le `where`, et c'est le cœur de cette fonction. L'appelant a LU un état
+    // puis calculé la transition : sans cette condition, l'écriture écrase une décision
+    // plus récente. Ne pas la retirer.
+    //
+    // Deux écrans peuvent regarder la même commande, deux membres d'une boutique comme un
+    // vendeur et un administrateur. Celui qui clique sur un écran périmé ramènerait une
+    // commande expédiée à « acceptée », et un `count === 0` sans condition de statut ne
+    // verrait rien.
+    const change = await prisma.order.updateMany({
+        where: { id: input.orderId, ...scope, status: input.from as never },
+        data: { status: input.status as never },
+    });
+
+    if (change.count === 0) {
+        // On distingue les deux refus : une commande hors de portée est introuvable, une
+        // commande qui a bougé demande à l'écran de se recharger. Les confondre ferait lire
+        // « commande introuvable » à quelqu'un qui regarde la sienne.
+        const exists = await prisma.order.findFirst({
+            where: { id: input.orderId, ...scope },
+            select: { id: true },
+        });
+        throw new Error(exists ? ERROR_ORDER_STATUS_STALE : ERROR_ORDER_NOT_FOUND);
+    }
+}
+
 // Le filtre par boutique vit dans la SIGNATURE, pas dans une vérification d'appelant :
 // `orderId` vient de l'URL, donc du client. C'est la règle que T2c a écrite et que T2e a
 // dû réapprendre.
@@ -324,27 +359,83 @@ export async function setOrderStatus(
     prisma: PrismaClient,
     input: { vendorId: string; orderId: string; from: string; status: string },
 ): Promise<void> {
-    // `from` dans le `where`, et c'est le cœur de cette fonction. L'appelant a LU un état
-    // puis calculé la transition : sans cette condition, l'écriture écrase une décision
-    // plus récente. Ne pas la retirer.
-    //
-    // Une boutique a plusieurs membres, donc deux écrans peuvent regarder la même commande.
-    // Un collègue qui accepte puis expédie pendant qu'une page reste ouverte sur « commande
-    // passée » : le clic suivant sur « Accepter » ramènerait une commande EXPÉDIÉE à
-    // « acceptée », et un `count === 0` sans condition de statut ne verrait rien.
-    const change = await prisma.order.updateMany({
-        where: { id: input.orderId, vendorId: input.vendorId, status: input.from as never },
-        data: { status: input.status as never },
-    });
+    return writeOrderStatus(prisma, input);
+}
 
-    if (change.count === 0) {
-        // On distingue les deux refus : une commande d'une autre boutique est introuvable,
-        // une commande qui a bougé demande à l'écran de se recharger. Les confondre ferait
-        // lire « commande introuvable » à un vendeur qui regarde la sienne.
-        const exists = await prisma.order.findFirst({
-            where: { id: input.orderId, vendorId: input.vendorId },
-            select: { id: true },
-        });
-        throw new Error(exists ? ERROR_ORDER_STATUS_STALE : ERROR_ORDER_NOT_FOUND);
-    }
+// L'administration n'appartient à aucune boutique, et c'est tout ce qui la distingue ici :
+// elle emprunte les mêmes transitions, sous la même comparaison-et-échange. Le nom dit qui
+// a le droit d'appeler, parce que la signature ne peut plus le dire.
+export async function setOrderStatusAsAdministrator(
+    prisma: PrismaClient,
+    input: { orderId: string; from: string; status: string },
+): Promise<void> {
+    return writeOrderStatus(prisma, input);
+}
+
+// La boutique arrive imbriquée et repart à plat : l'écran lit une ligne, pas un arbre.
+const ADMINISTRATION_ORDER = {
+    id: true,
+    reference: true,
+    status: true,
+    currency: true,
+    totalAmount: true,
+    paymentStatus: true,
+    createdAt: true,
+    shipToName: true,
+    vendor: { select: { shopName: true, slug: true } },
+} as const;
+
+// Générique : les types déduits par Prisma, dont les énumérations générées, traversent
+// l'aplatissement jusqu'aux écrans, comme pour les lectures du vendeur.
+function flattenAdministrationOrder<T extends { vendor: { shopName: string; slug: string } }>(
+    row: T,
+) {
+    const { vendor, ...reste } = row;
+    return { ...reste, shopName: vendor.shopName, shopSlug: vendor.slug };
+}
+
+// Le tri se CLÔT sur l'identifiant, et ce n'est pas décoratif. Sans colonne finale unique,
+// `LIMIT ... OFFSET` n'est pas déterministe dès que deux lignes partagent la valeur triée :
+// une ligne se répète d'une page à l'autre et une autre est sautée, invisible et
+// silencieuse. Deux commandes passées dans la même seconde suffisent. Même raison que le
+// tri du catalogue.
+//
+// Le compte et la page partent dans la MÊME transaction, en `RepeatableRead` : au niveau
+// par défaut (`ReadCommitted`) chaque requête prend son propre instantané, et une commande
+// validée entre les deux donnerait un total que la page ne peut pas expliquer. Ici les deux
+// requêtes lisent le même instantané, donc le total correspond toujours aux lignes.
+export async function listOrdersForAdministration(
+    prisma: PrismaClient,
+    input: { status?: string; vendorId?: string; skip: number; take: number },
+) {
+    const where = {
+        // Cette entrée est publique : une chaîne non validée atteint Prisma et produit une
+        // erreur du moteur plutôt qu'un refus localisé. L'appelant valide avant d'appeler.
+        ...(input.status === undefined ? {} : { status: input.status as never }),
+        ...(input.vendorId === undefined ? {} : { vendorId: input.vendorId }),
+    };
+
+    const [rows, total] = await prisma.$transaction(
+        [
+            prisma.order.findMany({
+                where,
+                orderBy: [{ createdAt: "desc" as const }, { id: "asc" as const }],
+                skip: input.skip,
+                take: input.take,
+                select: ADMINISTRATION_ORDER,
+            }),
+            prisma.order.count({ where }),
+        ],
+        { isolationLevel: "RepeatableRead" },
+    );
+
+    return { rows: rows.map(flattenAdministrationOrder), total };
+}
+
+export async function readOrderForAdministration(prisma: PrismaClient, orderId: string) {
+    const row = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: ADMINISTRATION_ORDER,
+    });
+    return row === null ? null : flattenAdministrationOrder(row);
 }

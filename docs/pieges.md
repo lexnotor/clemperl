@@ -1478,6 +1478,24 @@ qu'elle tourne, `dist` suit les sources ; un lancement ponctuel depuis l'hôte n
 
 ---
 
+**Reprendre sur une autre machine laisse TOUS les `dist` des paquets périmés, et pas seulement
+le client Prisma : rebâtir `@clemperl/db` seul ne suffit pas.**
+
+Chaque paquet de `packages/` est consommé par son `dist`, ignoré par Git. Tirer le travail
+d'une autre machine apporte les sources neuves et laisse les `dist` du dernier build local.
+Le rappel habituel, rebâtir `@clemperl/db` après un changement de `schema.prisma`, ne couvre
+que le client généré.
+
+Constaté le 2026-10-19 en reprenant T6c : le `dist` de `@clemperl/domain` datait d'avant T6b,
+et quatorze tests des comptes, dans `apps/admin`, tombaient sur
+`TypeError: isAdministrator is not a function`. Le symptôme désigne la fonction absente, jamais
+le build.
+
+Ce qui protège maintenant : rien d'automatique. Après avoir tiré, rebâtir tous les paquets,
+`pnpm turbo run build --filter='./packages/*'`, qui enchaîne aussi la génération du client.
+
+---
+
 **Le motif `*.spec.ts` ne reconnaît pas `*.int-spec.ts` : le séparateur est un tiret, et une
 recherche qui ne rend rien ressemble à une absence de test, pas à une erreur de motif.**
 
@@ -1613,3 +1631,54 @@ Ce qui protège maintenant : un commentaire sur la constante, dans
 `packages/auth/src/config/auth.config.ts`, qui dit que la durée est globale. Qui voudrait
 raccourcir le lien des clients doit d'abord trouver comment donner à l'invitation sa propre
 durée, par exemple un jeton posé à la main, sans quoi l'invitation du lendemain échoue.
+
+---
+
+**Il existe DEUX `packages/db/dist`, un sur l'hôte et un dans le conteneur, et ils divergent : un
+`grep` sur celui de l'hôte dit ce que le conteneur n'exécute pas.**
+
+Le compose monte `packages/db/src` dans les conteneurs, pas `dist/`, qui est ignoré par Git : le
+conteneur a le sien, écrit par le dernier build qui y a tourné, et l'hôte a le sien. Un `pnpm --filter @clemperl/db build` lancé sur
+l'hôte écrit l'`dist` de l'hôte, un build lancé par `docker exec` écrit celui du conteneur, et
+rien ne les réconcilie. La suite d'intégration tourne dans le conteneur et lit
+`dist/src/` de celui-ci, voir l'entrée sur `packages/db/dist` ignoré par Git, plus haut.
+
+Symptôme, mesuré deux fois pendant T6c. Premièrement : une mutation vérifiée par un `grep` sur
+`packages/db/dist/src/` côté hôte montrait le code ANCIEN, et en conclure que « la mutation n'a
+pas été bâtie » aurait été faux. Deuxièmement : `setOrderStatusAsAdministrator` était présent
+dans la sortie bâtie du conteneur et absent de celle de l'hôte, donc l'import de l'API
+fonctionnait là où le `grep` de l'hôte le disait introuvable.
+
+Ce qui rend le piège difficile à voir : les deux répertoires ont le même chemin relatif et le
+même aspect, et chacun est cohérent avec lui-même. Aucune commande ne dit de quel côté elle
+regarde.
+
+Ce qui protège maintenant : rien d'automatique. Vérifier dans le conteneur qui exécute les
+tests, `docker exec clemperl_dev_api grep -n <motif> /app/packages/db/dist/src/<fichier>.js`, et
+bâtir au même endroit, `docker exec clemperl_dev_api sh -c "cd /app && pnpm --filter
+@clemperl/db build"`. Un `grep` sur l'hôte ne prouve rien sur ce que les tests ont lu.
+
+---
+
+**Un test unitaire peut passer par accident à travers un mock non configuré : après
+`vi.resetAllMocks()`, il résout `undefined`, une garde écrite `=== null` est FAUSSE pour lui, et
+le test est vert avec ou sans la garde qu'il prétend épingler.**
+
+Un mock réinitialisé qui n'a plus de valeur de retour résout `undefined`, pas `null`. Une garde
+`if (order === null)` ne se déclenche donc pas, l'exécution continue sur `undefined`, lève un
+`TypeError` plus loin, et un `catch` large le transforme en le message d'erreur localisé que le
+test attendait.
+
+Symptôme observé pendant T6c, sur une action serveur de l'administration : un test de refus
+assertait le bon message d'erreur, et continuait de passer une fois la garde supprimée. Le
+message venait du `catch`, pas de la garde. Cela a coûté un tour de revue.
+
+Ce qui rend le piège difficile à voir : l'assertion porte sur le bon texte, donc le test lit
+comme un test qui épingle la garde. Seule la suppression de la garde, en mutation, le démasque.
+
+Ce qui protège maintenant : le remède qui a marché est d'asserter qu'une fonction qui NE devait
+PAS être atteinte ne l'a pas été, par exemple `expect(setOrderStatus).not.toHaveBeenCalled()`
+après la garde. Cette assertion échoue dès que l'exécution traverse la garde, quel que soit le
+message que le `catch` fabrique. Les tests de `apps/admin/src/app/orders/[id]/actions.spec.ts`
+le font. Configurer explicitement `mockResolvedValue(null)` pour le cas testé évite aussi
+l'accident.
