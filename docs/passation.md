@@ -28,7 +28,7 @@ plan, exécution, un commit.
 | T6a | Modérer le catalogue | **Livrée**, PR #12 |
 | T6b | Gérer les comptes et les rôles | **Livrée**, PR #13 |
 | T6c | Surveiller les commandes et débloquer | **Livrée**, PR #14 |
-| T6d | Litige et remboursement constaté | non commencée |
+| T6d | Litiges | **cadrée et planifiée**, exécution non commencée |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
 
@@ -98,6 +98,33 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 (`vendor_members`), jamais une colonne du compte. La spécification T1a, section 1, porte
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
+
+## Où en est T6d, au 2026-10-19
+
+Spec approuvée, plan écrit, exécution pas commencée. La tranche s'appelait « litige et
+remboursement constaté » ; elle devient « Litiges », parce que la plateforme ne constate
+aucun remboursement : elle enregistre que l'acheteur se déclare servi.
+
+- La spec : `docs/superpowers/specs/2026-10-19-t6d-litiges-design.md`. Un relecteur neuf l'a
+  lue comme s'il devait la planifier ; ses deux questions sont tranchées dedans.
+- Le plan : `docs/superpowers/plans/2026-10-19-t6d-litiges.md`, dix tâches, du modèle au
+  parcours navigateur.
+
+**C'est un MVP, voulu comme tel.** Les deux délais sont en dur, quatorze jours pour ouvrir
+et sept de silence avant d'être à trancher ; les rendre réglables par l'administration, et
+par boutique, est voulu et repoussé. Le vendeur ne règle jamais le délai d'ouverture :
+libre de le mettre à zéro, il ne recevrait plus aucun litige.
+
+**La commande gagne `shippedAt`, sans rattrapage.** Les commandes déjà expédiées n'ouvrent
+donc aucun litige. C'est sans coût parce que la plateforme n'a aucune commande réelle,
+confirmé au cadrage ; si elle était déployée avant cette tranche, il faudrait trancher à
+nouveau.
+
+### Reprendre
+
+Il faut une branche : `git switch -c feat/disputes` depuis `main` à jour. La spec et le plan
+ne sont pas suivis tant que la tâche 1 n'est pas commitée, donc ils ne voyagent pas d'une
+machine à l'autre avant. La méthode d'exécution reste à choisir.
 
 ## T6c est livrée, au 2026-10-18
 
