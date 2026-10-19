@@ -10,6 +10,14 @@ describe("lire les paramètres d'URL de la liste des commandes", () => {
         }
     });
 
+    // `parseInt` s'arrête au premier caractère qui n'est pas un chiffre : un lien abîmé
+    // ouvrirait une page au hasard au lieu de la première.
+    it("ramène à la première un numéro mêlé d'autre chose", () => {
+        for (const brut of ["2junk", "7abc", "3.9", "+4", " 3", "3 "]) {
+            expect(pageFrom(brut)).toBe(1);
+        }
+    });
+
     it("garde un numéro de page légitime", () => {
         expect(pageFrom("1")).toBe(1);
         expect(pageFrom("7")).toBe(7);

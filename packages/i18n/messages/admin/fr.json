@@ -51,6 +51,7 @@
     "order": {
       "not_found": "Cette commande n'existe plus.",
       "moved": "Cette commande a changé d'état pendant que vous regardiez la page. Rechargez-la.",
+      "settled": "Le paiement de cette commande vient d'être reçu, et l'annuler ne le rembourserait pas. Rechargez la page avant de décider.",
       "failed": "L'action n'a pas pu être enregistrée. Réessayez."
     }
   },

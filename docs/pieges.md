@@ -1478,6 +1478,24 @@ qu'elle tourne, `dist` suit les sources ; un lancement ponctuel depuis l'hôte n
 
 ---
 
+**Reprendre sur une autre machine laisse TOUS les `dist` des paquets périmés, et pas seulement
+le client Prisma : rebâtir `@clemperl/db` seul ne suffit pas.**
+
+Chaque paquet de `packages/` est consommé par son `dist`, ignoré par Git. Tirer le travail
+d'une autre machine apporte les sources neuves et laisse les `dist` du dernier build local.
+Le rappel habituel, rebâtir `@clemperl/db` après un changement de `schema.prisma`, ne couvre
+que le client généré.
+
+Constaté le 2026-10-19 en reprenant T6c : le `dist` de `@clemperl/domain` datait d'avant T6b,
+et quatorze tests des comptes, dans `apps/admin`, tombaient sur
+`TypeError: isAdministrator is not a function`. Le symptôme désigne la fonction absente, jamais
+le build.
+
+Ce qui protège maintenant : rien d'automatique. Après avoir tiré, rebâtir tous les paquets,
+`pnpm turbo run build --filter='./packages/*'`, qui enchaîne aussi la génération du client.
+
+---
+
 **Le motif `*.spec.ts` ne reconnaît pas `*.int-spec.ts` : le séparateur est un tiret, et une
 recherche qui ne rend rien ressemble à une absence de test, pas à une erreur de motif.**
 

@@ -120,6 +120,67 @@ describe("advance", () => {
         expect(state.error).toBe(messages.errors.order.not_found);
     });
 
+    // Un paiement peut être reçu entre l'affichage et le clic, par le fournisseur ou par un
+    // pointage du vendeur, sans que l'état de la commande bouge : la comparaison sur l'état
+    // ne voit rien. L'écran promet de prévenir AVANT d'annuler une commande payée.
+    it("refuse une annulation quand le paiement a été reçu depuis l'affichage", async () => {
+        readOrderForAdministration.mockResolvedValue({
+            id: "o1",
+            status: "PLACED",
+            paymentStatus: "SETTLED",
+        });
+
+        const state = await advance(
+            INITIAL_STATE,
+            form({ orderId: "o1", action: "CANCEL", paymentStatus: "PENDING" }),
+        );
+
+        expect(state.error).toBe(messages.errors.order.settled);
+        expect(setOrderStatusAsAdministrator).not.toHaveBeenCalled();
+    });
+
+    // La garde ne vise que le paiement REÇU : une commande impayée s'annule comme avant.
+    it("laisse annuler une commande impayée", async () => {
+        readOrderForAdministration.mockResolvedValue({
+            id: "o1",
+            status: "PLACED",
+            paymentStatus: "PENDING",
+        });
+
+        const state = await advance(
+            INITIAL_STATE,
+            form({ orderId: "o1", action: "CANCEL", paymentStatus: "PENDING" }),
+        );
+
+        expect(state.error).toBe("");
+        expect(setOrderStatusAsAdministrator).toHaveBeenCalledWith(expect.anything(), {
+            orderId: "o1",
+            from: "PLACED",
+            status: "CANCELLED",
+        });
+    });
+
+    // Annuler une commande payée reste PERMIS : il suffit que l'écran l'ait dit.
+    it("laisse annuler une commande payée quand l'écran l'affichait déjà payée", async () => {
+        readOrderForAdministration.mockResolvedValue({
+            id: "o1",
+            status: "PLACED",
+            paymentStatus: "SETTLED",
+        });
+
+        const state = await advance(
+            INITIAL_STATE,
+            form({ orderId: "o1", action: "CANCEL", paymentStatus: "SETTLED" }),
+        );
+
+        expect(state.error).toBe("");
+        expect(setOrderStatusAsAdministrator).toHaveBeenCalledWith(expect.anything(), {
+            orderId: "o1",
+            from: "PLACED",
+            status: "CANCELLED",
+        });
+    });
+
     it("traduit le refus du dépôt quand la commande a bougé", async () => {
         readOrderForAdministration.mockResolvedValue({ id: "o1", status: "PLACED" });
         setOrderStatusAsAdministrator.mockRejectedValue(new Error(ERROR_ORDER_STATUS_STALE));

@@ -42,6 +42,19 @@ export async function advance(
         return { error: ERRORS["not_found"] };
     }
 
+    // Un paiement reçu ne change pas l'état de la commande : la comparaison sur l'état ne
+    // voit donc pas qu'il est arrivé entre l'affichage et le clic. Annuler reste permis,
+    // mais l'écran doit avoir dit qu'aucun remboursement ne suit ; s'il ne l'a pas dit, il
+    // est périmé. Un paiement reçu ne revient jamais en arrière, seul ce sens compte.
+    const shownPayment = String(form.get("paymentStatus") ?? "");
+    if (
+        action === E_ORDER_ACTION.CANCEL &&
+        order.paymentStatus === "SETTLED" &&
+        shownPayment !== "SETTLED"
+    ) {
+        return { error: ERRORS["settled"] };
+    }
+
     try {
         // Le DOMAINE décide de la transition, le dépôt ne fait qu'écrire.
         const next = advanceOrder(order.status, action);

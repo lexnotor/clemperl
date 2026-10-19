@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-18.
+Dernière mise à jour : 2026-10-19.
 
 ## Où en est le projet
 
@@ -189,34 +189,58 @@ s'il l'avait fait lui-même. Deux colonnes sur la commande suffiraient, l'acteur
   `pnpm e2e:up`, dont le limiteur de débit refuse les créations de comptes.
 
 
-### Où reprendre, au 2026-10-19
+### Les deux constats de CodeRabbit, vérifiés puis traités, au 2026-10-19
 
-La PR #14 est ouverte et fusionnable, la branche est poussée, l'arbre est propre. Il ne reste
-aucun travail de code : 262 tests d'intégration, 32 unitaires côté administration, le domaine
-à 100 %, `lint` et `typecheck` à 15 sur 15, et le parcours navigateur au vert.
+Chacun a été confronté au code avant d'être appliqué. Le premier est juste en entier, le
+second à moitié. Il ne reste qu'à fusionner la PR #14.
 
-CodeRabbit a rendu deux constats, tous deux classés mineurs par lui, et AUCUN n'est corrigé.
-C'est la décision qui attend.
+**Un paiement reçu entre l'affichage et le clic : juste.** `applyProviderEvent` et
+`settleOffline` écrivent `paymentStatus` sans toucher à `status`, et la comparaison-et-échange
+de `writeOrderStatus` ne porte que sur `status`. L'annulation passait donc sans que
+l'administrateur ait vu l'avertissement que le cinquième critère d'acceptation promet.
 
-**Le premier, sur `apps/admin/src/app/orders/[id]/actions.ts`.** Un paiement peut passer à
-`SETTLED` entre le rendu de la page et la soumission, par un évènement de fournisseur ou un
-pointage hors ligne, sans que l'état de la COMMANDE bouge. La comparaison-et-échange porte sur
-l'état de la commande, elle ne voit donc rien, l'annulation passe, et l'administrateur n'a
-jamais vu l'avertissement que le cinquième critère d'acceptation lui promet. C'est une course
-sur un AUTRE axe que celle qu'on a gardée. Remède proposé : soumettre l'état de paiement rendu
-avec le formulaire et le comparer à la relecture. CodeRabbit note lui-même que la fenêtre est
-étroite et que l'avertissement est informatif, aucun remboursement n'ayant lieu de toute façon.
+Le formulaire renvoie désormais l'état de paiement affiché, et l'action refuse une annulation
+quand la relecture dit `SETTLED` alors que l'écran ne le disait pas, avec son propre message.
+Elle ne refuse que dans ce sens, et c'est plus étroit que ce que CodeRabbit proposait : un
+paiement reçu ne revient jamais en arrière, et un passage de `PENDING` à `FAILED` ne change
+rien à l'avertissement, donc le refuser ferait recharger pour rien.
 
-**Le second, sur `apps/admin/src/app/orders/search-params.ts`.** `Number.parseInt("2junk")`
-rend 2, donc une URL malformée ouvre la page deux au lieu de la première que la fonction
-promet ; et un très grand entier sûr passe le garde tout en produisant un décalage hors de la
-précision sûre. Remède proposé : exiger un nombre décimal complet, et plafonner.
+Ce qui reste ouvert, et c'est assumé : la relecture et l'écriture sont deux instructions. Un
+paiement reçu dans les millisecondes qui les séparent passe encore. Fermer cette fenêtre-là
+demanderait de porter l'état de paiement dans le `where` de `writeOrderStatus`, donc d'ouvrir
+le dépôt pour un avertissement qui n'est qu'informatif. La fenêtre fermée est celle où la page
+reste ouverte, qui se compte en minutes.
 
-**Celui-là pèse plus que son classement.** La revue de branche l'avait déjà trouvé, sous deux
-angles : l'absence de plafond, alors que le module jumeau `packages/domain/src/utils/catalog-filters.utils.ts`
-plafonne à mille avec une raison mesurée, et la tolérance de `"7abc"` qui rend 7, relevée comme
-non épinglée. Deux lecteurs indépendants sur le même point, et un jumeau dans le dépôt qui a
-déjà tranché la question : c'est le candidat le plus clair à corriger avant la fusion.
+**Le numéro de page : à moitié juste.** `"2junk"` rendait bien 2, comme `"7abc"`, `"3.9"`,
+`"+4"` et `" 3"`. La fonction exige désormais des chiffres et rien d'autre.
+
+**Le plafond, en revanche, n'a PAS été posé, et c'est la partie du constat qu'il ne fallait
+pas suivre.** Deux raisons, l'une mesurée, l'autre lue :
+
+- contre une base jetable aux migrations à jour, Prisma 7 accepte un `skip` de 1,8·10¹⁷ et
+  rend une liste vide, sans erreur. Le décalage sort bien de la précision sûre, mais une page
+  au-delà des données est vide quelle que soit sa valeur exacte ;
+- recopier le plafond du catalogue, mille, ferait boucler le lien « suivant » sur la page
+  mille dès que la liste dépasse vingt mille commandes, en répétant les mêmes lignes. C'est
+  exactement ce que le premier critère d'acceptation interdit. Le catalogue plafonne pour borner
+  le coût du tri final sur une vitrine que personne ne parcourt si loin ; l'administration, elle,
+  doit pouvoir atteindre chaque commande.
+
+Un commentaire dans `search-params.ts` le dit, pour que personne ne recopie le jumeau.
+
+**Ce qui épingle les deux correctifs.** Quatre tests unitaires neufs, 36 au lieu de 32 côté
+administration. Chacun a été vu en échec avant le code, sauf les deux qui gardent contre une
+correction excessive : « laisse annuler une commande impayée » et « laisse annuler une
+commande payée quand l'écran l'affichait déjà payée ». Cinq mutations jouées, chacune tuée
+par un seul test : refuser toute annulation payée, oublier la condition sur le paiement reçu
+(qui bloquait toute annulation d'une commande impayée), rendre le message générique, et
+retirer chacune des deux ancres de l'expression. `lint`, `typecheck` et `test` à 15 sur 15.
+
+`order-oversight.spec.ts` passe contre `pnpm docker:up`, sur un conteneur vérifié porteur du
+nouveau code. Il annule une commande impayée puis une commande payée sous avertissement : le
+champ caché fait donc l'aller-retour dans les deux cas. Le REFUS lui-même, un paiement reçu
+pendant que la page est ouverte, n'est épinglé que par le test unitaire de l'action. Aucun
+parcours navigateur ne le provoque.
 
 ## T6b est livrée, au 2026-10-17
 

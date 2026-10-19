@@ -69,6 +69,7 @@ export default async function OrderPage({
             {allowed.length > 0 && (
                 <OrderActions
                     orderId={order.id}
+                    paymentStatus={order.paymentStatus}
                     actions={allowed.map((value) => ({
                         value,
                         label: actionLabels[value],

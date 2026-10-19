@@ -9,6 +9,8 @@ interface OrderActionsProps {
     actions: readonly { value: string; label: string }[];
     /** Vide quand il n'y a rien à signaler : calculé côté serveur. */
     settledWarning: string;
+    /** L'état de paiement affiché, renvoyé à l'action pour qu'elle voie s'il a changé. */
+    paymentStatus: string;
 }
 
 // Aucun import de `@clemperl/domain` ici : son barrel racine tire `@clemperl/core`, puis
@@ -20,6 +22,7 @@ export function OrderActions(props: OrderActionsProps): JSX.Element {
     return (
         <form action={action} className="mt-12 flex flex-col gap-3 border-t border-bordure pt-8">
             <input type="hidden" name="orderId" value={props.orderId} />
+            <input type="hidden" name="paymentStatus" value={props.paymentStatus} />
             {props.settledWarning !== "" && (
                 <p data-testid="settled-warning" className="text-sm">
                     {props.settledWarning}
