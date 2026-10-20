@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-19.
+Dernière mise à jour : 2026-10-20.
 
 ## Où en est le projet
 
@@ -28,8 +28,8 @@ plan, exécution, un commit.
 | T6a | Modérer le catalogue | **Livrée**, PR #12 |
 | T6b | Gérer les comptes et les rôles | **Livrée**, PR #13 |
 | T6c | Surveiller les commandes et débloquer | **Livrée**, PR #14 |
-| T6d | Litiges | **exécutée**, PR #15 à fusionner |
-| T7 | Temps réel | non commencée |
+| T6d | Litiges | **Livrée**, PR #15 |
+| T7 | Temps réel | **cadrée et planifiée**, exécution non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
 
 **La liste du catalogue n'est pas cacheable page entière.** La devise vit dans un cookie,
@@ -99,7 +99,45 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
-## T6d est exécutée, au 2026-10-19
+## Où en est T7, au 2026-10-20
+
+Spec approuvée, plan écrit, exécution pas commencée. Tout est sur la branche `feat/realtime`,
+partie de `main` après la fusion de T6d.
+
+- La spec : `docs/superpowers/specs/2026-10-20-t7-temps-reel-design.md`. Un relecteur neuf l'a
+  lue comme s'il devait la planifier ; ses quatre questions sont tranchées dedans.
+- Le plan : `docs/superpowers/plans/2026-10-20-t7-temps-reel.md`, huit tâches.
+
+**C'est un MVP.** Cinq moments s'affichent sans recharger, avec une alerte où que l'on soit :
+le suivi de commande, le paiement, la nouvelle commande, les photos de produit, les litiges. On
+n'alerte que qui est en ligne ; les notifications conservées viendront plus tard, et le modèle
+ne les ferme pas.
+
+**L'API est le seul point d'émission**, décidé au cadrage. Les trois fronts déposent un
+événement dans une file BullMQ après chaque écriture concernée ; l'API la consomme, ou émet
+directement pour ce qu'elle écrit elle-même. Le jour où la base signalera ses changements
+(`LISTEN/NOTIFY`), seule l'entrée de l'API changera. Le prix : un chemin d'écriture peut
+oublier de prévenir, d'où la liste exhaustive des écritures dans la spec, et un test par action.
+
+**Chaque application ne reçoit que ses propres événements.** Un même compte achète et vend, et
+la session est partagée entre les fronts : la boutique reçoit ce qui concerne l'acheteur,
+l'espace vendeur ce qui concerne la boutique. L'application se reconnaît à l'origine de la
+poignée de main.
+
+**`bullmq` entre dans `packages/core`**, que « Ce qui casse si on se trompe » signale comme
+risqué : le plan en donne la raison, `core` ne s'important déjà que côté serveur.
+
+### Reprendre
+
+La méthode d'exécution reste à choisir ; dans cette session ou par agents séparés, le natif
+était recommandé, les tâches s'enchaînant par leurs signatures. Avant la tâche 1 :
+`pnpm install`, puis `pnpm turbo run build --filter='./packages/*'`. Les dépendances neuves
+arrivent aux tâches 2, 4 et 7 ; après elles, `pnpm docker:up` reconstruit les images.
+
+Les deux balayages planifiés que T1b et T2c renvoyaient à T7 en restent dehors ; la tâche 8 les
+rattache à une tranche ultérieure.
+
+## T6d est livrée, au 2026-10-20
 
 Un acheteur conteste une commande expédiée depuis moins de quatorze jours : il désigne les
 articles, choisit un motif, raconte, joint jusqu'à trois preuves. La boutique est prévenue
@@ -108,6 +146,10 @@ trancher ; l'administration tranche, avant ou après, pour l'un ou pour l'autre,
 commentaire que les deux parties reçoivent par courriel. L'acheteur, et lui seul, se déclare
 servi. Prouvé dans un navigateur par `e2e/disputes.spec.ts`, de la commande jusqu'à
 « Servi ».
+
+Fusionnée par la PR #15. Le contrôle du contenu réel des pièces, écarté de la tranche, est
+suivi par l'issue #16, pour les preuves des litiges comme pour les justificatifs de
+candidature.
 
 La tranche s'appelait « litige et remboursement constaté » ; elle devient « Litiges ». La
 spec : `docs/superpowers/specs/2026-10-19-t6d-litiges-design.md`. Le plan :
