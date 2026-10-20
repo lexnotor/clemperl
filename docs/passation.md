@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-19.
+Dernière mise à jour : 2026-10-20.
 
 ## Où en est le projet
 
@@ -28,7 +28,7 @@ plan, exécution, un commit.
 | T6a | Modérer le catalogue | **Livrée**, PR #12 |
 | T6b | Gérer les comptes et les rôles | **Livrée**, PR #13 |
 | T6c | Surveiller les commandes et débloquer | **Livrée**, PR #14 |
-| T6d | Litiges | **exécutée**, PR #15 à fusionner |
+| T6d | Litiges | **Livrée**, PR #15 |
 | T7 | Temps réel | non commencée |
 | T8 | API GraphQL pour le mobile | à cadrer |
 
@@ -99,7 +99,7 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
-## T6d est exécutée, au 2026-10-19
+## T6d est livrée, au 2026-10-20
 
 Un acheteur conteste une commande expédiée depuis moins de quatorze jours : il désigne les
 articles, choisit un motif, raconte, joint jusqu'à trois preuves. La boutique est prévenue
@@ -108,6 +108,10 @@ trancher ; l'administration tranche, avant ou après, pour l'un ou pour l'autre,
 commentaire que les deux parties reçoivent par courriel. L'acheteur, et lui seul, se déclare
 servi. Prouvé dans un navigateur par `e2e/disputes.spec.ts`, de la commande jusqu'à
 « Servi ».
+
+Fusionnée par la PR #15. Le contrôle du contenu réel des pièces, écarté de la tranche, est
+suivi par l'issue #16, pour les preuves des litiges comme pour les justificatifs de
+candidature.
 
 La tranche s'appelait « litige et remboursement constaté » ; elle devient « Litiges ». La
 spec : `docs/superpowers/specs/2026-10-19-t6d-litiges-design.md`. Le plan :
