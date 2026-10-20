@@ -44,6 +44,27 @@ describe("FileField", () => {
         expect(screen.getByText("Aucun fichier choisi")).toBeVisible();
     });
 
+    // Plusieurs fichiers : le champ les nomme tous, sans quoi il dirait « un fichier » à qui
+    // en a choisi trois.
+    it("nomme tous les fichiers choisis quand il en accepte plusieurs", async () => {
+        render(
+            <FileField
+                label="Preuves"
+                chooseLabel="Choisir des fichiers"
+                emptyLabel="Aucun fichier choisi"
+                name="attachments"
+                multiple
+            />,
+        );
+
+        await userEvent.upload(screen.getByLabelText("Preuves"), [
+            new File(["x"], "colis.jpg", { type: "image/jpeg" }),
+            new File(["y"], "bon.pdf", { type: "application/pdf" }),
+        ]);
+
+        expect(screen.getByText("colis.jpg, bon.pdf")).toBeVisible();
+    });
+
     it("affiche le nom du fichier choisi et prévient l'appelant", async () => {
         const onChange = vi.fn();
         renderField(onChange);

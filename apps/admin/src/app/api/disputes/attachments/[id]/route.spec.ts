@@ -12,7 +12,11 @@ vi.mock("@clemperl/db", () => ({
     readDisputeAttachmentForAdministration: (...args: unknown[]) =>
         readDisputeAttachmentForAdministration(...args),
 }));
-vi.mock("@clemperl/core", () => ({ readDocument: (...args: unknown[]) => readDocument(...args) }));
+// Seule la lecture du stockage est simulée : les en-têtes viennent du vrai utilitaire.
+vi.mock("@clemperl/core", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@clemperl/core")>()),
+    readDocument: (...args: unknown[]) => readDocument(...args),
+}));
 
 const { GET } = await import("./route");
 

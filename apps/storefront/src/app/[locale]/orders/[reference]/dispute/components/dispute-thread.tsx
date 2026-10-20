@@ -1,14 +1,9 @@
+import type { TDisputeMessage } from "@clemperl/db";
 import { getFormatter, getTranslations } from "next-intl/server";
 import type { JSX } from "react";
 
 interface DisputeThreadProps {
-    messages: readonly {
-        id: string;
-        party: string;
-        body: string;
-        createdAt: Date;
-        attachments: readonly { id: string; originalName: string }[];
-    }[];
+    messages: readonly TDisputeMessage[];
 }
 
 // Le fil, du plus ancien au plus récent. Les pièces passent par la route gardée de la
@@ -28,10 +23,10 @@ export async function DisputeThread({ messages }: DisputeThreadProps): Promise<J
                     <p className="mt-2 whitespace-pre-wrap text-sm">{message.body}</p>
                     {message.attachments.length > 0 && (
                         <ul className="mt-3 flex flex-col gap-1 text-sm" aria-label={t("attachmentsOf")}>
-                            {message.attachments.map((piece) => (
-                                <li key={piece.id}>
-                                    <a href={`/api/disputes/attachments/${piece.id}`} className="underline">
-                                        {piece.originalName}
+                            {message.attachments.map((attachment) => (
+                                <li key={attachment.id}>
+                                    <a href={`/api/disputes/attachments/${attachment.id}`} className="underline">
+                                        {attachment.originalName}
                                     </a>
                                 </li>
                             ))}

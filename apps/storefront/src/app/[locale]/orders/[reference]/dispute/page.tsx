@@ -95,6 +95,23 @@ export default async function DisputePage({
                 <span className="text-muet">{t("statusLabel")} : </span>
                 <span data-testid="dispute-status">{t(`status.${dispute.status}`)}</span>
             </p>
+            {/* Ce que l'acheteur conteste, relu ici : la boutique et l'administration le voient
+                sur leurs écrans, et lui seul ne le retrouverait nulle part. */}
+            <p className="text-sm">
+                <span className="text-muet">{t("reason")} : </span>
+                <span data-testid="dispute-reason">{t(`reasons.${dispute.reason}`)}</span>
+            </p>
+            <section className="mt-6 text-sm">
+                <h2 className="text-muet">{t("lines")}</h2>
+                <ul data-testid="dispute-lines" className="mt-1">
+                    {dispute.items.map(({ orderItem }) => (
+                        <li key={orderItem.id}>
+                            {orderItem.productTitle}
+                            {orderItem.variantLabel !== "" && ` (${orderItem.variantLabel})`} x{orderItem.quantity}
+                        </li>
+                    ))}
+                </ul>
+            </section>
 
             {/* La décision reste lisible après que l'acheteur s'est déclaré servi : ses
                 champs survivent au passage à `SERVED`. */}

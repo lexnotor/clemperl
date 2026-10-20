@@ -1,5 +1,6 @@
 export * from "./repositories/index.js";
 export * from "./client.js";
+export type * from "./types/dispute.type.js";
 
 // `generated/prisma/client` est le point d'entrée désigné par Prisma : il réexporte
 // les types de modèles et les enums. Les fichiers de `models/` exposent des types

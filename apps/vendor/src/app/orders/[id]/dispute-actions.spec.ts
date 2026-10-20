@@ -104,5 +104,7 @@ describe("répondre à un litige, côté boutique", () => {
 
         expect(state.message).toEqual([T.moved]);
         expect(deleteDocuments).toHaveBeenCalledWith([STORED.objectPath]);
+        // React vide le formulaire même sur un refus : la réponse revient pour être réaffichée.
+        expect(state.values).toEqual({ body: "Trop tard ?" });
     });
 });

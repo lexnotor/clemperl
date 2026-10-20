@@ -99,7 +99,7 @@ export async function openDispute(
                             party: "BUYER",
                             body: input.body,
                             createdAt: now,
-                            attachments: { create: input.attachments.map((piece) => ({ ...piece })) },
+                            attachments: { create: input.attachments.map((attachment) => ({ ...attachment })) },
                         },
                     },
                 },
@@ -164,7 +164,7 @@ async function writeDisputeMessage(
                 party: input.party,
                 body: input.body,
                 createdAt: now,
-                attachments: { create: input.attachments.map((piece) => ({ ...piece })) },
+                attachments: { create: input.attachments.map((attachment) => ({ ...attachment })) },
             },
         });
     });

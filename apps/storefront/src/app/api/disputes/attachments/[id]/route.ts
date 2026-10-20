@@ -1,5 +1,5 @@
 import { auth } from "@clemperl/auth";
-import { readDocument } from "@clemperl/core";
+import { documentResponse, readDocument } from "@clemperl/core";
 import { prisma, readDisputeAttachmentForBuyer } from "@clemperl/db";
 import { headers } from "next/headers";
 
@@ -19,25 +19,15 @@ export async function GET(
     }
 
     const { id } = await context.params;
-    const piece = await readDisputeAttachmentForBuyer(prisma, {
+    const attachment = await readDisputeAttachmentForBuyer(prisma, {
         attachmentId: id,
         buyerId: session.user.id,
     });
-    if (piece === null) {
+    if (attachment === null) {
         return new Response(null, { status: 404 });
     }
 
-    const content = await readDocument(piece.objectPath);
+    const content = await readDocument(attachment.objectPath);
 
-    return new Response(content, {
-        headers: {
-            "Content-Type": piece.mimeType,
-            // Le nom d'origine est assaini : il vient de l'utilisateur et finit dans un en-tête.
-            "Content-Disposition": `inline; filename="${piece.originalName.replace(/[^\w.-]/g, "_")}"`,
-            // Le type vient de ce que le navigateur a DÉCLARÉ au dépôt : interdire de le
-            // redeviner ferme l'écart entre l'annonce et le contenu réel.
-            "X-Content-Type-Options": "nosniff",
-            "Cache-Control": "private, no-store",
-        },
-    });
+    return documentResponse(content, attachment);
 }

@@ -295,6 +295,8 @@
     "exists": "Un litige existe déjà sur cette commande.",
     "notEligible": "Cette commande ne peut plus être contestée.",
     "invalidLines": "Choisissez des articles de cette commande.",
-    "servedConfirm": "Oui, j'ai été servi"
+    "servedConfirm": "Oui, j'ai été servi",
+    "chooseFiles": "Choisir des fichiers",
+    "noFiles": "Aucun fichier choisi"
   }
 }

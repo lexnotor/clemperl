@@ -92,9 +92,9 @@ export function buildDisputeOpenedMessage(
     input: { reference: string; reason: string; link: string },
     locale: string,
 ): IEmailMessage {
-    const langue = texts(locale);
-    const motif = langue.reason[input.reason] ?? input.reason;
-    return { recipient: "", ...langue.opened(input.reference, motif, input.link) };
+    const copy = texts(locale);
+    const reasonLabel = copy.reason[input.reason] ?? input.reason;
+    return { recipient: "", ...copy.opened(input.reference, reasonLabel, input.link) };
 }
 
 // Le commentaire part tel que l'administrateur l'a écrit, dans sa langue à lui : c'est une
@@ -109,11 +109,11 @@ export function buildDisputeDecisionMessage(
     },
     locale: string,
 ): IEmailMessage {
-    const langue = texts(locale);
-    const { subject, intro } = langue.decision[input.outcome][input.party](input.reference);
+    const copy = texts(locale);
+    const { subject, intro } = copy.decision[input.outcome][input.party](input.reference);
     return {
         recipient: "",
         subject,
-        text: `${intro}\n\n${langue.comment}\n${input.comment}\n\n${langue.link}\n${input.link}`,
+        text: `${intro}\n\n${copy.comment}\n${input.comment}\n\n${copy.link}\n${input.link}`,
     };
 }

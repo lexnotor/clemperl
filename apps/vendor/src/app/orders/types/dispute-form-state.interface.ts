@@ -2,6 +2,9 @@
 // constante qu'on y mettrait arriverait `undefined` au composant client.
 export interface IDisputeFormState {
     message: string[];
+    /** La réponse saisie, rendue sur un refus : React vide le formulaire dès que son action
+     * se termine, refus compris, et le formulaire la réaffiche. */
+    values?: { body: string };
 }
 
 export const INITIAL_DISPUTE_FORM_STATE: IDisputeFormState = { message: [] };

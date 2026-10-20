@@ -87,9 +87,13 @@ export async function decide(_previous: IDecisionState, form: FormData): Promise
     // premier échoue : une partie ne doit pas rester sans nouvelles parce que le relais a
     // refusé l'autre. Un échec ne défait pas la décision, qui est un fait.
     const prefix = decision.buyerLocale === DEFAULT_LOCALE ? "" : `/${decision.buyerLocale}`;
-    const sender = createSmtpSender(process.env["SMTP_URL"] ?? "", process.env["EMAIL_FROM"] ?? "");
-    const envois = await Promise.allSettled([
-        sender.send({
+    // L'expéditeur se crée DANS chaque envoi : sans adresse de relais, sa création lève, et
+    // cette erreur doit devenir un envoi raté comme un autre, pas une page d'erreur affichée
+    // après une décision déjà écrite.
+    const send = async (message: Parameters<ReturnType<typeof createSmtpSender>["send"]>[0]) =>
+        createSmtpSender(process.env["SMTP_URL"] ?? "", process.env["EMAIL_FROM"] ?? "").send(message);
+    const deliveries = await Promise.allSettled([
+        send({
             ...buildDisputeDecisionMessage(
                 {
                     reference: decision.reference,
@@ -102,7 +106,7 @@ export async function decide(_previous: IDecisionState, form: FormData): Promise
             ),
             recipient: decision.buyerEmail,
         }),
-        sender.send({
+        send({
             ...buildDisputeDecisionMessage(
                 {
                     reference: decision.reference,
@@ -122,9 +126,9 @@ export async function decide(_previous: IDecisionState, form: FormData): Promise
 
     // L'avis voyage dans l'URL et non dans l'état du formulaire : tranché, le litige n'offre
     // plus de formulaire, et un message porté par son état disparaîtrait avec lui.
-    const failed = envois.some((envoi) => envoi.status === "rejected");
+    const failed = deliveries.some((delivery) => delivery.status === "rejected");
     if (failed) {
-        console.error("decide: courriel non parti", envois);
+        console.error("decide: courriel non parti", deliveries);
     }
     // HORS de tout `try` : `redirect` lève pour interrompre le rendu.
     redirect(`/disputes/${dispute.id}?notice=${failed ? "mail_failed" : "decided"}`);

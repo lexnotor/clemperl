@@ -30,8 +30,12 @@ export function FileField({
     const inputId = useId();
     const [fileName, setFileName] = useState<string | null>(null);
 
+    // Tous les noms, et pas seulement le premier : avec `multiple`, le champ dirait sinon
+    // « un fichier » à qui en a choisi trois. `files` n'est jamais nul sur un champ de type
+    // fichier : le type DOM le permet pour tous les `input`, d'où la conversion.
     function handleChange(event: ChangeEvent<HTMLInputElement>): void {
-        setFileName(event.target.files?.[0]?.name ?? null);
+        const names = Array.from(event.target.files as FileList).map((file) => file.name);
+        setFileName(names.length === 0 ? null : names.join(", "));
         onChange?.(event);
     }
 
