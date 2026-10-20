@@ -166,7 +166,7 @@ Un relecteur neuf a lu la branche entière : aucun défaut critique. Cinq points
 corrigés, chacun avec un test vu rouge : l'avis d'échec de courriel perdu après une décision,
 la page d'erreur au-delà de 16 Mo, la confirmation de « J'ai été servi », deux gardes
 d'action sans test, et un parcours navigateur qui n'exerçait ni la route des pièces du
-vendeur ni son dépôt. Huit points mineurs restent ouverts, listés plus bas.
+vendeur ni son dépôt. Les huit points mineurs ont été traités ensuite, voir plus bas.
 
 ### Ce que T6d ne fait pas
 
@@ -175,6 +175,26 @@ commande, aucun courriel à chaque message, aucun message de l'administration da
 aucun mouvement d'argent ni constat de remboursement, aucune sanction automatique. Le type et
 la taille des pièces sont ceux que le navigateur déclare : les octets ne sont pas lus, comme
 pour les justificatifs de candidature.
+
+### Ce que CodeRabbit a relevé, au 2026-10-20
+
+Le dépôt n'a plus de revue automatique, faute de dix étoiles : elle se déclenche par un
+commentaire `@coderabbitai review`. Cinq constats, tous classés mineurs, vérifiés contre le
+code avant d'être appliqués.
+
+**Quatre étaient justes, et sont corrigés.** React planifie la remise à zéro d'un formulaire
+AVANT d'appeler son action, sans condition : un refus du serveur vidait le récit de
+l'acheteur et la réponse du vendeur. Lu dans `react-dom` 19.3, puis reproduit par le parcours
+navigateur. Les actions rendent désormais la saisie, que les champs reprennent comme valeur
+par défaut ; le `select` du motif se remonte par une `key`, React ne mettant pas à jour la
+valeur par défaut d'un `select` après son premier rendu. L'administration créait son
+expéditeur de courriel hors de toute garde : sans adresse de relais, la décision écrite se
+soldait par une page d'erreur au lieu de l'avis. Le message anglais d'échec parlait de
+« message » pour l'ouverture et pour « servi ».
+
+**Un était écarté** : lire les octets des pièces pour en vérifier le type. C'est un non-but
+de la spec, repris des justificatifs de candidature, et `nosniff` empêche le navigateur de
+deviner un autre type que celui stocké.
 
 ### Deux pièges payés, consignés dans `docs/pieges.md`
 
@@ -194,13 +214,13 @@ répare. Symptôme : la boutique en 500 et six échecs sans rapport dans
 | --- | --- |
 | `disputes.int-spec.ts`, neuf | 27 tests |
 | Intégration, couche entière | 21 suites, 289 tests |
-| Domaine | 249 tests, couverture 100 % |
-| `packages/core` | 45 tests, couverture 100 % |
-| Boutique, vendeur, administration | 50, 9 et 47 tests unitaires |
+| Domaine | 250 tests, couverture 100 % |
+| `packages/core` | 47 tests, couverture 100 % |
+| Boutique, vendeur, administration | 52, 9 et 48 tests unitaires ; `packages/ui` 33 |
 | `lint`, `typecheck`, `test` | 15/15 chacun ; `verify:thresholds` sans orphelin |
 | `build` | 9/9 |
 | `e2e/disputes.spec.ts`, seul | 3 exécutions au vert avant la revue, 2 après |
-| Suite navigateur complète, `--workers=1` | avant la revue : 34 passés, 1 en échec ; après : 35 passés |
+| Suite navigateur complète, `--workers=1` | avant la revue : 34 passés, 1 en échec ; après : 35 passés, deux fois |
 
 ### Ce que la vérification n'a PAS établi
 
@@ -223,18 +243,23 @@ que par le test unitaire de l'action : le parcours navigateur est joué en fran�
 **Un formulaire de plus de 16 Mo n'a pas été soumis pour de vrai.** Le parcours vérifie que
 le navigateur bloque quatre pièces avant l'envoi ; il ne force pas le refus 413 de Next.
 
-### Les mineurs laissés ouverts par la revue
+### Les mineurs de la revue de branche, traités au 2026-10-20
 
-- Une violation par fichier : trois pièces trop lourdes affichent trois fois la même phrase.
-- Le champ de fichier natif est libellé dans la langue du navigateur ; donner un mode
-  `multiple` au `FileField` du kit le réglerait.
-- La page du litige de l'acheteur ne rappelle ni le motif ni les articles contestés.
-- La liste des commandes du vendeur ne signale pas un litige tranché contre lui.
-- La forme d'un message de litige est déclarée deux fois dans des props `.tsx`.
-- Des identifiants français dans le code neuf (`envois`, `litiges`, `lignes`, `fil`,
-  `piece`, `langue`, `motif`), contre la règle du dépôt.
-- Deux styles de lecture des tables de traduction, accès direct et `Object.hasOwn`.
-- Les en-têtes de réponse d'une pièce existent en quatre copies.
+Les huit, vérifiés contre le code, tenaient tous, et sont corrigés :
+
+- une faute commise par plusieurs pièces se dit une seule fois ;
+- `FileField` nomme tous les fichiers choisis, et les trois formulaires l'emploient au lieu
+  du contrôle natif, libellé dans la langue du navigateur ;
+- la page du litige de l'acheteur rappelle le motif et les articles contestés ;
+- la liste du vendeur signale aussi un litige tranché contre lui, « client à servir » ;
+- la forme d'un message est dérivée une fois de la lecture du dépôt, `TDisputeMessage` ;
+- les identifiants du code de production neuf sont en anglais ;
+- les tables de traduction de l'action de la boutique se lisent par `Object.hasOwn` ;
+- les en-têtes d'une pièce servie vivent dans `documentResponse`, de `packages/core`, que les
+  quatre routes emploient, celle des justificatifs de candidature comprise.
+
+Les deux changements visibles, le rappel côté acheteur et le signalement côté vendeur, sont
+épinglés par le parcours navigateur, chacun prouvé par une mutation qui le fait rougir.
 
 ## T6c est livrée, au 2026-10-18
 

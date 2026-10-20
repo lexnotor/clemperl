@@ -97,10 +97,10 @@ export default async function DisputePage({
                         <p className="mt-2 whitespace-pre-wrap">{message.body}</p>
                         {message.attachments.length > 0 && (
                             <ul className="mt-2 flex flex-col gap-1" aria-label={t.attachmentsOf}>
-                                {message.attachments.map((piece) => (
-                                    <li key={piece.id}>
-                                        <a href={`/api/disputes/attachments/${piece.id}`} className="underline">
-                                            {piece.originalName}
+                                {message.attachments.map((attachment) => (
+                                    <li key={attachment.id}>
+                                        <a href={`/api/disputes/attachments/${attachment.id}`} className="underline">
+                                            {attachment.originalName}
                                         </a>
                                     </li>
                                 ))}

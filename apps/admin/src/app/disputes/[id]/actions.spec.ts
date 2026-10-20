@@ -5,6 +5,7 @@ const requireAdministrator = vi.fn();
 const readDisputeForAdministration = vi.fn();
 const decideDispute = vi.fn();
 const send = vi.fn();
+const createSmtpSender = vi.fn();
 
 const redirect = vi.fn();
 
@@ -20,7 +21,7 @@ vi.mock("../../../lib/session", () => ({
 }));
 vi.mock("@clemperl/core", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@clemperl/core")>()),
-    createSmtpSender: () => ({ send: (...args: unknown[]) => send(...args) }),
+    createSmtpSender: (...args: unknown[]) => createSmtpSender(...args),
 }));
 vi.mock("@clemperl/db", () => ({
     prisma: {},
@@ -48,6 +49,7 @@ beforeEach(() => {
     requireAdministrator.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } });
     readDisputeForAdministration.mockResolvedValue({ id: "d1", status: "OPEN" });
     send.mockResolvedValue(undefined);
+    createSmtpSender.mockImplementation(() => ({ send: (...args: unknown[]) => send(...args) }));
     decideDispute.mockResolvedValue({
         orderId: "o1",
         reference: "CMD-2026-ABC123",
@@ -127,6 +129,19 @@ describe("trancher un litige", () => {
 
     // Tranché, le litige n'offre plus de formulaire : un message porté par son état
     // disparaîtrait avec lui. L'avis voyage donc dans l'URL, et la page le montre.
+    // Sans adresse de relais, la création de l'expéditeur lève elle-même. La décision est
+    // déjà écrite : l'administrateur doit lire l'avis d'échec, pas une page d'erreur.
+    it("dit l'échec quand le relais n'est pas configuré, sans lever", async () => {
+        createSmtpSender.mockImplementation(() => {
+            throw new Error("URL SMTP absente : aucun courriel ne pourrait partir.");
+        });
+
+        await expect(decide(INITIAL_DECISION_STATE, form(VALID))).rejects.toThrow("NEXT_REDIRECT");
+
+        expect(decideDispute).toHaveBeenCalled();
+        expect(redirect).toHaveBeenCalledWith("/disputes/d1?notice=mail_failed");
+    });
+
     it("tente le second courriel quand le premier échoue, et le dit par la page", async () => {
         send.mockRejectedValueOnce(new Error("relais en panne"));
 

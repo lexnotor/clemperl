@@ -244,6 +244,9 @@
       "too_many_attachments": "Joignez {maximum} pièces au plus.",
       "unsupported_media_type": "Ce format n'est pas accepté. Déposez un PDF, un JPEG ou un PNG.",
       "attachment_too_large": "Une pièce dépasse 5 Mo."
-    }
+    },
+    "chooseFiles": "Choisir des fichiers",
+    "noFiles": "Aucun fichier choisi",
+    "badgeToServe": "Litige tranché : client à servir"
   }
 }

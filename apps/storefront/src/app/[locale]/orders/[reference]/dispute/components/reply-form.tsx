@@ -1,8 +1,8 @@
 "use client";
 
-import { Button, TextAreaField } from "@clemperl/ui";
+import { Button, FileField, TextAreaField } from "@clemperl/ui";
 import { useTranslations } from "next-intl";
-import { useActionState, useId, type JSX } from "react";
+import { useActionState, type JSX } from "react";
 import { markServedAction, replyToDisputeAction } from "../actions";
 import { INITIAL_DISPUTE_FORM_STATE } from "../types/dispute-form-state.interface";
 import { checkAttachments } from "./attachment-check";
@@ -17,32 +17,37 @@ interface ReplyFormProps {
 export function ReplyForm({ reference, disputeId }: ReplyFormProps): JSX.Element {
     const t = useTranslations("disputes");
     const tErrors = useTranslations("errors.dispute");
-    const filesId = useId();
     const [state, action, pending] = useActionState(replyToDisputeAction, INITIAL_DISPUTE_FORM_STATE);
 
     return (
         <form action={action} className="mt-10 flex flex-col gap-6">
             <input type="hidden" name="reference" value={reference} />
             <input type="hidden" name="disputeId" value={disputeId} />
-            <TextAreaField label={t("reply")} name="body" required maxLength={5000} rows={4} />
-            <div className="flex flex-col gap-1">
-                <label htmlFor={filesId} className="text-sm text-muet">
-                    {t("attachments")}
-                </label>
-                <input
-                    id={filesId}
-                    type="file"
-                    name="attachments"
-                    multiple
-                    accept="application/pdf,image/jpeg,image/png"
-                    onChange={(event) =>
-                        checkAttachments(event.currentTarget, (violation) =>
-                            tErrors(violation.i18nKey.replace("errors.dispute.", "") as never, violation.i18nArgs as never),
-                        )
-                    }
-                    className="text-sm"
-                />
-            </div>
+            {/* Reprend la réponse rendue par un refus : React vide le formulaire dès que
+                l'action se termine. */}
+            <TextAreaField
+                label={t("reply")}
+                name="body"
+                required
+                maxLength={5000}
+                rows={4}
+                defaultValue={state.values?.body}
+            />
+            {/* Le champ du kit, et non le contrôle natif : celui-ci s'affiche dans la langue du
+                navigateur, pas dans celle de la page. */}
+            <FileField
+                label={t("attachments")}
+                chooseLabel={t("chooseFiles")}
+                emptyLabel={t("noFiles")}
+                name="attachments"
+                multiple
+                accept="application/pdf,image/jpeg,image/png"
+                onChange={(event) =>
+                    checkAttachments(event.currentTarget, (violation) =>
+                        tErrors(violation.i18nKey.replace("errors.dispute.", "") as never, violation.i18nArgs as never),
+                    )
+                }
+            />
             {state.message.length > 0 && (
                 <ul role="alert" className="flex flex-col gap-2 border-l-2 border-accent pl-4">
                     {state.message.map((line) => (

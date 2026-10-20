@@ -1,8 +1,8 @@
 "use client";
 
-import { Button, CheckboxField, FormSection, SelectField, TextAreaField } from "@clemperl/ui";
+import { Button, CheckboxField, FileField, FormSection, SelectField, TextAreaField } from "@clemperl/ui";
 import { useLocale, useTranslations } from "next-intl";
-import { useActionState, useId, type JSX } from "react";
+import { useActionState, type JSX } from "react";
 import { openDisputeAction } from "../actions";
 import { INITIAL_DISPUTE_FORM_STATE } from "../types/dispute-form-state.interface";
 import { checkAttachments } from "./attachment-check";
@@ -19,7 +19,6 @@ export function OpenDisputeForm({ reference, lines, reasons }: OpenDisputeFormPr
     const t = useTranslations("disputes");
     const locale = useLocale();
     const tErrors = useTranslations("errors.dispute");
-    const filesId = useId();
     const [state, action, pending] = useActionState(openDisputeAction, INITIAL_DISPUTE_FORM_STATE);
 
     return (
@@ -29,43 +28,57 @@ export function OpenDisputeForm({ reference, lines, reasons }: OpenDisputeFormPr
 
             <FormSection title={t("lines")}>
                 {lines.map((line) => (
-                    <CheckboxField key={line.id} name="lineIds" value={line.id} label={line.label} />
+                    <CheckboxField
+                        key={line.id}
+                        name="lineIds"
+                        value={line.id}
+                        label={line.label}
+                        defaultChecked={state.values?.lineIds?.includes(line.id) ?? false}
+                    />
                 ))}
             </FormSection>
 
             {/* Aucun motif choisi d'office : un choix par défaut accuserait le vendeur d'un
                 tort que l'acheteur n'a peut-être pas voulu nommer. */}
+            {/* La `key` remonte le `select` sur le motif rendu : React ne met pas à jour la
+                valeur par défaut d'un `select` après son premier rendu, et la remise à zéro du
+                formulaire reviendrait au choix vide. */}
             <SelectField
+                key={`reason-${state.values?.reason ?? ""}`}
                 label={t("reason")}
                 name="reason"
                 required
-                defaultValue=""
+                defaultValue={state.values?.reason ?? ""}
                 placeholder={t("reasonPlaceholder")}
                 options={reasons}
             />
 
-            <TextAreaField label={t("body")} name="body" required maxLength={5000} rows={6} />
+            {/* Les valeurs par défaut reprennent la saisie rendue par un refus : React vide le
+                formulaire dès que l'action se termine, et le récit serait perdu. */}
+            <TextAreaField
+                label={t("body")}
+                name="body"
+                required
+                maxLength={5000}
+                rows={6}
+                defaultValue={state.values?.body}
+            />
 
-            {/* Un champ natif : plusieurs fichiers s'y choisissent, et le navigateur les
-                nomme tous, là où le champ du kit n'en affiche qu'un. */}
-            <div className="flex flex-col gap-1">
-                <label htmlFor={filesId} className="text-sm text-muet">
-                    {t("attachments")}
-                </label>
-                <input
-                    id={filesId}
-                    type="file"
-                    name="attachments"
-                    multiple
-                    accept="application/pdf,image/jpeg,image/png"
-                    onChange={(event) =>
-                        checkAttachments(event.currentTarget, (violation) =>
-                            tErrors(violation.i18nKey.replace("errors.dispute.", "") as never, violation.i18nArgs as never),
-                        )
-                    }
-                    className="text-sm"
-                />
-            </div>
+            {/* Le champ du kit, et non le contrôle natif : celui-ci s'affiche dans la langue du
+                navigateur, pas dans celle de la page. */}
+            <FileField
+                label={t("attachments")}
+                chooseLabel={t("chooseFiles")}
+                emptyLabel={t("noFiles")}
+                name="attachments"
+                multiple
+                accept="application/pdf,image/jpeg,image/png"
+                onChange={(event) =>
+                    checkAttachments(event.currentTarget, (violation) =>
+                        tErrors(violation.i18nKey.replace("errors.dispute.", "") as never, violation.i18nArgs as never),
+                    )
+                }
+            />
 
             {state.message.length > 0 && (
                 <ul role="alert" className="flex flex-col gap-2 border-l-2 border-accent pl-4">

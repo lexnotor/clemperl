@@ -48,8 +48,19 @@ export default async function OrdersPage(): Promise<JSX.Element> {
                                 {t.payment.status[order.paymentStatus]} · {order.shipToName} ·{" "}
                                 {DATE.format(order.createdAt)}
                             </p>
-                            {order.dispute?.status === "OPEN" && (
-                                <p className="mt-1 text-xs text-accent">{messages.disputes.badge}</p>
+                            {/* Un litige tranché pour le client reste signalé : la boutique a
+                                encore à le servir, et la plateforme n'en saura rien tant que
+                                le client ne l'aura pas dit. */}
+                            {(order.dispute?.status === "OPEN" ||
+                                order.dispute?.status === "DECIDED_FOR_BUYER") && (
+                                <p
+                                    data-testid={`dispute-badge-${order.reference}`}
+                                    className="mt-1 text-xs text-accent"
+                                >
+                                    {order.dispute.status === "OPEN"
+                                        ? messages.disputes.badge
+                                        : messages.disputes.badgeToServe}
+                                </p>
                             )}
                         </li>
                     ))}

@@ -27,6 +27,8 @@ export async function replyToDisputeAsVendorAction(
     const disputeId = String(form.get("disputeId") ?? "");
     const body = String(form.get("body") ?? "").trim();
     const files = submittedFiles(form, "attachments");
+    // Rendue sur chaque refus, pour que le formulaire réaffiche la réponse.
+    const values = { body };
 
     // Rien n'est téléversé tant que le message n'est pas recevable.
     const violations = validateDisputeMessage({
@@ -34,7 +36,7 @@ export async function replyToDisputeAsVendorAction(
         attachments: files.map((file) => ({ mimeType: file.type, sizeBytes: file.size })),
     });
     if (violations.length > 0) {
-        return { message: violations.map((v) => violationText(v.i18nKey, v.i18nArgs)) };
+        return { message: violations.map((v) => violationText(v.i18nKey, v.i18nArgs)), values };
     }
 
     let stored: IStoredDocument[];
@@ -42,7 +44,7 @@ export async function replyToDisputeAsVendorAction(
         stored = await uploadDocumentBatch(`disputes/${randomUUID()}`, "evidence", files);
     } catch (error) {
         console.error("replyToDisputeAsVendor: dépôt des pièces", error);
-        return { message: [T.failed] };
+        return { message: [T.failed], values };
     }
 
     try {
@@ -57,10 +59,10 @@ export async function replyToDisputeAsVendorAction(
         // Compensation : il n'existe pas de transaction commune au stockage et à la base.
         await deleteDocuments(stored.map((document) => document.objectPath));
         if (error instanceof Error && error.message === ERROR_DISPUTE_STALE) {
-            return { message: [T.moved] };
+            return { message: [T.moved], values };
         }
         console.error("replyToDisputeAsVendor", error);
-        return { message: [T.failed] };
+        return { message: [T.failed], values };
     }
 
     revalidatePath("/orders/[id]", "page");

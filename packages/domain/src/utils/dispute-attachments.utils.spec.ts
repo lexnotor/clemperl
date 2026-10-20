@@ -26,6 +26,18 @@ describe("contrôler des pièces, dans le navigateur comme sur le serveur", () =
         ]);
     });
 
+    // Une faute se dit une fois, quel que soit le nombre de pièces qui la commettent : trois
+    // fois la même phrase n'aide personne, et l'écran s'en sert comme clé de liste.
+    it("dit chaque faute une seule fois, même commise par plusieurs pièces", () => {
+        const oversized = { mimeType: "image/jpeg", sizeBytes: 5 * 1024 * 1024 + 1 };
+        const archive = { mimeType: "application/zip", sizeBytes: 1 };
+
+        expect(keys(attachmentViolations([oversized, oversized, archive]))).toEqual([
+            "errors.dispute.attachment_too_large",
+            "errors.dispute.unsupported_media_type",
+        ]);
+    });
+
     it("refuse une pièce trop lourde et un type inconnu", () => {
         expect(
             keys(

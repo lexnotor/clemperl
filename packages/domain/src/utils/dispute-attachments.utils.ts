@@ -16,9 +16,16 @@ export function attachmentViolations(
     attachments: readonly ISubmittedAttachment[],
 ): IDisputeViolation[] {
     const violations: IDisputeViolation[] = [];
+    // Une faute se dit UNE fois, quel que soit le nombre de pièces qui la commettent : trois
+    // fois la même phrase n'aide personne, et les écrans s'en servent comme clé de liste.
+    const add = (violation: IDisputeViolation): void => {
+        if (!violations.some((known) => known.i18nKey === violation.i18nKey)) {
+            violations.push(violation);
+        }
+    };
 
     if (attachments.length > MAX_DISPUTE_ATTACHMENTS) {
-        violations.push({
+        add({
             i18nKey: "errors.dispute.too_many_attachments",
             i18nArgs: { maximum: MAX_DISPUTE_ATTACHMENTS },
         });
@@ -27,13 +34,13 @@ export function attachmentViolations(
         // Les limites sont celles des justificatifs, jamais une copie : la taille est aussi
         // le plafond du stockage.
         if (attachment.sizeBytes > MAX_DOCUMENT_SIZE_BYTES) {
-            violations.push({
+            add({
                 i18nKey: "errors.dispute.attachment_too_large",
                 i18nArgs: { maximum: MAX_DOCUMENT_SIZE_BYTES },
             });
         }
         if (!ACCEPTED_MIME_TYPES.includes(attachment.mimeType)) {
-            violations.push({
+            add({
                 i18nKey: "errors.dispute.unsupported_media_type",
                 i18nArgs: { type: attachment.mimeType },
             });

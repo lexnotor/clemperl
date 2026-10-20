@@ -291,10 +291,12 @@
     "opened": "Your dispute is open. The shop has been notified.",
     "mailFailed": "Your dispute is open, but the shop could not be notified by email. It will see it in its vendor area.",
     "moved": "This dispute changed while you were looking at the page. Reload it.",
-    "failed": "Your message could not be saved. Try again.",
+    "failed": "This could not be saved. Try again.",
     "exists": "A dispute already exists on this order.",
     "notEligible": "This order can no longer be disputed.",
     "invalidLines": "Choose items from this order.",
-    "servedConfirm": "Yes, I have been served"
+    "servedConfirm": "Yes, I have been served",
+    "chooseFiles": "Choose files",
+    "noFiles": "No file chosen"
   }
 }

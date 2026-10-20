@@ -125,12 +125,36 @@ describe("ouvrir un litige", () => {
         expect(state.message).toEqual(["disputes.exists"]);
     });
 
+    // React vide un formulaire dès que son action se termine, refus compris : l'action rend
+    // donc la saisie, que le formulaire réaffiche, sans quoi l'acheteur perdrait son récit.
+    it("rend la saisie quand l'ouverture est refusée", async () => {
+        openDispute.mockRejectedValue(new Error("DISPUTE_EXISTS"));
+
+        const state = await openDisputeAction(INITIAL_DISPUTE_FORM_STATE, form(VALID));
+
+        expect(state.values).toEqual({
+            body: "Le fermoir est cassé.",
+            reason: "DAMAGED",
+            lineIds: ["l1"],
+        });
+    });
+
+    it("rend la saisie quand la validation refuse, motif vide compris", async () => {
+        const state = await openDisputeAction(INITIAL_DISPUTE_FORM_STATE, form({ ...VALID, reason: "" }));
+
+        expect(state.values).toEqual({ body: "Le fermoir est cassé.", reason: "", lineIds: ["l1"] });
+    });
+
     it("traduit chaque refus du dépôt par son propre message", async () => {
         for (const [code, key] of [
             ["DISPUTE_NOT_ELIGIBLE", "disputes.notEligible"],
             ["DISPUTE_INVALID_LINES", "disputes.invalidLines"],
             ["ORDER_NOT_FOUND", "disputes.failed"],
             ["une panne", "disputes.failed"],
+            // Un message d'erreur qui serait un nom de propriété d'objet, `constructor` ou
+            // `toString`, ne doit pas être lu comme un refus connu.
+            ["constructor", "disputes.failed"],
+            ["toString", "disputes.failed"],
         ]) {
             openDispute.mockRejectedValueOnce(new Error(code));
             const state = await openDisputeAction(INITIAL_DISPUTE_FORM_STATE, form(VALID));
@@ -230,6 +254,7 @@ describe("répondre dans un litige", () => {
 
         expect(state.message).toEqual(["disputes.moved"]);
         expect(deleteDocuments).toHaveBeenCalledWith([STORED.objectPath]);
+        expect(state.values).toEqual({ body: "Toujours rien reçu." });
     });
 });
 

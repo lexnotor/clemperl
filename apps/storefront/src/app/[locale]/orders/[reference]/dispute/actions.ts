@@ -76,7 +76,10 @@ function translateViolations(
     t: TTranslate,
 ): string[] {
     return violations.map((violation) => {
-        const key = VIOLATION_KEYS[violation.i18nKey];
+        // Par `Object.hasOwn` : une clé nommée `constructor` rendrait une fonction.
+        const key = Object.hasOwn(VIOLATION_KEYS, violation.i18nKey)
+            ? VIOLATION_KEYS[violation.i18nKey]
+            : undefined;
         return key ? tErrors(key, violation.i18nArgs as never) : t("failed");
     });
 }
@@ -104,6 +107,9 @@ export async function openDisputeAction(
     const posted = String(form.get("locale") ?? "");
     const locale = isSupportedLocale(posted) ? posted : DEFAULT_LOCALE;
     const files = submittedFiles(form, "attachments");
+    // Rendue sur chaque refus : React vide le formulaire dès que l'action se termine, et
+    // l'acheteur perdrait sinon son récit. Les fichiers, eux, ne se réinjectent pas.
+    const values = { body, reason, lineIds };
 
     // Rien n'est téléversé tant que l'ouverture n'est pas recevable : chaque formulaire
     // refusé laisserait sinon un orphelin dans le bucket.
@@ -114,7 +120,7 @@ export async function openDisputeAction(
         attachments: files.map((file) => ({ mimeType: file.type, sizeBytes: file.size })),
     });
     if (violations.length > 0) {
-        return { message: translateViolations(violations, tErrors, t) };
+        return { message: translateViolations(violations, tErrors, t), values };
     }
 
     let stored: IStoredDocument[];
@@ -122,7 +128,7 @@ export async function openDisputeAction(
         stored = await uploadDocumentBatch(`disputes/${randomUUID()}`, "evidence", files);
     } catch (error) {
         console.error("openDispute: dépôt des pièces", error);
-        return { message: [t("failed")] };
+        return { message: [t("failed")], values };
     }
 
     let opened: Awaited<ReturnType<typeof openDispute>>;
@@ -141,11 +147,16 @@ export async function openDisputeAction(
     } catch (error) {
         // Compensation : il n'existe pas de transaction commune au stockage et à la base.
         await deleteDocuments(stored.map((document) => document.objectPath));
-        const key = error instanceof Error ? REFUSALS[error.message] : undefined;
+        // Par `Object.hasOwn` : un message d'erreur inattendu comme `constructor` ou
+        // `toString` rendrait sinon une fonction, prise pour un refus connu.
+        const key =
+            error instanceof Error && Object.hasOwn(REFUSALS, error.message)
+                ? REFUSALS[error.message]
+                : undefined;
         if (key === undefined) {
             console.error("openDispute", error);
         }
-        return { message: [t(key ?? "failed")] };
+        return { message: [t(key ?? "failed")], values };
     }
 
     // Le courriel part APRÈS l'écriture, et ne la défait pas : le litige existe. L'écran dit
@@ -186,13 +197,15 @@ export async function replyToDisputeAction(
     const disputeId = String(form.get("disputeId") ?? "");
     const body = String(form.get("body") ?? "").trim();
     const files = submittedFiles(form, "attachments");
+    // Rendue sur chaque refus, pour que le formulaire réaffiche la réponse.
+    const values = { body };
 
     const violations = validateDisputeMessage({
         body,
         attachments: files.map((file) => ({ mimeType: file.type, sizeBytes: file.size })),
     });
     if (violations.length > 0) {
-        return { message: translateViolations(violations, tErrors, t) };
+        return { message: translateViolations(violations, tErrors, t), values };
     }
 
     let stored: IStoredDocument[];
@@ -200,7 +213,7 @@ export async function replyToDisputeAction(
         stored = await uploadDocumentBatch(`disputes/${randomUUID()}`, "evidence", files);
     } catch (error) {
         console.error("replyToDispute: dépôt des pièces", error);
-        return { message: [t("failed")] };
+        return { message: [t("failed")], values };
     }
 
     try {
@@ -214,10 +227,10 @@ export async function replyToDisputeAction(
         await deleteDocuments(stored.map((document) => document.objectPath));
         // Tranché ou servi pendant que la page était ouverte : la base a refusé le message.
         if (error instanceof Error && error.message === ERROR_DISPUTE_STALE) {
-            return { message: [t("moved")] };
+            return { message: [t("moved")], values };
         }
         console.error("replyToDispute", error);
-        return { message: [t("failed")] };
+        return { message: [t("failed")], values };
     }
 
     revalidatePath("/[locale]/orders/[reference]/dispute", "page");

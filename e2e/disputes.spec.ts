@@ -111,11 +111,32 @@ test("un acheteur conteste une commande expédiée, l'administration lui donne r
 
     await preuves.setInputFiles("e2e/fixtures/product.jpg");
     await expect(preuves).toHaveJSProperty("validationMessage", "");
-    await buyer.getByRole("button", { name: "Ouvrir le litige" }).click();
+    // Un SECOND onglet ouvre le litige le premier. Le formulaire du premier sera refusé, et
+    // l'acheteur ne doit pas perdre ce qu'il a écrit : React vide un formulaire dès que son
+    // action se termine, refus compris.
+    const racer = await buyerContext.newPage();
+    await racer.goto(`${URL_STOREFRONT}/orders/${reference}/dispute`);
+    await racer.waitForLoadState("networkidle");
+    await racer.getByRole("checkbox", { name: new RegExp(title) }).check();
+    await racer.getByRole("combobox", { name: "Motif" }).selectOption({ label: "Arrivé abîmé" });
+    await racer.getByLabel("Ce qui s'est passé").fill("Bague reçue avec le chaton fendu.");
+    await racer.getByLabel("Preuves", { exact: false }).setInputFiles("e2e/fixtures/product.jpg");
+    await racer.getByRole("button", { name: "Ouvrir le litige" }).click();
+    await racer.waitForURL(/\/dispute\?notice=opened$/, AFTER_ACTION);
+    await expect(racer.getByRole("status")).toContainText("Votre litige est ouvert");
+    await racer.close();
 
-    await buyer.waitForURL(/\/dispute\?notice=opened$/, AFTER_ACTION);
-    await expect(buyer.getByRole("status")).toContainText("Votre litige est ouvert");
+    await buyer.getByRole("button", { name: "Ouvrir le litige" }).click();
+    await expect(buyer.locator("main").getByRole("alert")).toContainText("Un litige existe déjà", AFTER_ACTION);
+    await expect(buyer.getByLabel("Ce qui s'est passé")).toHaveValue("Le chaton de la bague est arrivé fendu.");
+    await expect(buyer.getByRole("combobox", { name: "Motif" })).toHaveValue("DAMAGED");
+    await expect(buyer.getByRole("checkbox", { name: new RegExp(title) })).toBeChecked();
+
+    await buyer.goto(`${URL_STOREFRONT}/orders/${reference}/dispute`);
     await expect(buyer.getByTestId("dispute-status")).toHaveText("En cours");
+    // L'acheteur relit ce qu'il conteste : le motif et les articles désignés.
+    await expect(buyer.getByTestId("dispute-reason")).toHaveText("Arrivé abîmé");
+    await expect(buyer.getByTestId("dispute-lines")).toContainText(title);
 
     // La boutique est prévenue par courriel.
     await expectSubjectFor(request, vendorAddress, `conteste la commande ${reference}`);
@@ -147,6 +168,10 @@ test("un acheteur conteste une commande expédiée, l'administration lui donne r
     expect(pieceVendeur.status()).toBe(200);
     expect(pieceVendeur.headers()["content-type"]).toBe("application/pdf");
 
+    // La boutique commence une seconde réponse, que la décision va rendre caduque.
+    await page.goto(vendorOrderUrl);
+    await page.getByLabel("Votre réponse").fill("Une dernière précision sur l'envoi.");
+
     // L'ADMINISTRATION tranche sans attendre les sept jours de silence.
     const adminContext = await browser.newContext();
     const admin = await adminContext.newPage();
@@ -167,6 +192,17 @@ test("un acheteur conteste une commande expédiée, l'administration lui donne r
     await expect(admin.getByTestId("dispute-status")).toHaveText("Tranché pour l'acheteur");
     // Tranché : le formulaire de décision n'est plus rendu.
     await expect(admin.getByRole("button", { name: "Trancher" })).toHaveCount(0);
+
+    // Envoyée après la décision, la réponse de la boutique est refusée, et elle garde ce
+    // qu'elle a écrit.
+    await page.getByRole("button", { name: "Envoyer" }).click();
+    await expect(page.locator("main").getByRole("alert")).toContainText("Ce litige a changé", AFTER_ACTION);
+    await expect(page.getByLabel("Votre réponse")).toHaveValue("Une dernière précision sur l'envoi.");
+
+    // Tranché contre elle, la commande reste signalée dans la liste de la boutique : elle a
+    // encore un client à servir.
+    await page.goto(`${URL_VENDOR}/orders`);
+    await expect(page.getByTestId(`dispute-badge-${reference}`)).toHaveText("Litige tranché : client à servir");
 
     // Les deux parties reçoivent la décision.
     await expectSubjectFor(request, buyerAddress, "décision en votre faveur");
