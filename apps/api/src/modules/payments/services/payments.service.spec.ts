@@ -18,6 +18,7 @@ import {
 import { ERROR_NO_ADAPTER, ERROR_NOT_A_MEMBER, ERROR_PROVIDER_UNKNOWN } from "../constants";
 import type { IPaymentsEnv } from "../interfaces";
 import { decryptPayload } from "../utils";
+import type { RealtimeService } from "../../realtime/services";
 import { PaymentsService } from "./payments.service";
 
 // Les dépôts sont remplacés ; les constantes d'erreur restent les vraies, pour que les
@@ -49,10 +50,13 @@ const order = (method: string) => ({
     method,
 });
 
+const publish = jest.fn();
+
 const service = (simulator = true) =>
     new PaymentsService(
         buildRegistry({ simulator, secret: SECRET, publicUrl: ENV.apiPublicUrl }),
         ENV,
+        { publish } as unknown as RealtimeService,
     );
 
 // Un webhook réellement signé : l'adapter simulé est le vrai, seule la base est remplacée.
@@ -158,6 +162,12 @@ describe("PaymentsService.settle", () => {
             // Simulateur allumé : carte et mobile money ont un adapter, donc ne se pointent pas.
             offlineMethods: ["CASH_ON_DELIVERY", "BANK_TRANSFER", "OFF_PLATFORM"],
         });
+        expect(publish).toHaveBeenCalledTimes(1);
+        expect(publish).toHaveBeenCalledWith({
+            kind: "payment.status_changed",
+            orderId: "order-1",
+            by: "VENDOR",
+        });
     });
 
     it("compte toutes les méthodes pour hors ligne quand le simulateur est éteint", async () => {
@@ -186,12 +196,23 @@ describe("PaymentsService.settle", () => {
             service().settle({ userId: "user-1", orderId: "order-1" }),
         ).rejects.toMatchObject({ message: ERROR_NOT_A_MEMBER });
         expect(settleOffline).not.toHaveBeenCalled();
+        expect(publish).not.toHaveBeenCalled();
+    });
+
+    it("n'émet rien quand le pointage est refusé", async () => {
+        jest.mocked(readVendorForMember).mockResolvedValue({ id: "vendor-1" } as never);
+        jest.mocked(settleOffline).mockRejectedValue(new Error("refus"));
+
+        await expect(
+            service().settle({ userId: "user-1", orderId: "order-1" }),
+        ).rejects.toMatchObject({ message: "refus" });
+        expect(publish).not.toHaveBeenCalled();
     });
 });
 
 describe("PaymentsService.receive", () => {
     it("applique un événement signé et stocke son payload chiffré, tel que reçu", async () => {
-        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true });
+        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true, orderId: "order_1" });
         const { raw, headers } = signed({ providerRef: "sim_1", status: "SETTLED" });
 
         const accepted = await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
@@ -207,10 +228,52 @@ describe("PaymentsService.receive", () => {
         // Le stocké n'est pas le clair, et se déchiffre en exactement ce qui est arrivé.
         expect(input?.rawPayload.toString("utf8")).not.toContain("sim_1");
         expect(decryptPayload(ENV.payloadKey, input?.rawPayload as Buffer)).toBe(raw);
+        expect(publish).toHaveBeenCalledTimes(1);
+        expect(publish).toHaveBeenCalledWith({
+            kind: "payment.status_changed",
+            orderId: "order_1",
+            by: "PROVIDER",
+        });
+    });
+
+    it("émet aussi pour un paiement échoué", async () => {
+        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true, orderId: "order_1" });
+        const { raw, headers } = signed({ providerRef: "sim_1", status: "FAILED" });
+
+        await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
+
+        expect(publish).toHaveBeenCalledTimes(1);
+    });
+
+    it("n'émet rien pour un événement en attente, l'état de paiement n'ayant pas bougé", async () => {
+        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true, orderId: "order_1" });
+        const { raw, headers } = signed({ providerRef: "sim_1", status: "PENDING" });
+
+        await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
+
+        expect(publish).not.toHaveBeenCalled();
+    });
+
+    it("n'émet rien pour un rejeu", async () => {
+        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: false, orderId: "order_1" });
+        const { raw, headers } = signed({ providerRef: "sim_1", status: "SETTLED" });
+
+        await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
+
+        expect(publish).not.toHaveBeenCalled();
+    });
+
+    it("n'émet rien quand la commande n'est pas connue", async () => {
+        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true, orderId: null });
+        const { raw, headers } = signed({ providerRef: "sim_1", status: "SETTLED" });
+
+        await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
+
+        expect(publish).not.toHaveBeenCalled();
     });
 
     it("transmet un événement en attente tel quel", async () => {
-        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true });
+        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true, orderId: "order_1" });
         const { raw, headers } = signed({ providerRef: "sim_1", status: "PENDING" });
 
         await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
@@ -224,7 +287,7 @@ describe("PaymentsService.receive", () => {
     // Le fournisseur rejoue ses webhooks tant qu'il ne reçoit pas 200 : un rejeu n'est pas
     // un échec.
     it("tient un rejeu pour accepté", async () => {
-        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: false });
+        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: false, orderId: "order_1" });
         const { raw, headers } = signed({ providerRef: "sim_1", status: "SETTLED" });
 
         await expect(
@@ -277,5 +340,6 @@ describe("PaymentsService.receive", () => {
         await expect(
             service().receive({ provider: SIMULATED_PROVIDER, raw, headers }),
         ).rejects.toMatchObject({ message: ERROR_PAYMENT_REF_UNKNOWN });
+        expect(publish).not.toHaveBeenCalled();
     });
 });

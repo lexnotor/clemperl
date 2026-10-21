@@ -298,5 +298,11 @@
     "servedConfirm": "Oui, j'ai été servi",
     "chooseFiles": "Choisir des fichiers",
     "noFiles": "Aucun fichier choisi"
+  },
+  "realtime": {
+    "orderStatusChanged": "Votre commande {reference} a été mise à jour.",
+    "paymentStatusChanged": "Le paiement de votre commande {reference} a été mis à jour.",
+    "disputeMessagePosted": "La boutique a répondu au litige de votre commande {reference}.",
+    "disputeDecided": "L'administration a tranché le litige de votre commande {reference}."
   }
 }

@@ -210,7 +210,7 @@ describe("applyProviderEvent", () => {
             rawPayload: Buffer.from("chiffré"),
         });
 
-        expect(result.changed).toBe(true);
+        expect(result).toEqual({ changed: true, orderId: order.id });
         const after = await prisma.order.findUnique({ where: { id: order.id } });
         expect(after?.paymentStatus).toBe("SETTLED");
         const attempts = await prisma.orderPayment.findMany({ where: { orderId: order.id } });
@@ -251,7 +251,10 @@ describe("applyProviderEvent", () => {
         });
         const orderBefore = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
 
-        expect((await applyProviderEvent(prisma, event)).changed).toBe(false);
+        expect(await applyProviderEvent(prisma, event)).toEqual({
+            changed: false,
+            orderId: order.id,
+        });
 
         const attempts = await prisma.orderPayment.findMany({ where: { orderId: order.id } });
         expect(attempts).toHaveLength(1);

@@ -157,7 +157,7 @@ test("un article dépublié entre le panier et la validation est refusé", async
     await inMain(buyer, title).click();
     await buyer.waitForURL(/\/shops\/[^/]+\/[^/]+$/);
     await buyer.getByRole("button", { name: "Ajouter au panier" }).click();
-    await expect(buyer.getByRole("status")).toContainText("Ajouté à votre panier");
+    await expect(buyer.getByRole("main").getByRole("status")).toContainText("Ajouté à votre panier");
 
     // Le vendeur dépublie PENDANT que l'acheteur remplit son adresse.
     await buyer.goto(`${URL_STOREFRONT}/checkout`);

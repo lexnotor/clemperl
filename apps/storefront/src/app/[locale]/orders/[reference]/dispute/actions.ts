@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import {
     createSmtpSender,
     deleteDocuments,
+    publishRealtimeEvent,
     submittedFiles,
     uploadDocumentBatch,
     type IStoredDocument,
@@ -159,6 +160,9 @@ export async function openDisputeAction(
         return { message: [t(key ?? "failed")], values };
     }
 
+    // Le dépôt vient avant le courriel et avant `redirect`, qui lève et l'empêcherait.
+    await publishRealtimeEvent({ kind: "dispute.opened", disputeId: opened.disputeId });
+
     // Le courriel part APRÈS l'écriture, et ne la défait pas : le litige existe. L'écran dit
     // seulement que la boutique n'a pas été prévenue, et elle le verra dans son espace.
     let notice: "opened" | "mail_failed" = "opened";
@@ -233,6 +237,8 @@ export async function replyToDisputeAction(
         return { message: [t("failed")], values };
     }
 
+    await publishRealtimeEvent({ kind: "dispute.message_posted", disputeId, by: "BUYER" });
+
     revalidatePath("/[locale]/orders/[reference]/dispute", "page");
     return { message: [] };
 }
@@ -274,6 +280,8 @@ export async function markServedAction(
         console.error("markServed", error);
         return { message: [t("failed")] };
     }
+
+    await publishRealtimeEvent({ kind: "dispute.served", disputeId: dispute.id });
 
     revalidatePath("/[locale]/orders/[reference]", "page");
     revalidatePath("/[locale]/orders/[reference]/dispute", "page");

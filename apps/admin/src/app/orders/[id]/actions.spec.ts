@@ -4,10 +4,15 @@ import messages from "@clemperl/i18n/messages/admin/fr.json";
 const requireAdministrator = vi.fn();
 const readOrderForAdministration = vi.fn();
 const setOrderStatusAsAdministrator = vi.fn();
+const publishRealtimeEvent = vi.fn();
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("../../../lib/session", () => ({
     requireAdministrator: (...args: unknown[]) => requireAdministrator(...args),
+}));
+vi.mock("@clemperl/core", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@clemperl/core")>()),
+    publishRealtimeEvent: (...args: unknown[]) => publishRealtimeEvent(...args),
 }));
 vi.mock("@clemperl/db", () => ({
     prisma: {},
@@ -32,6 +37,7 @@ beforeEach(() => {
     vi.resetAllMocks();
     requireAdministrator.mockResolvedValue({ user: { id: "u1", role: "ADMIN" } });
     setOrderStatusAsAdministrator.mockResolvedValue(undefined);
+    publishRealtimeEvent.mockResolvedValue(undefined);
 });
 
 describe("advance", () => {
@@ -179,6 +185,30 @@ describe("advance", () => {
             from: "PLACED",
             status: "CANCELLED",
         });
+    });
+
+    it("dépose le changement d'état, signé de l'administration", async () => {
+        readOrderForAdministration.mockResolvedValue({ id: "o1", status: "PLACED" });
+
+        await advance(INITIAL_STATE, form({ orderId: "o1", action: "ACCEPT" }));
+
+        expect(publishRealtimeEvent).toHaveBeenCalledTimes(1);
+        expect(publishRealtimeEvent).toHaveBeenCalledWith({
+            kind: "order.status_changed",
+            orderId: "o1",
+            by: "ADMIN",
+        });
+    });
+
+    it("ne dépose rien quand l'écriture est refusée", async () => {
+        readOrderForAdministration.mockResolvedValue({ id: "o1", status: "PLACED" });
+        setOrderStatusAsAdministrator.mockRejectedValue(new Error(ERROR_ORDER_STATUS_STALE));
+        await advance(INITIAL_STATE, form({ orderId: "o1", action: "ACCEPT" }));
+
+        readOrderForAdministration.mockResolvedValue({ id: "o1", status: "SHIPPED" });
+        await advance(INITIAL_STATE, form({ orderId: "o1", action: "ACCEPT" }));
+
+        expect(publishRealtimeEvent).not.toHaveBeenCalled();
     });
 
     it("traduit le refus du dépôt quand la commande a bougé", async () => {

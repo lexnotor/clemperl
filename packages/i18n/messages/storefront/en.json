@@ -298,5 +298,11 @@
     "servedConfirm": "Yes, I have been served",
     "chooseFiles": "Choose files",
     "noFiles": "No file chosen"
+  },
+  "realtime": {
+    "orderStatusChanged": "Your order {reference} has been updated.",
+    "paymentStatusChanged": "The payment for your order {reference} has been updated.",
+    "disputeMessagePosted": "The shop has replied to the dispute on your order {reference}.",
+    "disputeDecided": "The administration has decided the dispute on your order {reference}."
   }
 }

@@ -1,9 +1,16 @@
-import { deleteMediaPrefix, isMediaNotFound, readMedia, uploadMedia } from "@clemperl/core";
+import {
+    E_REALTIME_EVENT,
+    deleteMediaPrefix,
+    isMediaNotFound,
+    readMedia,
+    uploadMedia,
+} from "@clemperl/core";
 import { markImageFailed, markImageReady, prisma } from "@clemperl/db";
 import { IMAGE_FAILURE, derivativePath, mediaPrefix } from "@clemperl/domain";
 import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import type { Job } from "bullmq";
+import { RealtimeService } from "../../realtime/services";
 import { PRODUCT_IMAGE_CONCURRENCY, PRODUCT_IMAGE_QUEUE } from "../media.constants";
 import { ImageDerivativesService } from "../services/image-derivatives.service";
 
@@ -22,8 +29,19 @@ function toArrayBuffer(buffer: Buffer): ArrayBuffer {
 export class ProductImageProcessor extends WorkerHost {
     private readonly logger = new Logger(ProductImageProcessor.name);
 
-    constructor(private readonly derivatives: ImageDerivativesService) {
+    constructor(
+        private readonly derivatives: ImageDerivativesService,
+        private readonly realtime: RealtimeService,
+    ) {
         super();
+    }
+
+    // Annonce l'issue d'une image après son écriture. `publish` ne rejette jamais.
+    private announce(imageId: string): Promise<void> {
+        return this.realtime.publish({
+            kind: E_REALTIME_EVENT.PRODUCT_IMAGE_PROCESSED,
+            imageId,
+        });
     }
 
     async process(job: Job<IProductImageJob>): Promise<void> {
@@ -64,6 +82,7 @@ export class ProductImageProcessor extends WorkerHost {
                 imageId: image.id,
                 reason: IMAGE_FAILURE.objectMissing,
             });
+            await this.announce(image.id);
             return;
         }
 
@@ -80,6 +99,7 @@ export class ProductImageProcessor extends WorkerHost {
 
             this.logger.warn(`Image ${image.id} refusée : ${reason}`, error);
             await markImageFailed(prisma, { imageId: image.id, reason });
+            await this.announce(image.id);
             // Un fichier dont on SAIT qu'il ne servira jamais n'a pas à occuper d'espace.
             await deleteMediaPrefix(mediaPrefix(image.objectPath));
             return;
@@ -100,6 +120,7 @@ export class ProductImageProcessor extends WorkerHost {
             width: result.width,
             height: result.height,
         });
+        await this.announce(image.id);
     }
 
     // `process` lève quand le traitement tombe pour une raison qui n'est PAS l'image :
@@ -107,8 +128,8 @@ export class ProductImageProcessor extends WorkerHost {
     // qu'on veut, mais quand la dernière tentative tombe aussi, il range le job dans sa
     // liste d'échecs et plus personne ne touche à la ligne.
     //
-    // Sans ce relais, elle resterait `PENDING` POUR TOUJOURS : l'écran du vendeur
-    // l'interroge toutes les deux secondes, n'affiche jamais ni photo ni raison, et rien
+    // Sans ce relais, elle resterait `PENDING` POUR TOUJOURS : l'écran du vendeur l'affiche
+    // en traitement et attend un avis qui ne vient jamais, sans photo ni raison, et rien
     // dans l'application ne dit que c'est fini. C'est le seul état dont on ne sort pas.
     @OnWorkerEvent("failed")
     async onFailed(job: Job<IProductImageJob>, error: Error): Promise<void> {
@@ -137,6 +158,7 @@ export class ProductImageProcessor extends WorkerHost {
                 imageId: job.data.imageId,
                 reason: IMAGE_FAILURE.processingFailed,
             });
+            await this.announce(job.data.imageId);
         } catch (writeError) {
             this.logger.error(`Échec non enregistré pour ${job.data.imageId}`, writeError);
         }

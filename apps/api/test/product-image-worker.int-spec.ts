@@ -4,6 +4,7 @@ import { readMedia, uploadMedia } from "@clemperl/core";
 import { createPendingImage, prisma } from "@clemperl/db";
 import { buildOriginalPath, derivativePath } from "@clemperl/domain";
 import { Test } from "@nestjs/testing";
+import { RealtimeService } from "../src/modules/realtime/services";
 import { ProductImageProcessor } from "../src/modules/media/processors/product-image.processor";
 import { ImageDerivativesService } from "../src/modules/media/services/image-derivatives.service";
 
@@ -49,6 +50,9 @@ function toArrayBuffer(buffer: Buffer): ArrayBuffer {
     ) as ArrayBuffer;
 }
 
+const publish = jest.fn();
+const processed = (imageId: string) => ({ kind: "product_image.processed", imageId });
+
 describe("le worker, contre un vrai stockage", () => {
     let processor: ProductImageProcessor;
 
@@ -57,9 +61,20 @@ describe("le worker, contre un vrai stockage", () => {
         // et l'appeler directement éprouve le traitement sans dépendre de Redis ni de
         // l'ordonnancement de BullMQ.
         const module = await Test.createTestingModule({
-            providers: [ImageDerivativesService, ProductImageProcessor],
+            // L'émission n'est pas l'objet de cette suite : le service est remplacé par un
+            // vide, pour ne monter ni passerelle ni file.
+            providers: [
+                ImageDerivativesService,
+                ProductImageProcessor,
+                { provide: RealtimeService, useValue: { publish } },
+            ],
         }).compile();
         processor = module.get(ProductImageProcessor);
+    });
+
+    beforeEach(() => {
+        publish.mockReset();
+        publish.mockResolvedValue(undefined);
     });
 
     afterAll(async () => {
@@ -91,6 +106,8 @@ describe("le worker, contre un vrai stockage", () => {
         expect(after?.width).toBe(1200);
         expect(after?.height).toBe(800);
         expect(after?.failureReason).toBeNull();
+        expect(publish).toHaveBeenCalledTimes(1);
+        expect(publish).toHaveBeenCalledWith(processed(imageId));
 
         // Les trois existent RÉELLEMENT dans le bucket : `READY` ne doit jamais être une
         // promesse, c'est la garantie sur laquelle T2d s'appuiera sans rien vérifier.
@@ -108,6 +125,8 @@ describe("le worker, contre un vrai stockage", () => {
         const after = await prisma.productImage.findUnique({ where: { id: imageId } });
         expect(after?.status).toBe("FAILED");
         expect(after?.failureReason).toBe("unreadable");
+        expect(publish).toHaveBeenCalledTimes(1);
+        expect(publish).toHaveBeenCalledWith(processed(imageId));
 
         // Un fichier dont on SAIT qu'il ne servira jamais n'a pas à occuper d'espace.
         await expect(readMedia(objectPath)).rejects.toThrow();
@@ -124,6 +143,8 @@ describe("le worker, contre un vrai stockage", () => {
         const after = await prisma.productImage.findUnique({ where: { id: imageId } });
         expect(after?.status).toBe("FAILED");
         expect(after?.failureReason).toBe("too_large");
+        expect(publish).toHaveBeenCalledTimes(1);
+        expect(publish).toHaveBeenCalledWith(processed(imageId));
         await expect(readMedia(objectPath)).rejects.toThrow();
     });
 
@@ -153,6 +174,8 @@ describe("le worker, contre un vrai stockage", () => {
         const after = await prisma.productImage.findUnique({ where: { id: image.id } });
         expect(after?.status).toBe("FAILED");
         expect(after?.failureReason).toBe("object_missing");
+        expect(publish).toHaveBeenCalledTimes(1);
+        expect(publish).toHaveBeenCalledWith(processed(image.id));
     });
 
     // Le vendeur a supprimé le produit pendant que le job attendait dans la file. Il n'y
@@ -168,6 +191,7 @@ describe("le worker, contre un vrai stockage", () => {
 
         const after = await prisma.productImage.findUnique({ where: { id: imageId } });
         expect(after?.status).toBe("PENDING");
+        expect(publish).not.toHaveBeenCalled();
     });
 
     // Le client de stockage lève pour TOUT. Confondre une panne passagère avec un objet
@@ -194,8 +218,8 @@ describe("le worker, contre un vrai stockage", () => {
 
     // Le traitement peut tomber sans que l'image y soit pour rien : stockage injoignable,
     // base coupée. BullMQ retente alors, puis abandonne, et sans ce relais, la ligne
-    // resterait `PENDING` POUR TOUJOURS, avec l'écran du vendeur qui l'interroge toutes
-    // les deux secondes jusqu'à ce qu'il ferme l'onglet.
+    // resterait `PENDING` POUR TOUJOURS, avec l'écran du vendeur qui l'affiche en
+    // traitement dans l'attente d'un avis qui ne vient jamais.
     it("marque FAILED quand le job a épuisé ses tentatives", async () => {
         const { imageId } = await depose("photo.jpg", "jpg");
 
@@ -207,6 +231,8 @@ describe("le worker, contre un vrai stockage", () => {
         const after = await prisma.productImage.findUnique({ where: { id: imageId } });
         expect(after?.status).toBe("FAILED");
         expect(after?.failureReason).toBe("processing_failed");
+        expect(publish).toHaveBeenCalledTimes(1);
+        expect(publish).toHaveBeenCalledWith(processed(imageId));
     });
 
     // Tant qu'il reste une tentative, la ligne ne bouge pas : la marquer en échec ferait
@@ -221,6 +247,7 @@ describe("le worker, contre un vrai stockage", () => {
 
         const after = await prisma.productImage.findUnique({ where: { id: imageId } });
         expect(after?.status).toBe("PENDING");
+        expect(publish).not.toHaveBeenCalled();
     });
 
     // NestJS enregistre ce relais par `worker.on("failed", …)`, et BullMQ n'attend pas la
@@ -235,6 +262,7 @@ describe("le worker, contre un vrai stockage", () => {
                 new Error("base coupée"),
             ),
         ).resolves.toBeUndefined();
+        expect(publish).not.toHaveBeenCalled();
     });
 
     // La ligne a été supprimée pendant que le job attendait. Même raisonnement.
@@ -243,5 +271,6 @@ describe("le worker, contre un vrai stockage", () => {
         await prisma.productImage.delete({ where: { id: imageId } });
 
         await expect(processor.process({ data: { imageId } } as never)).resolves.toBeUndefined();
+        expect(publish).not.toHaveBeenCalled();
     });
 });

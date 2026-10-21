@@ -1,6 +1,6 @@
 "use server";
 
-import { createSmtpSender } from "@clemperl/core";
+import { createSmtpSender, publishRealtimeEvent } from "@clemperl/core";
 import {
     ERROR_DISPUTE_NOT_FOUND,
     ERROR_DISPUTE_STALE,
@@ -82,6 +82,9 @@ export async function decide(_previous: IDecisionState, form: FormData): Promise
         console.error("decide", error);
         return { message: [ERRORS.failed] };
     }
+
+    // Le dépôt vient avant les courriels et avant `redirect`, qui lève et l'empêcherait.
+    await publishRealtimeEvent({ kind: "dispute.decided", disputeId: dispute.id });
 
     // Les deux courriels partent APRÈS l'écriture, et les deux sont TENTÉS même si le
     // premier échoue : une partie ne doit pas rester sans nouvelles parce que le relais a

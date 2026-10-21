@@ -5,6 +5,7 @@ const requireVendorMembership = vi.fn();
 const postDisputeMessageAsVendor = vi.fn();
 const uploadDocumentBatch = vi.fn();
 const deleteDocuments = vi.fn();
+const publishRealtimeEvent = vi.fn();
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("../../../lib/session", () => ({
@@ -14,6 +15,7 @@ vi.mock("@clemperl/core", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@clemperl/core")>()),
     uploadDocumentBatch: (...args: unknown[]) => uploadDocumentBatch(...args),
     deleteDocuments: (...args: unknown[]) => deleteDocuments(...args),
+    publishRealtimeEvent: (...args: unknown[]) => publishRealtimeEvent(...args),
 }));
 vi.mock("@clemperl/db", () => ({
     prisma: {},
@@ -44,6 +46,7 @@ beforeEach(() => {
     uploadDocumentBatch.mockResolvedValue([STORED]);
     deleteDocuments.mockResolvedValue(undefined);
     postDisputeMessageAsVendor.mockResolvedValue(undefined);
+    publishRealtimeEvent.mockResolvedValue(undefined);
 });
 
 describe("répondre à un litige, côté boutique", () => {
@@ -72,6 +75,32 @@ describe("répondre à un litige, côté boutique", () => {
             body: "Voici le bon signé.",
             attachments: [STORED],
         });
+    });
+
+    it("dépose le message de la boutique", async () => {
+        await replyToDisputeAsVendorAction(
+            INITIAL_DISPUTE_FORM_STATE,
+            form({ disputeId: "d1", body: "Voici le bon signé." }),
+        );
+
+        expect(publishRealtimeEvent).toHaveBeenCalledTimes(1);
+        expect(publishRealtimeEvent).toHaveBeenCalledWith({
+            kind: "dispute.message_posted",
+            disputeId: "d1",
+            by: "VENDOR",
+        });
+    });
+
+    it("ne dépose rien quand le message est refusé", async () => {
+        postDisputeMessageAsVendor.mockRejectedValue(new Error("DISPUTE_STALE"));
+        await replyToDisputeAsVendorAction(
+            INITIAL_DISPUTE_FORM_STATE,
+            form({ disputeId: "d1", body: "Trop tard ?" }),
+        );
+
+        await replyToDisputeAsVendorAction(INITIAL_DISPUTE_FORM_STATE, form({ disputeId: "d1", body: " " }));
+
+        expect(publishRealtimeEvent).not.toHaveBeenCalled();
     });
 
     it("refuse un message vide sans rien téléverser", async () => {

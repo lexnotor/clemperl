@@ -2,6 +2,7 @@ import "@clemperl/ui/styles/globals.css";
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { Archivo, Spectral } from "next/font/google";
 import type { JSX, ReactNode } from "react";
+import { RealtimeListener } from "./components/realtime-listener";
 
 // `next/font` auto-héberge les fichiers et les sert depuis notre origine : pas de requête
 // vers Google au rendu, et aucun saut de police au chargement.
@@ -18,6 +19,10 @@ const interfaceUtilisateur = Archivo({
     variable: "--police-interface",
     display: "swap",
 });
+
+// Lu par le serveur et passé à l'écoute du temps réel en prop : en notation crochets, un
+// composant client n'aurait pas la valeur, `process` n'existant pas dans le navigateur.
+const API = process.env["NEXT_PUBLIC_API_URL"] ?? "";
 
 // L'en-tête est STATIQUE : il ne lit ni la session ni la boutique. Un layout ne peut pas
 // garder l'accès, donc il n'a rien à faire de données protégées : le nom de la boutique
@@ -48,6 +53,10 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
                     </div>
                 </header>
                 {children}
+                {/* L'écoute ne lit pas la session non plus, et le cadre reste statique : le
+                    serveur refuse une poignée de main sans session, et ne fait rejoindre que
+                    les salles des boutiques dont le compte est membre. */}
+                <RealtimeListener apiUrl={API} />
             </body>
         </html>
     );

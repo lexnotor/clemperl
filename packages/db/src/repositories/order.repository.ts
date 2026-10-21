@@ -86,7 +86,7 @@ const VENDOR_PAYMENT_TRACE = {
 export async function placeOrders(
     prisma: PrismaClient,
     input: IPlaceOrders,
-): Promise<{ references: string[] }> {
+): Promise<{ references: string[]; orderIds: string[] }> {
     // La référence est TIRÉE AU SORT, donc elle peut entrer en collision avec une référence
     // déjà posée, et l'index unique fait alors échouer toute la validation. Rejouer la
     // transaction entière regénère les références : PostgreSQL refusant toute instruction
@@ -187,6 +187,7 @@ export async function placeOrders(
             }
 
             const references: string[] = [];
+            const orderIds: string[] = [];
             for (const [vendorId, group] of byShop) {
                 const shopSlug = group[0]?.shopSlug ?? "";
                 // Les méthodes de la boutique viennent de la lecture faite DANS cette
@@ -200,7 +201,8 @@ export async function placeOrders(
                 }
 
                 const reference = newReference();
-                await tx.order.create({
+                const created = await tx.order.create({
+                    select: { id: true },
                     data: {
                         reference,
                         buyerId: input.userId,
@@ -231,13 +233,14 @@ export async function placeOrders(
                     },
                 });
                 references.push(reference);
+                orderIds.push(created.id);
             }
 
             // Dans la MÊME transaction : il ne doit exister aucun instant où les commandes
             // sont écrites et le panier encore plein.
             await tx.cart.delete({ where: { id: cart.id } });
 
-            return { references };
+            return { references, orderIds };
         }),
     );
 }

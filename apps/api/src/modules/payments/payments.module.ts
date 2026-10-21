@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
+import { RealtimeModule } from "../realtime/realtime.module";
 import { buildRegistry } from "./adapters";
 import { PAYMENTS_ENV, PAYMENT_REGISTRY } from "./constants";
 import { PaymentsController, SimulatorController, WebhookController } from "./controllers";
@@ -16,7 +17,7 @@ const env = readPaymentsEnv(process.env);
 @Module({
     // `AuthModule` exporte `SessionGuard` et le jeton de l'instance Better Auth : sans cet
     // import, Nest construirait le garde ici et ne trouverait pas son jeton.
-    imports: [AuthModule],
+    imports: [AuthModule, RealtimeModule],
     controllers: [PaymentsController, WebhookController, SimulatorController],
     providers: [
         { provide: PAYMENTS_ENV, useValue: env },
