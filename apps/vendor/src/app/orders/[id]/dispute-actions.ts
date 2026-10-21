@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import {
     deleteDocuments,
+    publishRealtimeEvent,
     submittedFiles,
     uploadDocumentBatch,
     type IStoredDocument,
@@ -64,6 +65,8 @@ export async function replyToDisputeAsVendorAction(
         console.error("replyToDisputeAsVendor", error);
         return { message: [T.failed], values };
     }
+
+    await publishRealtimeEvent({ kind: "dispute.message_posted", disputeId, by: "VENDOR" });
 
     revalidatePath("/orders/[id]", "page");
     revalidatePath("/orders");

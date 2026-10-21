@@ -1,5 +1,6 @@
 "use server";
 
+import { publishRealtimeEvent } from "@clemperl/core";
 import {
     ERROR_ORDER_NOT_FOUND,
     ERROR_ORDER_STATUS_STALE,
@@ -79,6 +80,8 @@ export async function advance(
         console.error("advance", error);
         return { error: ERRORS["failed"] };
     }
+
+    await publishRealtimeEvent({ kind: "order.status_changed", orderId, by: "ADMIN" });
 
     revalidatePath("/orders");
     revalidatePath("/orders/[id]", "page");

@@ -14,6 +14,7 @@ export * from "./payment-methods.utils.js";
 export * from "./platform-roles.utils.js";
 export * from "./price.utils.js";
 export * from "./product-slug.utils.js";
+export * from "./realtime-recipients.utils.js";
 export * from "./shop-slug.utils.js";
 export * from "./slug.utils.js";
 export * from "./variant-matrix.utils.js";

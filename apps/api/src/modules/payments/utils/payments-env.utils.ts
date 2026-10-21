@@ -13,7 +13,7 @@ const ORIGIN_VARIABLES = [
 // forme qu'un navigateur envoie dans `Origin`, et celle dont les adresses de retour et de
 // redirection sont préfixées. Une barre finale, un chemin ou un port par défaut ne
 // s'accorderaient avec aucune des deux, et tout serait refusé sans dire pourquoi.
-function toOrigin(name: string, value: string): string {
+export function toOrigin(name: string, value: string): string {
     let url: URL;
     try {
         url = new URL(value);

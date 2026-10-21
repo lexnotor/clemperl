@@ -127,7 +127,7 @@ describe("placeOrders", () => {
         await addItem({ userId, variantId: a.variantId, quantity: 2 });
         await addItem({ userId, variantId: b.variantId, quantity: 1 });
 
-        const { references } = await placeOrders(prisma, {
+        const { references, orderIds } = await placeOrders(prisma, {
             userId,
             expectedTotal: 13000,
             shipTo: SHIP_TO,
@@ -140,6 +140,7 @@ describe("placeOrders", () => {
         });
 
         expect(references).toHaveLength(2);
+        expect(orderIds).toHaveLength(2);
         expect(await readCart(prisma, userId)).toBeNull();
 
         const commandes = await prisma.order.findMany({

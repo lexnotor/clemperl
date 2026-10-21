@@ -31,7 +31,7 @@ async function placeOrder(buyer: Page, title: string): Promise<string> {
     await inMain(buyer, title).click();
     await buyer.waitForURL(/\/shops\/[^/]+\/[^/]+$/);
     await buyer.getByRole("button", { name: "Ajouter au panier" }).click();
-    await expect(buyer.getByRole("status")).toContainText("Ajouté à votre panier");
+    await expect(buyer.getByRole("main").getByRole("status")).toContainText("Ajouté à votre panier");
 
     await buyer.goto(`${URL_STOREFRONT}/cart`);
     await buyer.getByRole("link", { name: "Passer commande" }).click();
@@ -123,7 +123,7 @@ test("un acheteur conteste une commande expédiée, l'administration lui donne r
     await racer.getByLabel("Preuves", { exact: false }).setInputFiles("e2e/fixtures/product.jpg");
     await racer.getByRole("button", { name: "Ouvrir le litige" }).click();
     await racer.waitForURL(/\/dispute\?notice=opened$/, AFTER_ACTION);
-    await expect(racer.getByRole("status")).toContainText("Votre litige est ouvert");
+    await expect(racer.getByRole("main").getByRole("status")).toContainText("Votre litige est ouvert");
     await racer.close();
 
     await buyer.getByRole("button", { name: "Ouvrir le litige" }).click();
@@ -168,7 +168,12 @@ test("un acheteur conteste une commande expédiée, l'administration lui donne r
     expect(pieceVendeur.status()).toBe(200);
     expect(pieceVendeur.headers()["content-type"]).toBe("application/pdf");
 
-    // La boutique commence une seconde réponse, que la décision va rendre caduque.
+    // La boutique commence une seconde réponse, que la décision va rendre caduque. Sa page
+    // doit rester PÉRIMÉE, comme celle d'un vendeur dont la connexion temps réel est tombée :
+    // sinon l'avis de la décision la rafraîchit, le formulaire disparaît avec ce qu'elle a
+    // écrit, et le refus d'un écran périmé n'a plus rien à éprouver. Sa connexion est donc
+    // interceptée, et n'atteint jamais l'API.
+    await page.routeWebSocket(/\/socket\.io\//u, () => undefined);
     await page.goto(vendorOrderUrl);
     await page.getByLabel("Votre réponse").fill("Une dernière précision sur l'envoi.");
 

@@ -6,6 +6,7 @@ const readDisputeForAdministration = vi.fn();
 const decideDispute = vi.fn();
 const send = vi.fn();
 const createSmtpSender = vi.fn();
+const publishRealtimeEvent = vi.fn();
 
 const redirect = vi.fn();
 
@@ -22,6 +23,7 @@ vi.mock("../../../lib/session", () => ({
 vi.mock("@clemperl/core", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@clemperl/core")>()),
     createSmtpSender: (...args: unknown[]) => createSmtpSender(...args),
+    publishRealtimeEvent: (...args: unknown[]) => publishRealtimeEvent(...args),
 }));
 vi.mock("@clemperl/db", () => ({
     prisma: {},
@@ -49,6 +51,7 @@ beforeEach(() => {
     requireAdministrator.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } });
     readDisputeForAdministration.mockResolvedValue({ id: "d1", status: "OPEN" });
     send.mockResolvedValue(undefined);
+    publishRealtimeEvent.mockResolvedValue(undefined);
     createSmtpSender.mockImplementation(() => ({ send: (...args: unknown[]) => send(...args) }));
     decideDispute.mockResolvedValue({
         orderId: "o1",
@@ -103,6 +106,30 @@ describe("trancher un litige", () => {
 
         decideDispute.mockRejectedValueOnce(new Error("DISPUTE_STALE"));
         expect((await decide(INITIAL_DECISION_STATE, form(VALID))).message).toEqual([ERRORS.moved]);
+    });
+
+    // Le dépôt part avant l'envoi des courriels et la redirection, qui lève pour interrompre
+    // le rendu : à l'inverse, il ne partirait jamais.
+    it("dépose la décision, avant la redirection", async () => {
+        await expect(decide(INITIAL_DECISION_STATE, form(VALID))).rejects.toThrow("NEXT_REDIRECT");
+
+        expect(publishRealtimeEvent).toHaveBeenCalledTimes(1);
+        expect(publishRealtimeEvent).toHaveBeenCalledWith({ kind: "dispute.decided", disputeId: "d1" });
+        expect(publishRealtimeEvent.mock.invocationCallOrder[0]).toBeLessThan(
+            redirect.mock.invocationCallOrder[0] ?? 0,
+        );
+    });
+
+    it("ne dépose rien quand la décision est refusée", async () => {
+        decideDispute.mockRejectedValueOnce(new Error("DISPUTE_STALE"));
+        await decide(INITIAL_DECISION_STATE, form(VALID));
+
+        readDisputeForAdministration.mockResolvedValueOnce({ id: "d1", status: "DECIDED_FOR_VENDOR" });
+        await decide(INITIAL_DECISION_STATE, form(VALID));
+
+        await decide(INITIAL_DECISION_STATE, form({ ...VALID, comment: "  " }));
+
+        expect(publishRealtimeEvent).not.toHaveBeenCalled();
     });
 
     it("refuse un litige qui n'existe pas", async () => {

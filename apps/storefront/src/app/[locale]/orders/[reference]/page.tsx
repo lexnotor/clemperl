@@ -7,7 +7,6 @@ import { notFound } from "next/navigation";
 import type { JSX } from "react";
 import { requireVerifiedSession } from "../../../../lib/session";
 import { PayButton } from "./components/pay-button";
-import { PaymentWatch } from "./components/payment-watch";
 
 export const dynamic = "force-dynamic";
 
@@ -49,10 +48,12 @@ export default async function OrderPage({
     // fait ICI, à l'exécution et côté serveur : la variable n'est pas publique, et le
     // navigateur ne la verrait pas.
     const online = isOnlinePaymentMethod(process.env, order.paymentMethod);
-    // On n'interroge que pour une tentative EN LIGNE sans réponse, donc portant un
-    // fournisseur : un paiement hors ligne attend des jours, et la page se rafraîchirait
-    // toutes les cinq secondes pour rien. Une tentative restée en attente derrière une
-    // commande réglée ou annulée est morte, elle n'attend plus rien.
+    // La page n'ATTEND que pour une tentative EN LIGNE sans réponse, donc portant un
+    // fournisseur : c'est son webhook qui peut arriver entre le rendu de la page et
+    // l'ouverture de la connexion temps réel, au retour de chez le fournisseur. Un paiement
+    // hors ligne attend des jours, et la page se rafraîchirait pour rien à chaque
+    // connexion. Une tentative restée en attente derrière une commande réglée ou annulée
+    // est morte, elle n'attend plus rien.
     const awaiting =
         owed &&
         order.payments.some(
@@ -175,7 +176,10 @@ export default async function OrderPage({
                 )}
             </section>
 
-            <PaymentWatch awaiting={awaiting} />
+            {/* Le marqueur que l'écoute du temps réel cherche à sa première connexion : il
+                lui demande de rafraîchir la page une fois, pour rattraper un avis parti
+                avant que la connexion ne soit ouverte. */}
+            {awaiting && <div data-realtime-waiting="" hidden />}
         </main>
     );
 }

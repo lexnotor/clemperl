@@ -993,10 +993,11 @@ réexporte que des fonctions pures, sans aucune dépendance serveur. Même raiso
 `@clemperl/db/enums`, et même règle : **un composant client n'importe jamais le barillet
 d'un package interne**, il importe un sous-chemin étroit.
 
-`@clemperl/core` n'en a pas encore, et le même défaut s'y ouvrira au premier composant
-client qui voudra un type ou une constante de là : `TCurrency`, `CURRENCY_EXPONENT`.
-L'échappatoire du jour : laisser le serveur faire le calcul et ne passer au client qu'une
-valeur déjà réduite.
+`@clemperl/core` a le sien depuis le temps réel, `./browser`, et le défaut annoncé ici s'y
+est ouvert comme prévu, avec BullMQ au lieu de nodemailer : voir l'entrée « Importer une
+VALEUR du barillet `@clemperl/core` », plus bas. Il ne réexporte encore que le vocabulaire
+du temps réel ; un composant client qui voudrait `TCurrency` ou `CURRENCY_EXPONENT` les y
+ajoute, au lieu de passer par le barillet.
 
 **Et ceci, qui coûte le plus de temps :** la carte `exports` vit dans le `package.json`
 d'un paquet, et les `package.json` ne sont PAS montés dans les conteneurs. Ajouter un
@@ -1186,7 +1187,7 @@ l'état où elle était, pour toujours.**
 `attempts: 3` fait retenter, puis range le job dans la liste des échecs, et c'est tout.
 Rien ne repasse sur la ligne. Une image dont le traitement tombe pour une raison qui ne la
 concerne pas (stockage injoignable, base coupée) reste donc `PENDING` indéfiniment, et
-l'écran qui l'interroge toutes les deux secondes ne montrera jamais ni photo ni raison.
+l'écran du vendeur, qui l'affiche en traitement, ne montrera jamais ni photo ni raison.
 
 C'est le seul état dont l'application ne sort pas : tous les autres échecs passent par un
 `markImageFailed` explicite.
@@ -1721,3 +1722,178 @@ après la garde. Cette assertion échoue dès que l'exécution traverse la garde
 message que le `catch` fabrique. Les tests de `apps/admin/src/app/orders/[id]/actions.spec.ts`
 le font. Configurer explicitement `mockResolvedValue(null)` pour le cas testé évite aussi
 l'accident.
+
+---
+
+**`Queue.add` de BullMQ ne rejette pas quand Redis est injoignable : il attend, sans fin, et
+l'action serveur qui l'attend ne rend jamais la main.**
+
+BullMQ attend que sa connexion soit prête avant toute commande. Une erreur de connexion y est
+seulement notée, seule la fin de la connexion fait rejeter, et la stratégie de reconnexion
+que BullMQ pose par défaut ne s'arrête jamais. Lu dans `bullmq` 6.3.8,
+`classes/redis-connection.js` : `waitUntilReady` et `retryStrategy`.
+
+Mesuré le 2026-10-20 par une sonde : un `add` vers un Redis injoignable n'était ni résolu ni
+rejeté au bout de 120 s. Le dépôt d'un événement temps réel suit chaque écriture concernée
+des trois fronts : une commande déjà validée aurait laissé l'acheteur devant un bouton qui ne
+rend jamais la main, Redis en panne.
+
+Ce qui rend le piège difficile à voir : le `try`/`catch` autour de `add` a l'air de traiter la
+panne, et le test unitaire qui simule un `add` qui REJETTE passe. La panne réelle ne rejette
+pas, et un test qui ne simule qu'un rejet ne la voit jamais.
+
+Ce qui protège maintenant : `publishRealtimeEvent`, dans
+`packages/core/src/utils/realtime-publisher.utils.ts`, met `add` en course avec un délai de
+deux secondes, `PUBLISH_TIMEOUT_MS`, journalise au dépassement et rend la main. Son test
+simule un `add` qui ne se règle jamais. Le dépôt resté en vol peut encore aboutir si Redis
+revient : une alerte tardive, jamais une écriture en échec.
+
+**La file des photos de l'espace vendeur n'est pas protégée.** `productImageQueue`, dans
+`apps/vendor/src/app/products/[id]/images/actions.ts`, appelle `add` sans borne. Son
+commentaire affirmait qu'« `add` lève » quand Redis est injoignable, ce qui est le piège
+lui-même ; il dit maintenant que l'action ne rend pas la main, et que rien ne borne
+l'attente. Non mesuré sur ce chemin, mais le mécanisme est le même.
+
+---
+
+**Les clients ioredis de `@socket.io/redis-adapter`, laissés aux réglages par défaut,
+produisent des rejets non capturés après un peu plus d'une minute de Redis coupé, et Node
+arrête l'API entière.**
+
+Par défaut, ioredis rejette les commandes en attente après vingt tentatives de reconnexion
+(`maxRetriesPerRequest`). L'adaptateur lance ses `publish` et ses abonnements sans capturer
+leur rejet, et Node, par défaut, termine le processus sur un rejet non capturé. L'API tombe
+donc pour une panne de Redis, alors que son HTTP n'en dépend pas.
+
+Mesuré le 2026-10-20 par une sonde hors Docker, Redis pointé vers un port fermé, une émission
+puis 100 s d'attente, les rejets comptés par un écouteur : avec les réglages par défaut, le
+premier `MaxRetriesPerRequestError` à 78 906 ms, trois en tout (`psubscribe`, `subscribe`,
+`publish`) ; avec l'adaptateur du dépôt, aucun.
+
+Ce qui rend le piège difficile à voir : rien ne se passe pendant plus d'une minute. La
+coupure courte qu'on provoque pour essayer ne montre rien, et l'arrêt arrive longtemps après
+la cause.
+
+Ce qui protège maintenant : `maxRetriesPerRequest: null` dans `RedisIoAdapter.connect`,
+`apps/api/src/modules/realtime/adapters/redis-io.adapter.ts`, avec un commentaire qui dit
+pourquoi. Les commandes attendent alors le retour de Redis. Aucun test ne l'épingle : le
+fichier est exclu de la couverture de `apps/api`, faute de pouvoir l'éprouver sans un vrai
+Redis. Le retirer ne fait rougir aucun test.
+
+---
+
+**Importer une VALEUR du barillet `@clemperl/core` dans un composant client casse le build du
+front : BullMQ y entre, et Turbopack ne trouve ni `child_process` ni `dns`.**
+
+Un composant `"use client"` fait entrer dans le paquet navigateur tout module dont il importe
+une valeur. Le barillet de `core` réexporte `publishRealtimeEvent`, qui importe `bullmq`, et
+`core` ne déclare pas `sideEffects` : rien n'est élagué. Un import de TYPE seul est effacé à
+la compilation et passe sans dommage, ce qui entretient l'illusion.
+
+Observé le 2026-10-20, au premier build de la boutique dont l'écoute du temps réel importait
+`REALTIME_SOCKET_EVENT` du barillet :
+
+    Turbopack build failed with 18 errors:
+    Module not found: Can't resolve 'child_process'
+
+et de même pour `dns`. La trace d'import remonte `realtime-listener.tsx [Client Component
+Browser]`, `packages/core/dist/index.js`, `utils/index.js`, `realtime-publisher.utils.js`,
+puis bullmq.
+
+Ce qui rend le piège difficile à voir : le build de `core`, son typecheck et ses tests passent,
+puisque rien n'y est assemblé pour le navigateur. Seul le build d'un front le révèle. Et le
+plan supposait que des composants client importaient déjà ce barillet sans dommage : à la
+vérification, ils l'évitaient, commentaires à l'appui.
+
+Ce qui protège maintenant : le sous-chemin `@clemperl/core/browser`,
+`packages/core/src/browser.ts` déclaré dans la carte `exports`, qui ne réexporte que des
+constantes, des enums et des types sans aucune dépendance d'exécution. Les deux écoutes du
+temps réel l'importent ; le code serveur garde le barillet. Même règle que pour
+`@clemperl/domain` : **un composant client n'importe jamais le barillet d'un package
+interne**. Le sous-chemin vit dans un `package.json`, qui n'est pas monté dans les
+conteneurs : il n'y existe qu'après `pnpm docker:up`.
+
+---
+
+**Une région `role="status"` posée sur toute page connectée rend ambigu chaque
+`getByRole("status")` non restreint, et Playwright refuse de choisir.**
+
+L'écoute du temps réel rend sa région d'alerte, vide, dans la mise en page : dans la boutique
+dès qu'une session existe, dans l'espace vendeur toujours. Elle doit exister avant tout avis,
+sans quoi un lecteur d'écran n'annoncerait pas le premier. Une page qui a son propre retour
+`role="status"`, comme « Ajouté à votre panier », en porte donc deux, et le mode strict de
+Playwright échoue sur un localisateur qui en trouve deux.
+
+Trouvé le 2026-10-20 à la relecture, avant que les parcours ne tournent : cinq assertions de
+quatre fichiers, `payment.spec.ts`, `order.spec.ts`, `disputes.spec.ts` deux fois et
+`order-oversight.spec.ts`, toutes chez un acheteur connecté. Il a coûté un tour de correction.
+
+Ce qui rend le piège difficile à voir : la région est vide et invisible, rien ne la montre à
+l'écran, et les mêmes assertions restent justes chez un visiteur sans compte, qui n'a pas de
+région. `order.spec.ts` contient les deux cas à quelques lignes d'écart.
+
+Ce qui protège maintenant : les cinq assertions cherchent le retour dans `main`,
+`getByRole("main").getByRole("status")`, la région d'alerte vivant hors de `main` par
+construction ; `realtimeAlert()`, dans `e2e/helpers/realtime.ts`, lit l'alerte comme la région
+`status` qui n'est PAS dans `main`. Même règle que pour l'annonceur de route : **un retour de
+la page se cherche dans `main`**.
+
+---
+
+**Un parcours qui éprouve le refus d'un écran PÉRIMÉ échoue dès que le temps réel
+rafraîchit cet écran : le formulaire a disparu, et le clic attend un bouton qui n'existe
+plus.**
+
+`disputes.spec.ts` laisse la boutique commencer une réponse, fait trancher l'administration,
+puis envoie la réponse pour vérifier qu'elle est refusée et que le texte reste. Depuis le
+temps réel, la décision prévient aussi la boutique : sa page se rafraîchit d'elle-même, rend
+le litige tranché, et ne rend plus le formulaire de réponse. L'écran n'est plus périmé, et le
+scénario n'a plus rien à éprouver.
+
+Observé le 2026-10-21 :
+
+    Error: locator.click: Test timeout of 240000ms exceeded.
+    > 198 |     await page.getByRole("button", { name: "Envoyer" }).click();
+
+L'instantané de la page, jamais rechargée par le test, montre « Tranché en faveur du client »
+et la décision, sans formulaire.
+
+Ce qui rend le piège difficile à voir : le message accuse le budget du test, pas le
+rafraîchissement. Et il est resté caché pendant quatre exécutions, toutes arrêtées avant la
+ligne : les deux suites complètes sur le budget de 240 s du test, épuisé plus haut dans le
+parcours, et les deux exécutions isolées sur une attente de cinq secondes de la machine
+chargée.
+
+Ce qui protège maintenant : `disputes.spec.ts` intercepte la connexion temps réel de la page
+du vendeur avant de la charger, `page.routeWebSocket(/\/socket\.io\//u, () => undefined)`, et
+la page reste périmée comme celle d'un vendeur dont la connexion est tombée. Règle : **un
+parcours qui éprouve un écran périmé coupe d'abord le temps réel de cet écran**, sans quoi il
+éprouve l'écran à jour.
+
+---
+
+**Dans la pile de développement, un changement de `packages/domain` qui laisse ses types
+intacts n'atteint pas l'API tant que son conteneur ne redémarre pas : une mutation qu'on croit
+active ne l'est pas, et le parcours reste vert pour une mauvaise raison.**
+
+Le conteneur `api` lance `turbo run dev` sur l'API et ses dépendances. Le `tsc --watch` du
+domaine reconstruit bien son `dist`, JavaScript compris. Mais `nest start --watch` ne suit que
+le programme TypeScript de l'API, qui ne lit du domaine que ses `.d.ts` : des déclarations
+inchangées ne déclenchent ni recompilation ni redémarrage, et le processus Node garde en
+mémoire le module d'avant.
+
+Observé le 2026-10-21, en mutant la règle des destinataires de
+`packages/domain/src/utils/realtime-recipients.utils.ts` pour prouver que le parcours du
+temps réel rougit : le `dist` du conteneur portait la mutation, l'API ne s'est pas relancée,
+et il a fallu `docker restart clemperl_dev_api` pour la rendre active, puis à nouveau après la
+restauration. Il a coûté deux redémarrages, et le temps de comprendre pourquoi.
+
+Ce qui rend le piège difficile à voir : tout dit que le changement est pris. Le watcher du
+domaine affiche `File change detected` puis `Found 0 errors`, et le fichier compilé, lu dans
+le conteneur, porte bien la mutation. Seule l'API ne la voit pas, et un parcours vert sur une
+mutation se lit comme un test qui ne mord pas.
+
+Ce qui protège maintenant : rien dans l'outillage. Après toute modification du domaine qui ne
+touche pas ses types, mutation comprise, redémarrer le conteneur de l'API
+(`docker restart clemperl_dev_api`) et attendre `Nest application successfully started`
+avant de lancer un parcours, puis de nouveau après avoir restauré le fichier.

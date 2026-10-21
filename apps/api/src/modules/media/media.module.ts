@@ -1,5 +1,6 @@
 import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
+import { RealtimeModule } from "../realtime/realtime.module";
 import { PRODUCT_IMAGE_QUEUE } from "./media.constants";
 import { ProductImageProcessor } from "./processors/product-image.processor";
 import { ImageDerivativesService } from "./services/image-derivatives.service";
@@ -9,7 +10,7 @@ import { ImageDerivativesService } from "./services/image-derivatives.service";
 // d'imports que NestJS résout en livrant `undefined` à l'exécution : sans erreur au
 // démarrage, avec un provider vide au moment de s'en servir.
 @Module({
-    imports: [BullModule.registerQueue({ name: PRODUCT_IMAGE_QUEUE })],
+    imports: [BullModule.registerQueue({ name: PRODUCT_IMAGE_QUEUE }), RealtimeModule],
     providers: [ImageDerivativesService, ProductImageProcessor],
     exports: [BullModule],
 })

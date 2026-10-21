@@ -1,5 +1,6 @@
 "use server";
 
+import { publishRealtimeEvent } from "@clemperl/core";
 import {
     ERROR_CART_EMPTY,
     ERROR_ITEM_INELIGIBLE,
@@ -100,6 +101,7 @@ export async function submitCheckout(
     };
 
     let references: string[];
+    let orderIds: string[];
     try {
         const result = await placeOrders(prisma, {
             userId: user.id,
@@ -110,6 +112,7 @@ export async function submitCheckout(
             lines,
         });
         references = result.references;
+        orderIds = result.orderIds;
     } catch (error) {
         const message = error instanceof Error ? error.message : "";
 
@@ -133,6 +136,15 @@ export async function submitCheckout(
         }
         throw error;
     }
+
+    // Une commande par boutique, donc un dépôt par commande : chaque boutique est alertée de
+    // la sienne. Le dépôt vient APRÈS l'écriture et AVANT `redirect`, qui lève et
+    // interromprait l'action avant lui. Les dépôts partent ensemble : Redis en panne, chacun
+    // attend sa borne, et l'un après l'autre ils feraient attendre l'acheteur autant de fois
+    // qu'il a de boutiques dans son panier.
+    await Promise.all(
+        orderIds.map((orderId) => publishRealtimeEvent({ kind: "order.placed", orderId })),
+    );
 
     // HORS du `try`. `redirect` lève pour fonctionner : à l'intérieur, le `catch`
     // avalerait la redirection et l'acheteur lirait « échec » sur une commande réussie.

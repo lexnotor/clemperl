@@ -248,5 +248,16 @@
     "chooseFiles": "Choisir des fichiers",
     "noFiles": "Aucun fichier choisi",
     "badgeToServe": "Litige tranché : client à servir"
+  },
+  "realtime": {
+    "orderPlaced": "Nouvelle commande : {reference}.",
+    "orderStatusChanged": "L'administration a mis à jour la commande {reference}.",
+    "paymentStatusChanged": "Le paiement de la commande {reference} a été mis à jour.",
+    "productImageReady": "Une photo de « {productTitle} » est prête.",
+    "productImageFailed": "Une photo de « {productTitle} » n'a pas pu être traitée.",
+    "disputeOpened": "Un client conteste la commande {reference}.",
+    "disputeMessagePosted": "Le client a répondu au litige de la commande {reference}.",
+    "disputeDecided": "L'administration a tranché le litige de la commande {reference}.",
+    "disputeServed": "Le client s'est déclaré servi pour la commande {reference}."
   }
 }

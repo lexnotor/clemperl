@@ -85,6 +85,9 @@ export async function recordAttempt(
 // payload identique. Aucun statut ne bouge, et c'est pourquoi le cas est toléré : le
 // fermer demanderait un identifiant d'ÉVÉNEMENT distinct de `providerRef`, que le port ne
 // porte pas tant qu'aucun vrai fournisseur n'en a dicté la forme.
+// Rend aussi la commande de la tentative, pour que l'appelant sache laquelle prévenir. Une
+// référence inconnue lève avant tout retour, donc aucune tentative ne rend d'`orderId` nul
+// aujourd'hui : le type le permet pour un appelant qui n'aurait aucune commande à désigner.
 export async function applyProviderEvent(
     prisma: PrismaClient,
     input: {
@@ -93,7 +96,7 @@ export async function applyProviderEvent(
         status: "PENDING" | "SETTLED" | "FAILED";
         rawPayload: Buffer;
     },
-): Promise<{ changed: boolean }> {
+): Promise<{ changed: boolean; orderId: string | null }> {
     return prisma.$transaction(async (tx) => {
         const attempt = await tx.orderPayment.findUnique({
             where: {
@@ -111,7 +114,7 @@ export async function applyProviderEvent(
         // Une tentative déjà tranchée ne se rouvre pas. C'est ce qui rend le rejeu sans
         // effet, et ce qui empêche un événement tardif d'annuler une issue plus récente.
         if (attempt.status !== "PENDING") {
-            return { changed: false };
+            return { changed: false, orderId: attempt.orderId };
         }
 
         // Le statut se REVÉRIFIE dans l'écriture : le lire plus haut ne suffit pas, car deux
@@ -130,7 +133,7 @@ export async function applyProviderEvent(
             },
         });
         if (count === 0) {
-            return { changed: false };
+            return { changed: false, orderId: attempt.orderId };
         }
 
         // Un événement en attente dit où en est le FOURNISSEUR, pas où en est l'argent :
@@ -144,7 +147,7 @@ export async function applyProviderEvent(
                 data: { paymentStatus: input.status as never },
             });
         }
-        return { changed: true };
+        return { changed: true, orderId: attempt.orderId };
     });
 }
 

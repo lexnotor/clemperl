@@ -6,6 +6,7 @@ import { Archivo, Spectral } from "next/font/google";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { JSX, ReactNode } from "react";
+import { RealtimeListener } from "./components/realtime-listener";
 
 // `next/font` auto-héberge les fichiers et les sert depuis notre origine : pas de requête
 // vers Google au rendu, et aucun saut de police au chargement.
@@ -23,6 +24,10 @@ const interfaceUtilisateur = Archivo({
     variable: "--police-interface",
     display: "swap",
 });
+
+// Lu par le serveur et passé à l'écoute du temps réel en prop : en notation crochets, un
+// composant client n'aurait pas la valeur, `process` n'existant pas dans le navigateur.
+const API = process.env["NEXT_PUBLIC_API_URL"] ?? "";
 
 function EnTete(): JSX.Element {
     const t = useTranslations("navigation");
@@ -68,6 +73,9 @@ export default async function LocaleLayout({
                 <NextIntlClientProvider messages={messages}>
                     <EnTete />
                     {children}
+                    {/* Dans le fournisseur : l'alerte est traduite par le catalogue de la
+                        locale. Dans la mise en page : la connexion survit aux navigations. */}
+                    <RealtimeListener apiUrl={API} />
                 </NextIntlClientProvider>
             </body>
         </html>

@@ -14,6 +14,13 @@ import {
     publishProduct,
     signInFromPage,
 } from "./helpers/accounts";
+import {
+    AFTER_EVENT,
+    expectNotReloaded,
+    markPage,
+    realtimeAlert,
+    watchRealtimeConnection,
+} from "./helpers/realtime";
 
 // L'annonceur de route de Next porte le titre de la page hors de `main`, et le titre d'une
 // fiche EST le nom du produit. Un `getByText` non restreint en trouve donc deux. Piège
@@ -79,7 +86,7 @@ async function addToCart(buyer: Page, title: string): Promise<void> {
     await inMain(buyer, title).click();
     await buyer.waitForURL(/\/shops\/[^/]+\/[^/]+$/);
     await buyer.getByRole("button", { name: "Ajouter au panier" }).click();
-    await expect(buyer.getByRole("status")).toContainText("Ajouté à votre panier");
+    await expect(buyer.getByRole("main").getByRole("status")).toContainText("Ajouté à votre panier");
 }
 
 // Du panier à l'écran de validation, adresse saisie. Les méthodes, elles, sont choisies par
@@ -250,6 +257,7 @@ test("un acheteur paie en ligne : un refus laisse sa trace, et il réessaie jusq
 
     await buyer.getByRole("button", { name: "Échouer" }).click();
     await buyer.waitForURL(onOrderPage);
+    const orderUrl = buyer.url();
 
     // Un échec n'est pas une fin : la tentative reste dans la trace, et le bouton propose de
     // recommencer. C'est l'ACTION qui les a produits, aucun des deux n'était à l'écran avant.
@@ -260,7 +268,44 @@ test("un acheteur paie en ligne : un refus laisse sa trace, et il réessaie jusq
     await buyer.getByRole("button", { name: "Réessayer le paiement" }).click();
     await buyer.waitForURL(onSimulator);
 
+    // La page qui ATTEND le fournisseur. Le simulateur appelle son webhook AVANT de renvoyer
+    // l'acheteur, donc la page où il revient se rend déjà réglée : elle ne prouve rien du
+    // temps réel. Un second onglet du même acheteur ouvre la commande PENDANT qu'il est chez
+    // le fournisseur, comme une page rendue avant le webhook d'un vrai fournisseur : la
+    // tentative en ligne attend, la page porte le marqueur, et se connecte.
+    const watcher = await context.newPage();
+    const watcherConnected = watchRealtimeConnection(watcher);
+    await watcher.goto(orderUrl);
+    await expect(watcher.locator("[data-realtime-waiting]")).toHaveCount(1);
+    await watcherConnected();
+    await markPage(watcher);
+
+    // Le vendeur, resté sur la commande, est averti du refus comme du règlement : la première
+    // alerte doit s'être effacée pour que la suivante, de même phrase, soit celle du
+    // règlement.
+    await expect(realtimeAlert(page)).toBeEmpty(AFTER_EVENT);
+    await markPage(page);
+
     await buyer.getByRole("button", { name: "Payer", exact: true }).click();
+
+    // Les deux alertes sont guettées ENSEMBLE : chacune s'efface après quelques secondes, et
+    // attendre la page de l'une laisserait passer l'autre. Le fournisseur n'est aucune des
+    // deux parties, donc l'acheteur et la boutique sont prévenus.
+    await Promise.all([
+        expect(realtimeAlert(watcher)).toHaveText(
+            `Le paiement de votre commande ${reference} a été mis à jour.`,
+            AFTER_EVENT,
+        ),
+        expect(realtimeAlert(page)).toHaveText(
+            `Le paiement de la commande ${reference} a été mis à jour.`,
+            AFTER_EVENT,
+        ),
+    ]);
+    await expect(orderPayment(watcher, "Payé")).toBeVisible(AFTER_EVENT);
+    await expect(vendorPayment(page, "Reçu")).toBeVisible(AFTER_EVENT);
+    await expectNotReloaded(watcher);
+    await expectNotReloaded(page);
+
     await buyer.waitForURL(onOrderPage);
     await expect(orderPayment(buyer, "Payé")).toBeVisible();
 
@@ -273,10 +318,9 @@ test("un acheteur paie en ligne : un refus laisse sa trace, et il réessaie jusq
         buyer.getByRole("button", { name: /Payer|Réessayer/u }),
     ).toHaveCount(0);
 
-    // Le vendeur lit le même résultat sans avoir rien pointé : la trace nomme les deux
-    // tentatives, et aucune ne porte de nom de pointeur, puisqu'aucune main ne l'a fait.
-    await page.reload();
-    await expect(vendorPayment(page, "Reçu")).toBeVisible();
+    // Le vendeur lit le même résultat sans avoir rien pointé, sur sa page jamais rechargée :
+    // la trace nomme les deux tentatives, et aucune ne porte de nom de pointeur, puisqu'aucune
+    // main ne l'a fait.
     await expect(inMain(page, "Carte bancaire · Refusé")).toBeVisible();
     await expect(inMain(page, "Carte bancaire · Reçu")).toBeVisible();
     await expect(inMain(page, "Pointé par")).toHaveCount(0);

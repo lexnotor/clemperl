@@ -1,8 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Chaque cas importe un client Prisma NEUF, `vi.resetModules()` vidant le cache entre deux :
+// le client généré se recharge à chaque fois. Quelques centaines de millisecondes sur un
+// poste au repos ; plus que les cinq secondes par défaut de Vitest quand les suites des
+// autres paquets tournent en même temps, comme sous `turbo` et en CI. Le délai allongé ne
+// masque pas un import qui échoue : celui-là échoue vite, seul un import lent l'attend.
+const FRESH_CLIENT_IMPORT_TIMEOUT_MS = 30_000;
+
 // Ces tests portent sur le MOMENT où le client se construit, pas sur ce qu'il fait.
 // Aucune base n'est jointe : c'est justement le sujet.
-describe("client Prisma", () => {
+describe("client Prisma", { timeout: FRESH_CLIENT_IMPORT_TIMEOUT_MS }, () => {
     const environnementInitial = process.env["DATABASE_URL"];
 
     beforeEach(() => {

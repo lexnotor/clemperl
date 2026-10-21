@@ -8,6 +8,7 @@ const markDisputeServed = vi.fn();
 const uploadDocumentBatch = vi.fn();
 const deleteDocuments = vi.fn();
 const send = vi.fn();
+const publishRealtimeEvent = vi.fn();
 const redirect = vi.fn();
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -30,6 +31,7 @@ vi.mock("@clemperl/core", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@clemperl/core")>()),
     uploadDocumentBatch: (...args: unknown[]) => uploadDocumentBatch(...args),
     deleteDocuments: (...args: unknown[]) => deleteDocuments(...args),
+    publishRealtimeEvent: (...args: unknown[]) => publishRealtimeEvent(...args),
     createSmtpSender: () => ({ send: (...args: unknown[]) => send(...args) }),
 }));
 vi.mock("@clemperl/db", () => ({
@@ -80,6 +82,7 @@ beforeEach(() => {
     uploadDocumentBatch.mockResolvedValue([STORED]);
     deleteDocuments.mockResolvedValue(undefined);
     send.mockResolvedValue(undefined);
+    publishRealtimeEvent.mockResolvedValue(undefined);
     openDispute.mockResolvedValue({
         disputeId: "d1",
         orderId: "o1",
@@ -179,6 +182,30 @@ describe("ouvrir un litige", () => {
         expect(Math.abs(avant - quatorzeJours - input.shippedAfter.getTime())).toBeLessThan(5_000);
     });
 
+    // Le dépôt part après l'écriture et avant la redirection, qui lève pour interrompre le
+    // rendu : à l'inverse, il ne partirait jamais.
+    it("dépose l'ouverture du litige, avant la redirection", async () => {
+        await expect(openDisputeAction(INITIAL_DISPUTE_FORM_STATE, form(VALID))).rejects.toThrow(
+            "NEXT_REDIRECT",
+        );
+
+        expect(publishRealtimeEvent).toHaveBeenCalledTimes(1);
+        expect(publishRealtimeEvent).toHaveBeenCalledWith({ kind: "dispute.opened", disputeId: "d1" });
+        expect(publishRealtimeEvent.mock.invocationCallOrder[0]).toBeLessThan(
+            redirect.mock.invocationCallOrder[0] ?? 0,
+        );
+    });
+
+    it("ne dépose rien quand l'ouverture est refusée", async () => {
+        openDispute.mockRejectedValue(new Error("DISPUTE_EXISTS"));
+        await openDisputeAction(INITIAL_DISPUTE_FORM_STATE, form(VALID));
+
+        const refused = await openDisputeAction(INITIAL_DISPUTE_FORM_STATE, form({ ...VALID, reason: "" }));
+        expect(refused.message).toEqual(["errors.dispute.reason_unknown"]);
+
+        expect(publishRealtimeEvent).not.toHaveBeenCalled();
+    });
+
     it("prévient la boutique, puis mène au litige", async () => {
         await expect(openDisputeAction(INITIAL_DISPUTE_FORM_STATE, form(VALID))).rejects.toThrow(
             "NEXT_REDIRECT",
@@ -245,6 +272,28 @@ describe("répondre dans un litige", () => {
         });
     });
 
+    it("dépose le message de l'acheteur", async () => {
+        postDisputeMessageAsBuyer.mockResolvedValue(undefined);
+
+        await replyToDisputeAction(INITIAL_DISPUTE_FORM_STATE, form(REPLY));
+
+        expect(publishRealtimeEvent).toHaveBeenCalledTimes(1);
+        expect(publishRealtimeEvent).toHaveBeenCalledWith({
+            kind: "dispute.message_posted",
+            disputeId: "d1",
+            by: "BUYER",
+        });
+    });
+
+    it("ne dépose rien quand le message est refusé", async () => {
+        postDisputeMessageAsBuyer.mockRejectedValue(new Error("DISPUTE_STALE"));
+        await replyToDisputeAction(INITIAL_DISPUTE_FORM_STATE, form(REPLY));
+
+        await replyToDisputeAction(INITIAL_DISPUTE_FORM_STATE, form({ ...REPLY, body: "  " }));
+
+        expect(publishRealtimeEvent).not.toHaveBeenCalled();
+    });
+
     // Un litige tranché pendant que la page était ouverte : le message est refusé par la
     // base, et ses pièces ne doivent pas rester orphelines.
     it("dit que le litige a changé, et défait les téléversements", async () => {
@@ -281,6 +330,27 @@ describe("se déclarer servi", () => {
             disputeId: "d1",
             from: "DECIDED_FOR_BUYER",
         });
+    });
+
+    it("dépose la signification", async () => {
+        readDisputeForBuyer.mockResolvedValue({ id: "d1", status: "DECIDED_FOR_BUYER" });
+        markDisputeServed.mockResolvedValue(undefined);
+
+        await markServedAction(INITIAL_DISPUTE_FORM_STATE, form(SERVE));
+
+        expect(publishRealtimeEvent).toHaveBeenCalledTimes(1);
+        expect(publishRealtimeEvent).toHaveBeenCalledWith({ kind: "dispute.served", disputeId: "d1" });
+    });
+
+    it("ne dépose rien quand la signification est refusée", async () => {
+        readDisputeForBuyer.mockResolvedValue({ id: "d1", status: "OPEN" });
+        markDisputeServed.mockRejectedValue(new Error("DISPUTE_STALE"));
+        await markServedAction(INITIAL_DISPUTE_FORM_STATE, form(SERVE));
+
+        readDisputeForBuyer.mockResolvedValue({ id: "d1", status: "DECIDED_FOR_VENDOR" });
+        await markServedAction(INITIAL_DISPUTE_FORM_STATE, form(SERVE));
+
+        expect(publishRealtimeEvent).not.toHaveBeenCalled();
     });
 
     // Le domaine n'offre pas `SERVE` sur un litige clos en faveur du vendeur.

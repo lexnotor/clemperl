@@ -124,13 +124,17 @@ export async function uploadProductImage(
         };
     }
 
-    // La ligne est COMMITÉE avant cet appel. Si Redis est injoignable, `add` lève et
-    // aucun job n'existe : le relais `failed` du worker ne tournera jamais, et la ligne
-    // resterait `PENDING` pour toujours, interrogée toutes les deux secondes, sans raison
-    // affichée et sans « Réessayer » : le vendeur n'aurait plus qu'à la supprimer.
+    // La ligne est COMMITÉE avant cet appel. Quand le dépôt lève, `REDIS_URL` absente ou
+    // `add` rejeté, aucun job n'existe : le relais `failed` du worker ne tournera jamais,
+    // et la ligne resterait `PENDING` pour toujours, affichée en traitement, sans raison
+    // et sans « Réessayer » : le vendeur n'aurait plus qu'à la supprimer.
     //
     // La marquer ici la rend relançable : l'original est en place, c'est la file qui a
     // manqué.
+    //
+    // Un Redis injoignable, lui, ne fait PAS lever `add` : BullMQ attend sa connexion sans
+    // fin, et l'action ne rend pas la main. Rien ne borne cette attente ici, contrairement
+    // au dépôt d'un événement temps réel.
     try {
         await productImageQueue().add("process", { imageId: image.id }, JOB_OPTIONS);
     } catch (error) {

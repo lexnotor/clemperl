@@ -30,6 +30,12 @@ const config: Config = {
         // l'est par `apps/api/test/product-image-worker.int-spec.ts`, contre le vrai
         // stockage. La DÉCISION qu'il applique, elle, est pure et reste mesurée ici.
         "!src/modules/media/processors/*.ts",
+        // L'adaptateur Redis de Socket.IO ne fait que relayer les émissions entre exemplaires
+        // de l'API : il ne s'éprouve qu'avec un vrai Redis et deux serveurs, et des substituts
+        // ne prouveraient que les substituts. Le parcours navigateur, qui ne démarre qu'un
+        // exemplaire, prouve seulement qu'il s'installe et que l'émission locale passe : le
+        // relais d'un exemplaire à l'autre n'est éprouvé par aucun test.
+        "!src/modules/realtime/adapters/*.ts",
     ],
 };
 

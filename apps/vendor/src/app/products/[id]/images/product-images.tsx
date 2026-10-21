@@ -8,7 +8,7 @@ import { derivativePath, isRetryableImageFailure } from "@clemperl/domain/browse
 import messages from "@clemperl/i18n/messages/vendor/fr.json";
 import { Field } from "@clemperl/ui";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ChangeEvent, type JSX } from "react";
+import { useState, type ChangeEvent, type JSX } from "react";
 import {
     removeImage,
     reorderProductImages,
@@ -40,17 +40,6 @@ export function ProductImages(props: ProductImagesProps): JSX.Element {
     const [error, setError] = useState<string | null>(null);
 
     const pending = props.images.some((image) => image.status === "PENDING");
-
-    // Tant qu'une image attend, la page se redemande au serveur. Pas de WebSocket : le
-    // temps réel est T7, et une file de quelques secondes ne le justifie pas. L'intervalle
-    // s'arrête dès que plus rien n'attend, sinon il tournerait pour rien indéfiniment.
-    useEffect(() => {
-        if (!pending) {
-            return;
-        }
-        const timer = setInterval(() => router.refresh(), 2000);
-        return () => clearInterval(timer);
-    }, [pending, router]);
 
     async function onFiles(event: ChangeEvent<HTMLInputElement>): Promise<void> {
         const files = Array.from(event.target.files ?? []);
@@ -112,6 +101,12 @@ export function ProductImages(props: ProductImagesProps): JSX.Element {
         <section className="mt-12 flex flex-col gap-6">
             <h2 className="text-sm text-muet">{t.imagesSection}</h2>
             <p className="text-sm text-muet">{t.imagesHint}</p>
+
+            {/* Tant qu'une image attend, la page le DIT : l'écoute du temps réel la
+                rafraîchit une fois à sa première connexion, pour rattraper un traitement
+                fini entre le rendu et l'ouverture de la connexion. La suite arrive par
+                l'avis de chaque traitement, qui rafraîchit la page de lui-même. */}
+            {pending && <div data-realtime-waiting="" hidden />}
 
             <label className="self-start cursor-pointer border border-bordure px-4 py-2 text-sm">
                 {t.addImages}

@@ -1,3 +1,4 @@
+import { E_REALTIME_EVENT } from "@clemperl/core";
 import {
     applyProviderEvent,
     prisma,
@@ -7,6 +8,7 @@ import {
     settleOffline,
 } from "@clemperl/db";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { RealtimeService } from "../../realtime/services";
 import { adapterFor, offlineMethods, type TPaymentRegistry } from "../adapters";
 import {
     ERROR_NO_ADAPTER,
@@ -23,6 +25,7 @@ export class PaymentsService {
     constructor(
         @Inject(PAYMENT_REGISTRY) private readonly registry: TPaymentRegistry,
         @Inject(PAYMENTS_ENV) private readonly env: IPaymentsEnv,
+        private readonly realtime: RealtimeService,
     ) {}
 
     async start(input: { buyerId: string; orderId: string; locale: string }): Promise<string> {
@@ -76,6 +79,14 @@ export class PaymentsService {
             userId: input.userId,
             offlineMethods: offlineMethods(this.registry),
         });
+
+        // Après l'écriture et hors de sa transaction : `publish` ne rejette jamais, un échec
+        // d'émission ne défait donc pas un pointage déjà validé.
+        await this.realtime.publish({
+            kind: E_REALTIME_EVENT.PAYMENT_STATUS_CHANGED,
+            orderId: input.orderId,
+            by: "VENDOR",
+        });
     }
 
     // Rend `false` quand la signature est fausse ou le corps illisible, pour que le
@@ -98,12 +109,22 @@ export class PaymentsService {
 
         // Le payload est chiffré TEL QU'IL A ÉTÉ REÇU, caractère pour caractère : ce qu'on
         // garde est la preuve du fournisseur, pas notre lecture de celle-ci.
-        await applyProviderEvent(prisma, {
+        const applied = await applyProviderEvent(prisma, {
             provider: adapter.provider,
             providerRef: event.providerRef,
             status: event.status,
             rawPayload: encryptPayload(this.env.payloadKey, input.raw),
         });
+
+        // Un rejeu (`changed` faux) et un événement `PENDING` ne bougent pas l'état de
+        // paiement de la commande : les annoncer serait une fausse alerte.
+        if (applied.changed && applied.orderId !== null && event.status !== "PENDING") {
+            await this.realtime.publish({
+                kind: E_REALTIME_EVENT.PAYMENT_STATUS_CHANGED,
+                orderId: applied.orderId,
+                by: "PROVIDER",
+            });
+        }
         return true;
     }
 }

@@ -32,7 +32,7 @@ async function placeOrder(buyer: Page, title: string): Promise<string> {
     await inMain(buyer, title).click();
     await buyer.waitForURL(/\/shops\/[^/]+\/[^/]+$/);
     await buyer.getByRole("button", { name: "Ajouter au panier" }).click();
-    await expect(buyer.getByRole("status")).toContainText("Ajouté à votre panier");
+    await expect(buyer.getByRole("main").getByRole("status")).toContainText("Ajouté à votre panier");
 
     await buyer.goto(`${URL_STOREFRONT}/cart`);
     await buyer.getByRole("link", { name: "Passer commande" }).click();
