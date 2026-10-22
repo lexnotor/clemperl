@@ -82,10 +82,11 @@ export function RealtimeListener({ apiUrl }: RealtimeListenerProps): JSX.Element
         // l'API, avant que l'onglet n'ait rejoint sa salle.
         let mayHaveMissed = false;
         socket.on("connect", () => {
-            // Une reconnexion rattrape ce qui a pu se perdre pendant la coupure. À la première
-            // connexion, seule une page qui ATTEND se rafraîchit : un avis parti entre son
-            // rendu et l'ouverture de la connexion serait perdu, et les autres pages
-            // viennent d'être rendues.
+            // Une reconnexion, comme une première connexion qui suit des tentatives ratées,
+            // rattrape ce qui a pu se perdre sans connexion. Une première connexion réussie
+            // d'emblée ne rafraîchit qu'une page qui ATTEND : un avis parti entre son rendu
+            // et l'ouverture de la connexion serait perdu, et les autres pages viennent
+            // d'être rendues.
             if (mayHaveMissed || document.querySelector("[data-realtime-waiting]") !== null) {
                 onRefresh();
             }

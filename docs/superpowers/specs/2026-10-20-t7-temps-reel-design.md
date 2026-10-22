@@ -1,7 +1,7 @@
 # ClemPerl, T7 : le temps réel
 
 **Date** : 2026-10-20
-**Statut** : cadrée, non commencée
+**Statut** : exécutée, PR #18
 **Tranche** : T7. La feuille de route de T0 l'appelait « temps réel et notifications » et y
 rangeait aussi les courriels transactionnels et la messagerie ; ce MVP n'en garde que le temps
 réel, voir la section 6
@@ -124,9 +124,11 @@ L'administration n'a pas de salle dans ce MVP.
 
 Lecture du cadrage, où il a été dit que le vendeur est averti « dans son espace ».
 
-**Ce que reçoit le navigateur** : le genre, l'identifiant concerné, et de quoi composer
-l'alerte (la référence de la commande, par exemple), jamais plus que ce que la page de cette
-personne affiche déjà.
+**Ce que reçoit le navigateur** : le genre, et de quoi composer l'alerte (la référence de
+la commande, le titre du produit, l'état de l'image), jamais plus que ce que la page de cette
+personne affiche déjà. L'identifiant concerné n'y est pas, et c'est voulu : le navigateur ne
+fait qu'alerter puis rafraîchir, et la page relit ses propres données, avec ses propres
+gardes. Un futur « ne rafraîchir que la page concernée » devra l'y ajouter.
 
 ## 4. Les écritures qui déposent un événement
 
@@ -138,7 +140,7 @@ test le vérifie pour chacune.
 | Boutique, validation de commande | `placeOrders` | `order.placed`, un par commande créée |
 | Espace vendeur, action de commande | `setOrderStatus` | `order.status_changed`, `by: VENDOR` |
 | Administration, action de commande | `setOrderStatusAsAdministrator` | `order.status_changed`, `by: ADMIN` |
-| API, webhook de paiement | `applyProviderEvent` | `payment.status_changed`, `by: PROVIDER`, si l'état a changé |
+| API, webhook de paiement | `applyProviderEvent` | `payment.status_changed`, `by: PROVIDER`, quand l'état de paiement de la commande est écrit, un refus sur une commande déjà refusée compris ; rien pour un rejeu, un événement en attente, ni l'issue tardive d'une tentative dont la commande est déjà réglée |
 | API, pointage hors ligne | `settleOffline` | `payment.status_changed`, `by: VENDOR` |
 | API, traitement d'images, dans le worker | `markImageReady`, `markImageFailed` | `product_image.processed` |
 | Boutique, litige | `openDispute` | `dispute.opened` |
@@ -178,8 +180,10 @@ l'image donne la boutique de son produit.
 
 ### Côté navigateur
 
-La boutique et l'espace vendeur ouvrent **une connexion par onglet**, seulement pour une
-personne connectée. Un visiteur sans compte ne se connecte pas.
+La boutique et l'espace vendeur ouvrent **une connexion par onglet**. La boutique ne se
+connecte qu'avec une session : un visiteur sans compte ne se connecte pas. L'espace vendeur se
+connecte sur chacune de ses pages sans lire la session, puisque toutes exigent une
+appartenance, et la passerelle refuse une poignée de main sans session.
 
 À chaque événement :
 
@@ -190,17 +194,25 @@ personne connectée. Un visiteur sans compte ne se connecte pas.
    qui les apporte.
 
 **À la reconnexion**, la page se rafraîchit une fois, pour rattraper ce qui a pu être manqué.
+Une première connexion qui aboutit après des tentatives ratées fait de même : la page a été
+rendue sans connexion.
 
-**À la première connexion**, seule une page qui ATTEND se rafraîchit une fois : la commande
-dont un paiement en ligne attend la réponse du prestataire, et la page des photos tant qu'une
-image est en traitement. Un événement arrivé entre le rendu de la page et l'ouverture de la
-connexion serait sinon perdu, et c'est précisément le retour de chez un vrai prestataire,
-dont le webhook arrive un instant après, que l'interrogation couvrait. Les autres pages ne se
-rafraîchissent pas à la connexion : l'espace vendeur navigue par des liens ordinaires, donc
-chaque navigation est un chargement complet, et elle rendrait deux fois.
+**À une première connexion réussie d'emblée**, seule une page qui ATTEND se rafraîchit une
+fois : la commande dont un paiement en ligne attend la réponse du prestataire, et la page des
+photos tant qu'une image est en traitement. Un événement arrivé entre le rendu de la page et
+l'ouverture de la connexion serait sinon perdu, et c'est précisément le retour de chez un
+vrai prestataire, dont le webhook arrive un instant après, que l'interrogation couvrait. Les
+autres pages ne se rafraîchissent pas à la connexion : l'espace vendeur navigue par des liens
+ordinaires, donc chaque navigation est un chargement complet, et elle rendrait deux fois.
+
+**Un seul rafraîchissement de secours**, sur la commande qui attend son prestataire : elle
+redemande la page au serveur une fois, une minute après son affichage, au cas où l'avis se
+serait perdu, parti avant que la connexion n'ait rejoint sa salle, ou pendant que Redis ou
+l'API étaient injoignables. La page des photos n'en a pas.
 
 **L'interrogation par intervalles disparaît** : `payment-watch` dans la boutique, et la boucle
-de rafraîchissement de la page des photos dans l'espace vendeur.
+de rafraîchissement de la page des photos dans l'espace vendeur. Le secours de la commande
+n'en est pas une : il ne se répète jamais.
 
 ## 6. Non-buts
 
@@ -269,8 +281,10 @@ d'une commande, d'un litige et d'une image.
 inconnue, les salles dérivées de la session ET de l'application, l'émission vers les bonnes
 salles pour chaque genre, `by` compris.
 
-**Unitaire, dans les trois fronts** : chaque action de la section 4 dépose son événement, et
-rend son résultat normal quand le dépôt échoue.
+**Unitaire, dans les trois fronts** : chaque action de la section 4 dépose son événement
+après une écriture réussie, et rien sur un refus. Qu'un dépôt raté ne fasse jamais échouer
+l'action se prouve une fois, sur l'utilitaire de dépôt partagé : il ne rejette jamais, et son
+attente est bornée à deux secondes.
 
 **Navigateur** : l'acheteur voit sa commande passer à « Expédiée » sans recharger, avec
 l'alerte, pendant que le vendeur l'expédie dans un autre contexte ; le vendeur, sur la page de

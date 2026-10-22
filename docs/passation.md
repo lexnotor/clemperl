@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-21.
+Dernière mise à jour : 2026-10-22.
 
 ## Où en est le projet
 
@@ -29,7 +29,7 @@ plan, exécution, un commit.
 | T6b | Gérer les comptes et les rôles | **Livrée**, PR #13 |
 | T6c | Surveiller les commandes et débloquer | **Livrée**, PR #14 |
 | T6d | Litiges | **Livrée**, PR #15 |
-| T7 | Temps réel | **Exécutée**, en pull request |
+| T7 | Temps réel | **Exécutée**, en pull request #18 |
 | T8 | API GraphQL pour le mobile | à cadrer |
 
 **La liste du catalogue n'est pas cacheable page entière.** La devise vit dans un cookie,
@@ -110,11 +110,14 @@ commande de l'acheteur, jamais rechargée, passe à « Acceptée », à « Expé
 dans un second onglet pendant que l'acheteur paie en ligne passe à « Payé » quand le
 fournisseur répond, avec l'alerte, et la page du vendeur à « Reçu », avec la sienne.
 
-**Exécutée, en pull request.** Un seul commit de chantier sur la branche `feat/realtime`,
-partie de `main` après la fusion de T6d, passé avec l'accord du propriétaire, et une pull
-request qui attend sa CI et sa revue. Huit tâches, exécutées dans une même session sans
-commit d'étape, chacune relue par un relecteur neuf, puis une revue de toute la branche et
-sa vague de correctifs.
+**Exécutée, en pull request #18.** Un commit de chantier sur la branche `feat/realtime`,
+partie de `main` après la fusion de T6d, passé avec l'accord du propriétaire. Huit tâches,
+exécutées dans une même session sans commit d'étape, chacune relue par un relecteur neuf,
+puis une revue de toute la branche et sa vague de correctifs. Sur ce commit, `84f4728`, la
+CI de la pull request est passée verte, neuf tâches sur neuf, avec la vérification de
+CodeRabbit en plus, puis CodeRabbit l'a relu. Ses constats et les décisions du propriétaire
+sont traités sur la même branche, avant la fusion, par des corrections que la CI n'a pas
+encore jouées : voir « La revue de la pull request ».
 
 La spec : `docs/superpowers/specs/2026-10-20-t7-temps-reel-design.md`. Le plan :
 `docs/superpowers/plans/2026-10-20-t7-temps-reel.md`.
@@ -151,7 +154,8 @@ l'adaptateur en mémoire de socket.io prend un ensemble de salles vide pour « t
 connectés ».
 
 **L'avis ne porte que de quoi composer l'alerte, sans identifiant**, contre la lettre de la
-spec, qui l'y mettait. Le navigateur n'en fait rien : il alerte, puis rafraîchit la page, qui
+spec d'origine, qui l'y mettait ; le propriétaire a confirmé l'écart, et la spec le dit
+désormais. Le navigateur n'en fait rien : il alerte, puis rafraîchit la page, qui
 relit ses données avec ses propres gardes. Un futur « ne rafraîchir que la page concernée »
 devra l'ajouter.
 
@@ -164,13 +168,15 @@ vide n'ouvre aucune connexion. À la première connexion réussie d'emblée, seu
 attend se rafraîchit, signalée par un marqueur
 `data-realtime-waiting` : la commande dont une tentative en ligne attend son fournisseur, et
 la page des photos tant qu'une image est en traitement. Les deux interrogations par
-intervalles ont disparu, `payment-watch` compris.
+intervalles ont disparu, `payment-watch` compris. La commande qui attend son fournisseur
+garde un seul secours : elle redemande la page au serveur une fois, une minute après son
+affichage, au cas où l'avis se serait perdu, et jamais plus. Ce n'est pas une interrogation.
 
-**L'espace vendeur se connecte sans lire la session**, contre la lettre de la spec, qui ne
-connectait qu'une personne connectée : chacune de ses pages exige une appartenance, et la
-passerelle refuse une poignée de main sans session. La boutique ne se connecte qu'avec une
-session, et suit l'identifiant du compte plutôt qu'un booléen : un autre compte qui se
-connecte dans le même onglet change de salle.
+**L'espace vendeur se connecte sans lire la session**, contre la lettre de la spec d'origine,
+qui ne connectait qu'une personne connectée, écart que le propriétaire a confirmé : chacune
+de ses pages exige une appartenance, et la passerelle refuse une poignée de main sans
+session. La boutique ne se connecte qu'avec une session, et suit l'identifiant du compte
+plutôt qu'un booléen : un autre compte qui se connecte dans le même onglet change de salle.
 
 **`@clemperl/core` a un sous-chemin navigateur, `@clemperl/core/browser`.** `bullmq` est
 entré dans son barillet, et une seule valeur importée de là par un composant client cassait
@@ -260,8 +266,61 @@ boutique, qui ne rend plus le formulaire, et le clic attendait un bouton disparu
 coupe maintenant la connexion temps réel de cette page avant de la charger, comme pour un
 vendeur dont la connexion est tombée. Rouge sur ce clic avant, vert après.
 
-**Et cela a un prix, à trancher par le propriétaire** : une réponse en cours de saisie
-disparaît quand l'administration tranche. Voir « Ce qui reste ouvert ».
+**Et cela a un prix, que le propriétaire accepte pour l'instant** : une réponse en cours de
+saisie disparaît quand l'administration tranche. Voir « Ce qui reste ouvert ».
+
+### La revue de la pull request, au 2026-10-22
+
+**La CI a été verte sur le commit soumis à la revue, `84f4728`** : neuf tâches sur neuf,
+`e2e` et `test` compris, plus la vérification de CodeRabbit. Les corrections qui suivent n'ont
+pas tourné en CI : voir « Ce que la CI a établi ».
+
+**CodeRabbit a relevé trois constats et une remarque mineure**, vérifiés un à un.
+
+- **Un événement tardif du fournisseur était annoncé sur une commande déjà réglée.**
+  `applyProviderEvent` rendait `changed: true` dès que la tentative quittait `PENDING`, même
+  quand la commande, réglée par une autre tentative ou hors ligne, ne bougeait pas : le
+  webhook prévenait alors l'acheteur et la boutique d'un changement qui n'avait pas eu lieu.
+  Le dépôt rend aussi `orderStatusChanged`, vrai seulement quand l'écriture atteint la
+  commande, et le webhook n'émet que sur lui. Un refus qui suit un refus compte comme une
+  écriture de la commande, bien qu'il réécrive la même valeur : la page qui attendait ce
+  fournisseur doit quitter son attente. Le test unitaire du service a été vu rouge avant la
+  correction. Les assertions d'intégration du dépôt, écrites avant elle, ont été vues rouges
+  contre la base en y remettant le défaut, `orderStatusChanged` suivant le seul statut de
+  l'événement : les deux issues tardives sur une commande réglée échouent, 2 tests sur 22.
+  Le dépôt restauré, les 22 passent.
+- **La course de jonction** : le `connect` du client peut précéder la jonction des salles, et
+  un avis émis entre les deux se perd. Elle reste ouverte, voir « Ce que la vérification n'a
+  PAS établi ». Le propriétaire a choisi un secours en attendant sa correction : la commande
+  qui attend un fournisseur en ligne redemande la page au serveur une fois, une minute après
+  son affichage. `ProviderWaitingMarker` le porte, avec le marqueur d'attente. Son test, vu
+  rouge contre une première version du composant qui ne programmait encore aucun délai, fixe
+  un rafraîchissement à la minute, aucun avant, aucun second, aucun après le démontage, et
+  deux mutations, un `setInterval` puis le drapeau retiré, le font rougir. La page des photos
+  n'en a pas.
+- **La spec ne disait plus ce que fait le code.** Les écarts listés dans la pull request sont
+  confirmés par le propriétaire, et la spec est alignée : son statut, l'avis sans identifiant,
+  l'espace vendeur qui se connecte sans lire la session, la première connexion qui suit des
+  tentatives ratées, le secours de la commande, et l'échec du dépôt prouvé une fois, sur
+  l'utilitaire partagé, et non par action.
+
+La remarque mineure, le relais entre deux exemplaires de l'API, n'est pas établie : la CI
+n'en démarre qu'un, comme le compose.
+
+**Les décisions du propriétaire.**
+
+- La réponse en cours de saisie perdue quand l'administration tranche un litige est acceptée
+  pour l'instant, et reste ouverte pour une tranche ultérieure.
+- La ligne du tableau de `CLAUDE.md` est ajoutée : écrire une action qui change une commande,
+  un paiement, une photo ou un litige renvoie à la section 4 de la spec T7.
+- Les écarts au plan sont confirmés, et la spec alignée.
+
+**Les quatre imprécisions de la dernière relecture sont corrigées**, toutes dans des
+commentaires ou de la prose : les commentaires des deux écoutes disent qu'une première
+connexion qui suit des tentatives ratées rafraîchit aussi ; la phrase qui limitait T7 au code
+du pointage est corrigée ; le paquet `40` de Socket.IO s'appelle l'ouverture de la connexion,
+et non l'acceptation de la passerelle, message d'échec de `e2e/helpers/realtime.ts` compris ;
+le commentaire de `client.spec.ts` ne surestime plus ses durées.
 
 ### Six pièges payés, consignés dans `docs/pieges.md`
 
@@ -297,46 +356,66 @@ disparaît quand l'administration tranche. Voir « Ce qui reste ouvert ».
 | `test` | 15/15 une tâche à la fois ; en parallèle, `client.spec.ts` de `packages/db` expirait, voir plus bas. Après les corrections, sans cache : 15/15 à trois tâches de front comme la CI, puis 15/15 sans borne |
 | `verify:thresholds` | six configurations, aucun seuil orphelin |
 | `build` | 9/9, avec `DATABASE_URL` et `REDIS_URL` factices, avant les corrections de la revue finale ; après elles, les paquets 5/5, puis la boutique et l'espace vendeur, ce dernier avec les variables factices, verts l'un après l'autre |
+| CI de la pull request #18, sur `84f4728`, avant les corrections de la revue | neuf tâches sur neuf, `e2e` et `test` compris, plus la vérification de CodeRabbit |
+| Après la revue de la pull request, sur ce poste | API unitaires, 20 suites, 204 tests, couverture 100 % ; boutique 95 tests, dont 6 pour le secours ; espace vendeur 38 ; `packages/db` 13, couverture 100 % ; `lint` et `typecheck` des quatre, 13/13, et des parcours ; les paquets construits, 5/5 ; intégration, couche entière, 22 suites, 299 tests ; `e2e/payment.spec.ts` seul, `--workers=1`, 2 passés, le parcours en ligne en 57,1 s ; `e2e/realtime.spec.ts` seul, `--workers=1`, 1 passé en 54,0 s. La suite navigateur complète n'a pas été rejouée sur ce poste |
+
+### Ce que la CI a établi
+
+La CI de la pull request #18 a tourné sur `84f4728`, le commit soumis à la revue, AVANT ses
+corrections : neuf tâches sur neuf, `e2e` et `test` compris, plus la vérification de
+CodeRabbit. Elle a tranché pour ce commit les deux points que ce poste laissait ouverts, et
+rien de plus : elle ne démarre qu'un exemplaire de l'API. Le secours d'une minute et le
+changement du dépôt des paiements n'ont tourné en CI nulle part, et la suite navigateur
+complète n'a tourné avec eux nulle part.
+
+**La suite navigateur complète est passée d'un bloc, sur `84f4728`.** Ce poste ne l'a jamais
+obtenu : trois passages en `--workers=1`, la charge entre 10 et 23 sur quatre cœurs, deux
+autres projets ayant leur pile en marche. Hormis `disputes.spec.ts`, chaque échec y était
+une attente de cinq secondes, le délai par défaut, après l'une de ces actions : publier un
+produit, déposer une demande de boutique, remonter le panier local, refuser une validation
+sans paiement, renommer une collection, pointer un paiement. T7 touche au code de deux
+d'entre elles : le pointage, dont l'API attend désormais l'émission, une lecture en base de
+plus, et la validation de commande, qui dépose ses événements. Le barillet de
+`@clemperl/core` charge désormais `bullmq`, et le `env.ts` de chaque front l'importe : tout
+le code serveur des deux fronts le charge. Et T7 change ce qui les entoure toutes : l'écoute
+est posée dans chaque mise en page de la boutique et de l'espace vendeur, la boutique
+demande la session à chaque chargement complet, et c'est un avis temps réel, et non plus une
+interrogation, qui fait paraître la photo prête qu'attend `publishProduct` avant de publier.
+Là où les journaux des fronts les mesurent, ces actions et leur rendu ont pris entre 4,4 et
+8 s ; le renommage, lui, a répondu en 0,5 s avec l'ancien titre, ce qui ressemble au piège
+de la saisie écrasée avant l'hydratation, sans que ce soit démontré, et il avait échoué de
+la même façon en T4 et en T6c. Aucun échec ne portait sur une alerte ou un rafraîchissement.
+Chaque test en échec est passé dans un autre passage, ou seul aussitôt après ; avec l'arbre
+final, les 36 tests sont passés au moins une fois. Que le temps réel ajoute de la charge sur
+un poste chargé n'est pas exclu : une poignée de main par onglet, que les traces montrent
+doublée en développement, la première refermée aussitôt, et un nouveau rendu par avis. La
+CI, sur un runner dédié, a passé la suite d'un bloc : c'était le banc qui tranche, comme
+pour T3.
+
+**`packages/db/src/client.spec.ts` est passé sous les suites parallèles, sur `84f4728`.** La
+CI lance `pnpm test`, à trois tâches de front, et le fichier y a été vert. Chacun de ses cas
+importe un client Prisma neuf ; sur ce poste seul, et par intermittence, un import a dépassé
+les cinq secondes par défaut de Vitest : deux puis trois échecs sous `pnpm turbo run test`,
+un sous `pnpm test`. Vert seul, 13 tests en 3,6 s. Ni ce fichier ni ce qu'il importe
+n'avaient bougé depuis T0 ; que les tests ajoutés par T7 alourdissent le parallélisme n'est
+pas exclu. Ses cas ont un délai nommé de 30 s, `FRESH_CLIENT_IMPORT_TIMEOUT_MS`, posé sur
+leur `describe`, avec son pourquoi. Seuls, le premier prend quelques centaines de
+millisecondes, jusqu'à 330 ms, les autres entre 10 ms et quelques dizaines. Depuis, `pnpm
+turbo run test --concurrency=3 --force` puis `pnpm turbo run test --force` ont passé 15/15
+chacun sur ce poste, la charge autour de 9, la suite de `packages/db` en 2,2 s en tout. Ni
+ces passages ni la CI ne disent à quel point les échecs d'avant étaient proches de la borne.
 
 ### Ce que la vérification n'a PAS établi
 
-**La suite navigateur complète n'a pas été verte d'un bloc.** Trois passages en
-`--workers=1`, la charge du poste entre 10 et 23 sur quatre cœurs, deux autres projets ayant
-leur pile en marche. Hormis `disputes.spec.ts`, chaque échec est une attente de cinq
-secondes, le délai par défaut, après l'une de ces actions : publier un produit, déposer une
-demande de boutique, remonter le panier local, refuser une validation sans paiement, renommer
-une collection, pointer un paiement. T7 ne touche au code que du pointage, dont l'API attend
-désormais l'émission, une lecture en base de plus. Mais il change ce qui les entoure toutes :
-l'écoute est posée dans chaque mise en page de la boutique et de l'espace vendeur, la
-boutique demande la session à chaque chargement complet, et c'est un avis temps réel, et non
-plus une interrogation, qui fait paraître la photo prête qu'attend `publishProduct` avant de
-publier. Là où les journaux des fronts les mesurent, ces actions et leur rendu ont pris entre
-4,4 et 8 s ; le renommage, lui, a répondu en 0,5 s avec l'ancien titre, ce qui ressemble au
-piège de la saisie écrasée avant l'hydratation, sans que ce soit démontré, et il avait échoué
-de la même façon en T4 et en T6c. Aucun échec ne porte sur une alerte ou un rafraîchissement.
-Chaque test en échec est passé dans un autre passage, ou seul aussitôt après ; avec l'arbre
-final, les 36 tests sont passés au moins une fois. Que le temps réel ajoute de la charge
-n'est pas exclu : une poignée de main par onglet, que les traces montrent doublée en
-développement, la première refermée aussitôt, et un nouveau rendu par avis. La CI, sur un
-runner dédié, reste le banc qui tranche, comme pour T3.
-
-**`packages/db/src/client.spec.ts` expirait quand les tests tournent en parallèle.** Chacun
-de ses cas importe un client Prisma neuf, sous le délai de cinq secondes de Vitest : deux
-puis trois échecs sous `pnpm turbo run test`, un sous `pnpm test`, qui borne à trois tâches,
-comme la CI. Vert seul, 13 tests en 3,6 s, et vert sous
-`pnpm turbo run test --concurrency=1`, d'où le 15/15 du tableau. Ni ce fichier ni ce qu'il
-importe n'avaient bougé depuis T0 ; que les tests ajoutés par T7 alourdissent le parallélisme
-n'est pas exclu. Ses cas ont désormais un délai nommé de 30 s,
-`FRESH_CLIENT_IMPORT_TIMEOUT_MS`, posé sur leur `describe`, avec son pourquoi ; seuls, ils
-prennent entre 9 et 330 ms. Depuis, `pnpm turbo run test --concurrency=3 --force`, la forme
-de la CI sans le cache, puis `pnpm turbo run test --force` ont passé 15/15 chacun, la pile de
-développement en marche et la charge autour de 9. La suite de `packages/db` y a duré 2,2 s en
-tout, loin de la borne : ces passages ne disent pas à quel point les échecs d'avant en
-étaient proches. La CI reste le banc qui tranche.
+**Les corrections de la revue n'ont pas tourné en CI.** Le secours d'une minute, le dépôt des
+paiements qui rend `orderStatusChanged` et le webhook qui n'émet que sur lui n'ont tourné que
+sur ce poste : les tests unitaires, la couche d'intégration, et `payment.spec.ts` et
+`realtime.spec.ts` lancés seuls. La suite navigateur complète n'a tourné avec eux nulle part.
 
 **Le relais entre deux exemplaires de l'API n'a jamais tourné.** Le compose n'en démarre
-qu'un : chaque alerte du parcours passe par l'adaptateur Redis, mais rien ne prouve qu'un
-second exemplaire reçoit ce que le premier émet. Le commentaire d'exclusion de couverture de
+qu'un, la CI non plus : chaque alerte du parcours passe par l'adaptateur Redis, mais rien ne
+prouve qu'un second exemplaire reçoit ce que le premier émet. C'est la remarque mineure de
+CodeRabbit, consignée comme non établie. Le commentaire d'exclusion de couverture de
 `apps/api/jest.config.ts` le dit.
 
 **Le changement de compte dans le même onglet** n'est prouvé que par un test unitaire de
@@ -360,11 +439,15 @@ tests de composant.
 connexion.** Le simulateur appelle son propre webhook AVANT de renvoyer l'acheteur, donc la
 page où il revient se rend déjà réglée ou refusée. `payment.spec.ts` ouvre donc la commande
 dans un second onglet de l'acheteur pendant qu'il est chez le fournisseur : l'onglet porte le
-marqueur d'attente, attend que la passerelle accepte sa connexion, puis la décision est prise.
+marqueur d'attente, attend que sa connexion s'ouvre, puis la décision est prise.
 Il passe à « Payé » sans être rechargé, avec l'alerte de l'acheteur, et la page du vendeur à
 « Reçu », avec la sienne : trois exécutions vertes sur trois. Mais l'onglet est connecté avant
 la décision, donc un webhook arrivé ENTRE le rendu et la connexion n'est jamais provoqué : ce
 rattrapage n'est prouvé que par les tests de composant.
+
+**Le secours d'une minute de la commande n'a jamais tourné dans un navigateur.** Aucun
+parcours n'attend une minute, et l'avis arrive avant : il n'est prouvé que par son test de
+composant, à horloge simulée.
 
 **Trois genres seulement sont assertés dans un navigateur** : la nouvelle commande chez le
 vendeur, la commande et le paiement mis à jour chez l'acheteur. Les photos avancent par le
@@ -382,12 +465,14 @@ dernier avis de l'acheteur : une alerte de trop serait comptée même effacée. 
 la règle qui fait avertir la boutique de son propre pointage le fait rougir à cette lecture.
 Seul un avis arrivé chez le vendeur après elle lui échapperait.
 
-**La course de jonction n'a pas été observée.** La passerelle rejoint les salles après avoir
-accepté la connexion, donc après le `connect` du client : un avis émis dans cet intervalle,
-le temps d'une lecture de session, serait perdu. Sa durée n'a pas été mesurée. Aucun parcours
-ne la provoque ; celui du paiement en ligne attend l'acceptation de la connexion, pas la
+**La course de jonction n'a pas été observée.** La passerelle rejoint les salles dans
+`handleConnection`, après une lecture de session, donc après le paquet de connexion `40` qui
+déclenche le `connect` du client : un avis émis dans cet intervalle serait perdu. Sa durée
+n'a pas été mesurée. Aucun parcours ne la provoque ; celui du paiement en ligne attend
+l'ouverture de la connexion, ce paquet qui part avant que la passerelle décide, pas la
 jonction, et compte sur le trajet de la décision, du navigateur à la base, pour la laisser
-se faire.
+se faire. Elle reste ouverte ; sur la seule commande qui attend un fournisseur, le secours
+d'une minute rattrape l'avis perdu.
 
 **Le banc de production, `pnpm e2e:up`, n'a pas tourné.** En particulier, `/_not-found` est
 prérendu au build avec l'adresse de l'API d'alors ; vide, l'écoute ne se connecte pas, garde
@@ -401,7 +486,9 @@ Aucun de ces points ne bloque. Ils sont groupés par nature, pas par ordre d'urg
 
 - La course de jonction, d'une durée non mesurée : rejoindre les salles dans un middleware
   Socket.IO (`server.use`), pour que le `connect` du client implique la jonction et qu'un
-  refus devienne un `connect_error`.
+  refus devienne un `connect_error`. Le propriétaire le range dans une tranche ultérieure ;
+  d'ici là, la commande qui attend un fournisseur se rafraîchit une fois, une minute après
+  son affichage, et les autres pages attendent le prochain avis ou le prochain chargement.
 - Les événements de la file n'ont pas d'âge limite, et les rafraîchissements ne sont pas
   regroupés : après une panne de l'API, la file livre d'un coup tout ce qu'elle a gardé, et
   chaque onglet enchaîne des alertes périmées et autant de nouveaux rendus. Abandonner un job
@@ -424,9 +511,9 @@ Aucun de ces points ne bloque. Ils sont groupés par nature, pas par ordre d'urg
 
 **Les suites sur ce poste.**
 
-- `client.spec.ts` de `packages/db` expirait sous les suites parallèles. Ses cas ont désormais
-  un délai nommé de 30 s, avec son pourquoi, et les deux formes parallèles sont passées une
-  fois sur ce poste ; la CI, qui lance `pnpm test` à trois tâches de front, tranchera.
+- `client.spec.ts` de `packages/db` a expiré par intermittence sous les suites parallèles, sur
+  ce poste seul. Ses cas ont un délai nommé de 30 s, avec son pourquoi ; la CI, qui lance
+  `pnpm test` à trois tâches de front, l'a passé sur `84f4728`.
 - `createApprovedVendorShop` attend cinq secondes la page « en cours d'examen » après le dépôt
   de la demande : rouge trois fois le 2026-10-21, au démarrage à froid et sous charge, avant
   tout ce que le parcours éprouve.
@@ -437,14 +524,15 @@ Aucun de ces points ne bloque. Ils sont groupés par nature, pas par ordre d'urg
   `catalog.spec.ts`, quand l'action et son rendu en ont pris jusqu'à 5,8 s : trois échecs le
   2026-10-21.
 
-**Une question de produit, pour le propriétaire.**
+**Une décision du propriétaire, à reprendre plus tard.**
 
 - Une réponse en cours de saisie disparaît quand l'administration tranche le litige, dans le
   formulaire de la boutique comme dans celui de l'acheteur : la décision les prévient tous
   deux, leurs pages se rafraîchissent et ne rendent plus le formulaire d'un litige clos.
   L'alerte dit pourquoi, mais le texte est perdu. Cela défait, pour ce cas, ce que la revue de
   T6d avait obtenu : garder ce que la personne a tapé. Rien ne pouvait plus partir ; garder le
-  brouillon lisible est un choix d'interface, pas une correction.
+  brouillon lisible est un choix d'interface, pas une correction. Le propriétaire accepte la
+  perte pour l'instant, et laisse le brouillon gardé à une tranche ultérieure.
 
 **Des tests à resserrer.**
 
@@ -465,9 +553,8 @@ Aucun de ces points ne bloque. Ils sont groupés par nature, pas par ordre d'urg
 
 - `TRealtimeEvent` retape les littéraux de `kind` au lieu de les dériver de
   `E_REALTIME_EVENT` : une faute de frappe n'y serait pas confrontée à l'enum.
-- Dans `payment.repository.ts`, le paragraphe sur le retour est collé au commentaire de
-  l'idempotence ; le commentaire de l'écouteur `error` du dépôt ne dit pas que BullMQ, sans
-  lui, imprime les erreurs.
+- Le commentaire de l'écouteur `error` du dépôt ne dit pas que BullMQ, sans lui, imprime les
+  erreurs.
 - Une soixantaine de lignes de cycle de vie sont dupliquées entre les deux écoutes, ce qui se
   justifie tant que leurs sessions et leur i18n diffèrent ; un crochet commun demanderait un
   paquet qui dépende de `socket.io-client`.
@@ -484,37 +571,12 @@ suite, build ou pile.
 
 ### Reprendre
 
-1. La pull request est ouverte depuis la branche `feat/realtime`, qui touche
-   quatre-vingt-treize fichiers, le commit de cadrage compris, sous la limite de cent
-   au-delà de laquelle CodeRabbit refuse de relire. Sa revue se déclenche par un
-   commentaire `@coderabbitai review`. La CI ne tourne que sur la pull request : c'est elle
-   qui tranchera la suite navigateur et le délai de `client.spec.ts` sous charge.
-2. Avant la fusion, quatre imprécisions relevées par la dernière relecture, toutes dans des
-   commentaires ou de la prose, aucune dans le comportement :
-   - les commentaires des deux écouteurs (`realtime-listener.tsx` de la boutique et de
-     l'espace vendeur) disent encore qu'à la première connexion seule une page qui attend se
-     rafraîchit ; c'est faux depuis le rattrapage après une connexion ratée ;
-   - la section « Ce que la vérification n'a PAS établi » dit que T7 ne touche au code que du
-     pointage, alors que la validation de commande dépose aussi ses événements et charge
-     `bullmq` par le baril de `@clemperl/core` ;
-   - `e2e/helpers/realtime.ts` et deux phrases de cette passation appellent « acceptation de
-     la passerelle » le paquet `40` de Socket.IO, qui part avant que `handleConnection`
-     décide : un refus le reçoit aussi. Cela ne peut pas produire de faux vert, mais le
-     message d'échec orienterait mal un diagnostic ;
-   - le commentaire de `packages/db/src/client.spec.ts` et sa reprise ici surestiment : seul
-     le premier cas prend quelques centaines de millisecondes, les autres une dizaine ou
-     deux, le dépassement de cinq secondes n'a été vu que par intermittence sur ce poste,
-     jamais en CI, et le minimum mesuré est de 10 ms, pas 9.
-3. Trois décisions qui reviennent au propriétaire : la réponse en cours de saisie perdue quand
-   l'administration tranche un litige (voir « Ce qui reste ouvert après T7 ») ; une ligne à
-   ajouter au tableau de `CLAUDE.md`, recommandée par la revue de branche, du type « Écrire
-   une action qui change une commande, un paiement, une photo ou un litige → spec T7,
-   section 4 », pour qu'un nouveau chemin d'écriture trouve la liste des dépôts ; et les
-   écarts au plan à confirmer dans la pull request : l'avis sans identifiant, l'espace
-   vendeur qui se connecte sans lire la session, aucun test d'échec du dépôt par action, le
-   point d'entrée `@clemperl/core/browser`, le délai de deux secondes, les photos en attente
-   non annoncées, et `disputes.spec.ts` qui coupe la connexion temps réel du vendeur.
-4. Sur une autre machine : `pnpm install`, puis `pnpm turbo run build --filter='./packages/*'`,
+1. Ce qui reste : pousser les corrections de la revue sur la pull request #18, puis obtenir
+   une CI verte sur cette nouvelle tête, `e2e` en particulier, qui n'a encore tourné ni avec
+   le secours d'une minute ni avec le dépôt des paiements corrigé ; enfin la fusion, en
+   squash, une fois que le propriétaire l'approuve. CodeRabbit ne relit que sur un
+   commentaire `@coderabbitai review`.
+2. Sur une autre machine : `pnpm install`, puis `pnpm turbo run build --filter='./packages/*'`,
    puis `pnpm docker:up`, qui reconstruit les images. Les dépendances neuves sont
    `socket.io-client` dans les deux fronts, avec `@testing-library/react`, `jsdom` et
    `@vitejs/plugin-react` pour leurs tests, `@nestjs/websockets`,

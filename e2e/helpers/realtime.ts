@@ -30,32 +30,34 @@ export async function expectNotReloaded(page: Page): Promise<void> {
     expect(marked, "la page a été rechargée").toBe(true);
 }
 
-// Guette l'acceptation de la connexion temps réel d'une page : le paquet de connexion de
-// Socket.IO, « 40 », que la passerelle renvoie. À appeler AVANT la navigation, faute de quoi
-// la connexion et ce paquet, qui ne se répètent pas, seraient déjà passés. La fonction rendue
-// attend l'acceptation.
+// Guette l'ouverture de la connexion temps réel d'une page : le paquet de connexion de
+// Socket.IO, « 40 ». Il part AVANT que la passerelle décide, dans `handleConnection`, de
+// garder la connexion : une poignée de main refusée le reçoit aussi, juste avant d'être
+// fermée. Il dit donc que la connexion s'est ouverte, pas que la passerelle l'a acceptée. À
+// appeler AVANT la navigation, faute de quoi la connexion et ce paquet, qui ne se répètent
+// pas, seraient déjà passés. La fonction rendue attend l'ouverture.
 //
 // La passerelle rejoint les salles juste APRÈS ce paquet, le temps de lire la session : un
 // avis émis dans cet intervalle serait perdu. Une écriture déclenchée ensuite par le parcours
 // traverse le navigateur, l'API et la base avant d'émettre, ce qui laisse à la jonction le
 // temps de se faire, sans que rien ne le garantisse.
 export function watchRealtimeConnection(page: Page): () => Promise<void> {
-    let accepted = false;
+    let opened = false;
     page.on("websocket", (socket) => {
         if (!socket.url().includes("/socket.io/")) {
             return;
         }
         socket.on("framereceived", ({ payload }) => {
             if (typeof payload === "string" && payload.startsWith("40")) {
-                accepted = true;
+                opened = true;
             }
         });
     });
     return () =>
         expect
-            .poll(() => accepted, {
+            .poll(() => opened, {
                 ...AFTER_EVENT,
-                message: "la passerelle n'a pas accepté la connexion temps réel",
+                message: "la connexion temps réel ne s'est pas ouverte : aucun paquet « 40 » reçu",
             })
             .toBe(true);
 }

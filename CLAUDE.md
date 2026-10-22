@@ -44,6 +44,7 @@ commentaire de revue.
 | S'inscrire, se connecter, partager une session entre les fronts       | [Design T1a](docs/superpowers/specs/2026-09-18-t1a-identite-design.md)          |
 | Modéliser un produit, ses axes, ses variantes ou un prix              | [Design T2b](docs/superpowers/specs/2026-09-21-t2b-produit-variantes-design.md) |
 | Déposer une image, toucher à la file ou au worker                     | [Design T2c](docs/superpowers/specs/2026-09-24-t2c-pipeline-medias-design.md)   |
+| Ajouter une écriture qui change une commande, un paiement, une photo ou un litige | [Design T7, section 4](docs/superpowers/specs/2026-10-20-t7-temps-reel-design.md) |
 | Reprendre le travail sur une autre machine, ou après une interruption | [Passation](docs/passation.md)                                                  |
 
 Un travail qui traverse plusieurs disciplines est tenu aux deux standards à la
