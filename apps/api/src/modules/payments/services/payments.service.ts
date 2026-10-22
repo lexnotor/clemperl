@@ -116,9 +116,11 @@ export class PaymentsService {
             rawPayload: encryptPayload(this.env.payloadKey, input.raw),
         });
 
-        // Un rejeu (`changed` faux) et un événement `PENDING` ne bougent pas l'état de
-        // paiement de la commande : les annoncer serait une fausse alerte.
-        if (applied.changed && applied.orderId !== null && event.status !== "PENDING") {
+        // Seule une écriture qui a atteint la commande s'annonce. Un rejeu, un événement en
+        // attente et l'issue tardive d'une tentative dont la commande est déjà réglée bougent
+        // au plus la trace : les annoncer serait une fausse alerte, chez l'acheteur comme
+        // chez la boutique.
+        if (applied.orderStatusChanged && applied.orderId !== null) {
             await this.realtime.publish({
                 kind: E_REALTIME_EVENT.PAYMENT_STATUS_CHANGED,
                 orderId: applied.orderId,

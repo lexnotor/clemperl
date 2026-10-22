@@ -210,7 +210,7 @@ describe("applyProviderEvent", () => {
             rawPayload: Buffer.from("chiffré"),
         });
 
-        expect(result).toEqual({ changed: true, orderId: order.id });
+        expect(result).toEqual({ changed: true, orderStatusChanged: true, orderId: order.id });
         const after = await prisma.order.findUnique({ where: { id: order.id } });
         expect(after?.paymentStatus).toBe("SETTLED");
         const attempts = await prisma.orderPayment.findMany({ where: { orderId: order.id } });
@@ -253,6 +253,7 @@ describe("applyProviderEvent", () => {
 
         expect(await applyProviderEvent(prisma, event)).toEqual({
             changed: false,
+            orderStatusChanged: false,
             orderId: order.id,
         });
 
@@ -298,6 +299,10 @@ describe("applyProviderEvent", () => {
         expect(
             results.filter((r) => r.status === "fulfilled" && r.value.changed),
         ).toHaveLength(1);
+        // Le perdant n'a pas écrit la commande : il ne l'annonce pas non plus.
+        expect(
+            results.filter((r) => r.status === "fulfilled" && r.value.orderStatusChanged),
+        ).toHaveLength(1);
         expect(await prisma.orderPayment.count({ where: { orderId: order.id } })).toBe(1);
     });
 
@@ -331,7 +336,7 @@ describe("applyProviderEvent", () => {
             rawPayload: Buffer.from("tardif"),
         });
 
-        expect(late.changed).toBe(false);
+        expect(late).toEqual({ changed: false, orderStatusChanged: false, orderId: order.id });
         const attempt = await prisma.orderPayment.findFirstOrThrow({
             where: { orderId: order.id },
         });
@@ -371,7 +376,9 @@ describe("applyProviderEvent", () => {
             rawPayload: Buffer.from("expiré"),
         });
 
-        expect(late.changed).toBe(true);
+        // La TENTATIVE a bougé, pas la commande : l'annoncer serait une fausse alerte chez
+        // l'acheteur et la boutique, dont la page affiche déjà « Payé ».
+        expect(late).toEqual({ changed: true, orderStatusChanged: false, orderId: order.id });
         const attempts = await prisma.orderPayment.findMany({
             where: { orderId: order.id },
             orderBy: { providerRef: "asc" },
@@ -411,7 +418,7 @@ describe("applyProviderEvent", () => {
             rawPayload: Buffer.from("second paiement"),
         });
 
-        expect(late.changed).toBe(true);
+        expect(late).toEqual({ changed: true, orderStatusChanged: false, orderId: order.id });
         const abandoned = await prisma.orderPayment.findFirstOrThrow({
             where: { providerRef: "sim_g1" },
         });
@@ -448,12 +455,13 @@ describe("applyProviderEvent", () => {
             provider: "SIMULATED",
             providerRef: "sim_c1",
         });
-        await applyProviderEvent(prisma, {
+        const refused = await applyProviderEvent(prisma, {
             provider: "SIMULATED",
             providerRef: "sim_c1",
             status: "FAILED",
             rawPayload: Buffer.from("un"),
         });
+        expect(refused.orderStatusChanged).toBe(true);
         expect(
             (await prisma.order.findUnique({ where: { id: order.id } }))?.paymentStatus,
         ).toBe("FAILED");
@@ -466,12 +474,13 @@ describe("applyProviderEvent", () => {
             provider: "SIMULATED",
             providerRef: "sim_c2",
         });
-        await applyProviderEvent(prisma, {
+        const settled = await applyProviderEvent(prisma, {
             provider: "SIMULATED",
             providerRef: "sim_c2",
             status: "SETTLED",
             rawPayload: Buffer.from("deux"),
         });
+        expect(settled.orderStatusChanged).toBe(true);
 
         const after = await prisma.order.findUnique({ where: { id: order.id } });
         expect(after?.paymentStatus).toBe("SETTLED");
@@ -492,12 +501,13 @@ describe("applyProviderEvent", () => {
             provider: "SIMULATED",
             providerRef: "sim_d",
         });
-        await applyProviderEvent(prisma, {
+        const pending = await applyProviderEvent(prisma, {
             provider: "SIMULATED",
             providerRef: "sim_d",
             status: "PENDING",
             rawPayload: Buffer.from("étape"),
         });
+        expect(pending).toEqual({ changed: true, orderStatusChanged: false, orderId: order.id });
         const after = await prisma.order.findUnique({ where: { id: order.id } });
         expect(after?.paymentStatus).toBe("PENDING");
         const attempt = await prisma.orderPayment.findFirst({ where: { orderId: order.id } });
@@ -527,13 +537,48 @@ describe("applyProviderEvent", () => {
             rawPayload: Buffer.from("refusé"),
         });
 
-        await applyProviderEvent(prisma, {
+        const pending = await applyProviderEvent(prisma, {
             provider: "SIMULATED",
             providerRef: "sim_f2",
             status: "PENDING",
             rawPayload: Buffer.from("étape"),
         });
 
+        expect(pending.orderStatusChanged).toBe(false);
+        const after = await prisma.order.findUnique({ where: { id: order.id } });
+        expect(after?.paymentStatus).toBe("FAILED");
+    });
+
+    // Un second refus réécrit la même valeur sur une commande déjà refusée, et compte pourtant
+    // comme une écriture de la commande : la page qui attendait ce fournisseur doit quitter
+    // son attente, et c'est l'avis qui la rafraîchit.
+    it("annonce le refus d'une nouvelle tentative sur une commande déjà refusée", async () => {
+        const order = await placedOrder({ method: "CARD" });
+        for (const providerRef of ["sim_h1", "sim_h2"]) {
+            await recordAttempt(prisma, {
+                orderId: order.id,
+                method: "CARD",
+                amount: order.totalAmount,
+                currency: order.currency,
+                provider: "SIMULATED",
+                providerRef,
+            });
+        }
+        await applyProviderEvent(prisma, {
+            provider: "SIMULATED",
+            providerRef: "sim_h1",
+            status: "FAILED",
+            rawPayload: Buffer.from("refusé"),
+        });
+
+        const again = await applyProviderEvent(prisma, {
+            provider: "SIMULATED",
+            providerRef: "sim_h2",
+            status: "FAILED",
+            rawPayload: Buffer.from("refusé encore"),
+        });
+
+        expect(again).toEqual({ changed: true, orderStatusChanged: true, orderId: order.id });
         const after = await prisma.order.findUnique({ where: { id: order.id } });
         expect(after?.paymentStatus).toBe("FAILED");
     });

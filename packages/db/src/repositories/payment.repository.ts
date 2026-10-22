@@ -75,19 +75,25 @@ export async function recordAttempt(
     return attempt.id;
 }
 
-// `changed` à `false` dit un REJEU, et non un échec : le fournisseur rejoue ses webhooks,
-// et l'appelant doit lui répondre 200 pour qu'il cesse. `changed` à `true` dit que la
-// TENTATIVE a bougé, pas forcément la commande : un événement en attente ne touche qu'elle.
-//
 // L'idempotence est garantie pour un événement TERMINAL : une tentative tranchée ne se
 // rouvre pas. Le rejeu d'un événement `PENDING`, lui, retrouve une tentative encore
 // `PENDING` et la réécrit, donc `updatedAt` bouge et `rawPayload` est remplacé par un
 // payload identique. Aucun statut ne bouge, et c'est pourquoi le cas est toléré : le
 // fermer demanderait un identifiant d'ÉVÉNEMENT distinct de `providerRef`, que le port ne
 // porte pas tant qu'aucun vrai fournisseur n'en a dicté la forme.
-// Rend aussi la commande de la tentative, pour que l'appelant sache laquelle prévenir. Une
-// référence inconnue lève avant tout retour, donc aucune tentative ne rend d'`orderId` nul
-// aujourd'hui : le type le permet pour un appelant qui n'aurait aucune commande à désigner.
+//
+// Le retour sépare la tentative de sa commande. `changed` à `false` dit un REJEU, et non un
+// échec : le fournisseur rejoue ses webhooks, et l'appelant doit lui répondre 200 pour qu'il
+// cesse. `changed` à `true` dit que la TENTATIVE a bougé, pas forcément la commande.
+// `orderStatusChanged` dit que l'écriture a atteint la COMMANDE, seule raison de prévenir
+// quelqu'un : faux pour un rejeu, une course perdue, un événement en attente, et pour l'issue
+// tardive d'une tentative dont la commande est déjà réglée. Un refus qui suit un refus
+// compte, bien qu'il réécrive la même valeur : la page qui attendait ce fournisseur doit
+// l'apprendre pour quitter son attente.
+// `orderId` désigne la commande de la tentative, pour que l'appelant sache laquelle
+// prévenir. Une référence inconnue lève avant tout retour, donc aucune tentative ne rend
+// d'`orderId` nul aujourd'hui : le type le permet pour un appelant qui n'aurait aucune
+// commande à désigner.
 export async function applyProviderEvent(
     prisma: PrismaClient,
     input: {
@@ -96,7 +102,7 @@ export async function applyProviderEvent(
         status: "PENDING" | "SETTLED" | "FAILED";
         rawPayload: Buffer;
     },
-): Promise<{ changed: boolean; orderId: string | null }> {
+): Promise<{ changed: boolean; orderStatusChanged: boolean; orderId: string | null }> {
     return prisma.$transaction(async (tx) => {
         const attempt = await tx.orderPayment.findUnique({
             where: {
@@ -114,7 +120,7 @@ export async function applyProviderEvent(
         // Une tentative déjà tranchée ne se rouvre pas. C'est ce qui rend le rejeu sans
         // effet, et ce qui empêche un événement tardif d'annuler une issue plus récente.
         if (attempt.status !== "PENDING") {
-            return { changed: false, orderId: attempt.orderId };
+            return { changed: false, orderStatusChanged: false, orderId: attempt.orderId };
         }
 
         // Le statut se REVÉRIFIE dans l'écriture : le lire plus haut ne suffit pas, car deux
@@ -133,21 +139,24 @@ export async function applyProviderEvent(
             },
         });
         if (count === 0) {
-            return { changed: false, orderId: attempt.orderId };
+            return { changed: false, orderStatusChanged: false, orderId: attempt.orderId };
         }
 
         // Un événement en attente dit où en est le FOURNISSEUR, pas où en est l'argent :
         // il se garde sans rien affirmer.
-        if (input.status !== "PENDING") {
-            // Une commande réglée ne se défait pas : deux onglets laissent deux tentatives
-            // ouvertes, et l'échec tardif de celle qui n'a pas abouti reste dans sa trace
-            // sans effet sur une commande que l'autre a payée.
-            await tx.order.updateMany({
-                where: { id: attempt.orderId, paymentStatus: { not: "SETTLED" } },
-                data: { paymentStatus: input.status as never },
-            });
+        if (input.status === "PENDING") {
+            return { changed: true, orderStatusChanged: false, orderId: attempt.orderId };
         }
-        return { changed: true, orderId: attempt.orderId };
+
+        // Une commande réglée ne se défait pas : deux onglets laissent deux tentatives
+        // ouvertes, et l'échec tardif de celle qui n'a pas abouti reste dans sa trace sans
+        // effet sur une commande que l'autre a payée. Le compte de lignes écrites est ce qui
+        // le dit à l'appelant : une commande déjà réglée n'en donne aucune.
+        const order = await tx.order.updateMany({
+            where: { id: attempt.orderId, paymentStatus: { not: "SETTLED" } },
+            data: { paymentStatus: input.status as never },
+        });
+        return { changed: true, orderStatusChanged: order.count > 0, orderId: attempt.orderId };
     });
 }
 

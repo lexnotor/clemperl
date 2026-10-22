@@ -52,6 +52,13 @@ const order = (method: string) => ({
 
 const publish = jest.fn();
 
+// Les trois issues que le dépôt distingue : la commande a bougé ; seule la tentative a bougé
+// (un événement en attente, ou l'issue tardive d'une tentative sur une commande déjà réglée) ;
+// rien n'a bougé, c'est un rejeu.
+const orderMoved = { changed: true, orderStatusChanged: true, orderId: "order_1" };
+const attemptMovedOnly = { changed: true, orderStatusChanged: false, orderId: "order_1" };
+const replay = { changed: false, orderStatusChanged: false, orderId: "order_1" };
+
 const service = (simulator = true) =>
     new PaymentsService(
         buildRegistry({ simulator, secret: SECRET, publicUrl: ENV.apiPublicUrl }),
@@ -212,7 +219,7 @@ describe("PaymentsService.settle", () => {
 
 describe("PaymentsService.receive", () => {
     it("applique un événement signé et stocke son payload chiffré, tel que reçu", async () => {
-        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true, orderId: "order_1" });
+        jest.mocked(applyProviderEvent).mockResolvedValue(orderMoved);
         const { raw, headers } = signed({ providerRef: "sim_1", status: "SETTLED" });
 
         const accepted = await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
@@ -237,7 +244,7 @@ describe("PaymentsService.receive", () => {
     });
 
     it("émet aussi pour un paiement échoué", async () => {
-        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true, orderId: "order_1" });
+        jest.mocked(applyProviderEvent).mockResolvedValue(orderMoved);
         const { raw, headers } = signed({ providerRef: "sim_1", status: "FAILED" });
 
         await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
@@ -246,7 +253,7 @@ describe("PaymentsService.receive", () => {
     });
 
     it("n'émet rien pour un événement en attente, l'état de paiement n'ayant pas bougé", async () => {
-        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true, orderId: "order_1" });
+        jest.mocked(applyProviderEvent).mockResolvedValue(attemptMovedOnly);
         const { raw, headers } = signed({ providerRef: "sim_1", status: "PENDING" });
 
         await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
@@ -255,7 +262,7 @@ describe("PaymentsService.receive", () => {
     });
 
     it("n'émet rien pour un rejeu", async () => {
-        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: false, orderId: "order_1" });
+        jest.mocked(applyProviderEvent).mockResolvedValue(replay);
         const { raw, headers } = signed({ providerRef: "sim_1", status: "SETTLED" });
 
         await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
@@ -263,8 +270,20 @@ describe("PaymentsService.receive", () => {
         expect(publish).not.toHaveBeenCalled();
     });
 
+    // Deux onglets laissent deux tentatives ouvertes : l'issue tardive de celle qui n'a pas
+    // abouti bouge sa trace, pas la commande que l'autre a réglée, et n'alerte personne.
+    it("n'émet rien quand la tentative bouge sans que la commande bouge", async () => {
+        jest.mocked(applyProviderEvent).mockResolvedValue(attemptMovedOnly);
+        const { raw, headers } = signed({ providerRef: "sim_1", status: "FAILED" });
+
+        await expect(
+            service().receive({ provider: SIMULATED_PROVIDER, raw, headers }),
+        ).resolves.toBe(true);
+        expect(publish).not.toHaveBeenCalled();
+    });
+
     it("n'émet rien quand la commande n'est pas connue", async () => {
-        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true, orderId: null });
+        jest.mocked(applyProviderEvent).mockResolvedValue({ ...orderMoved, orderId: null });
         const { raw, headers } = signed({ providerRef: "sim_1", status: "SETTLED" });
 
         await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
@@ -273,7 +292,7 @@ describe("PaymentsService.receive", () => {
     });
 
     it("transmet un événement en attente tel quel", async () => {
-        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: true, orderId: "order_1" });
+        jest.mocked(applyProviderEvent).mockResolvedValue(attemptMovedOnly);
         const { raw, headers } = signed({ providerRef: "sim_1", status: "PENDING" });
 
         await service().receive({ provider: SIMULATED_PROVIDER, raw, headers });
@@ -287,7 +306,7 @@ describe("PaymentsService.receive", () => {
     // Le fournisseur rejoue ses webhooks tant qu'il ne reçoit pas 200 : un rejeu n'est pas
     // un échec.
     it("tient un rejeu pour accepté", async () => {
-        jest.mocked(applyProviderEvent).mockResolvedValue({ changed: false, orderId: "order_1" });
+        jest.mocked(applyProviderEvent).mockResolvedValue(replay);
         const { raw, headers } = signed({ providerRef: "sim_1", status: "SETTLED" });
 
         await expect(

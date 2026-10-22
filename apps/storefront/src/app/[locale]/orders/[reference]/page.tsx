@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import type { JSX } from "react";
 import { requireVerifiedSession } from "../../../../lib/session";
 import { PayButton } from "./components/pay-button";
+import { ProviderWaitingMarker } from "./components/provider-waiting-marker";
 
 export const dynamic = "force-dynamic";
 
@@ -178,8 +179,10 @@ export default async function OrderPage({
 
             {/* Le marqueur que l'écoute du temps réel cherche à sa première connexion : il
                 lui demande de rafraîchir la page une fois, pour rattraper un avis parti
-                avant que la connexion ne soit ouverte. */}
-            {awaiting && <div data-realtime-waiting="" hidden />}
+                avant que la connexion ne soit ouverte. Le marqueur redemande aussi la page
+                une fois, une minute plus tard, au cas où l'avis se serait perdu malgré
+                tout. */}
+            {awaiting && <ProviderWaitingMarker />}
         </main>
     );
 }
