@@ -152,6 +152,7 @@ consommateurs (voir [Next et React](next.md)).
 | Type               | `T` + PascalCase             | `TCardBrand`                 | tout le dépôt               |
 | Constante          | MAJUSCULE_SNAKE + `as const` | `PAYMENT_CONFIG`             | tout le dépôt               |
 | DTO                | PascalCase + `Dto`           | `CardAuthorizeRequestDto`    | `apps/api`                  |
+| Résolveur GraphQL  | PascalCase + `Resolver`      | `MeResolver`                 | `apps/api`                  |
 | Schéma Zod         | camelCase + `Schema`         | `createOrderSchema`          | fronts Next, `@clemperl/core` |
 | Fichier            | kebab-case                   | `transaction-status.enum.ts` | tout le dépôt               |
 | Table DB           | snake_case, **singulier**    | `user`, `product_variant`    | `@clemperl/db`              |

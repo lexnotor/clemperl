@@ -1,0 +1,37 @@
+# Généré par pnpm --filter @clemperl/api schema:print : ne pas modifier à la main.
+
+"""Le compte connecté, tel que le téléphone l'affiche."""
+type Account {
+  """L'adresse de connexion."""
+  email: String!
+  id: ID!
+
+  """Le nom donné à l'inscription."""
+  name: String!
+}
+
+"""Qui est connecté, et pour quelle boutique."""
+type Me {
+  """Absente quand le compte n'est membre d'aucune boutique."""
+  shop: Shop
+  user: Account!
+}
+
+type Query {
+  """Le compte connecté et sa boutique."""
+  me: Me!
+}
+
+"""La boutique dont le compte est membre."""
+type Shop {
+  id: ID!
+
+  """Le nom de la boutique, tel que les acheteurs le lisent."""
+  name: String!
+
+  """L'identifiant de la boutique dans ses adresses web."""
+  slug: String!
+
+  """Vrai quand l'administration a suspendu la boutique."""
+  suspended: Boolean!
+}

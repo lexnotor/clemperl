@@ -1897,3 +1897,69 @@ Ce qui protège maintenant : rien dans l'outillage. Après toute modification du
 touche pas ses types, mutation comprise, redémarrer le conteneur de l'API
 (`docker restart clemperl_dev_api`) et attendre `Nest application successfully started`
 avant de lancer un parcours, puis de nouveau après avoir restauré le fichier.
+
+---
+
+**Un `POST /graphql` en `text/plain` refusé en 400 ne prouve pas la protection CSRF
+d'Apollo : sans elle, la même requête rend aussi 400, pour une autre raison.**
+
+Apollo refuse une requête « simple », celle qu'un navigateur envoie à un autre site sans
+contrôle préalable, avant même de la lire : c'est sa protection CSRF, active par défaut. Mais
+Nest n'analyse que les corps JSON et `urlencoded` : un corps `text/plain` arrive vide à Apollo,
+qui le refuse aussi en 400, faute de requête à exécuter.
+
+Observé le 2026-10-23 sur T8a : le cas « refuse une requête text/plain » de
+`apps/api/test/graphql.e2e-spec.ts`, qui n'assertait que le statut, restait vert avec
+`csrfPrevention: false`. Trouvé par la mutation faite pour le voir rougir.
+
+Ce qui rend le piège difficile à voir : le statut attendu, le bon chemin, la bonne requête.
+Rien ne distingue les deux refus, sauf le message.
+
+Ce qui protège maintenant : le cas vérifie aussi que `errors[0].message` contient
+« Cross-Site Request Forgery », et la mutation le fait rougir.
+
+---
+
+**Un middleware Nest posé par `forRoutes({ path: "graphql" })` ne couvre que `/graphql` exact,
+alors qu'Apollo répond sur tout `/graphql/*` : un filtre posé ainsi se contourne par un
+sous-chemin.**
+
+Nest lie `forRoutes` à une route, comparée au chemin entier, à la barre finale et à la casse
+près. Le pilote Apollo de `@nestjs/apollo`, lui, se monte par `app.use("/graphql", ...)`, qui
+prend tout chemin COMMENÇANT par `/graphql`, et son middleware ne vérifie pas le chemin.
+
+Observé le 2026-10-23 sur T8a, par la relecture finale de la branche, puis sur l'API vivante :
+`POST /graphql` avec une origine étrangère rendait 403, `POST /graphql/x` et `/graphql/a/b`
+rendaient 200 et exécutaient la requête, session comprise.
+
+Ce qui rend le piège difficile à voir : tous les cas qu'on pense à écrire passent, l'adresse
+exacte, la barre finale, la casse, une chaîne de requête. Le test du filtre était vert, et la
+documentation disait « tout le reste reçoit 403 ».
+
+Ce qui protège maintenant : `forRoutes({ path: "graphql{/*rest}", ... })` dans
+`apps/api/src/modules/graphql/graphql.module.ts`, et le cas « refuse aussi un site tiers sur
+un sous-chemin de /graphql » de `apps/api/test/graphql.e2e-spec.ts`, vu rouge avant le joker.
+
+---
+
+**Dans `apps/api`, un plugin Apollo construit par notre code est refusé par le type qu'attend
+`@nestjs/apollo` : TypeScript lit `@apollo/server` deux fois, en CommonJS pour nous, en ESM pour
+le pilote.**
+
+L'API compile en CommonJS, avec `moduleResolution: nodenext` : un `import` de `@apollo/server`
+y suit la condition `require` du champ `exports`, donc `dist/cjs/*.d.ts`. `@nestjs/apollo` est
+publié en ESM pur, et ses propres imports suivent la condition `import`, donc `dist/esm/*.d.ts`.
+Deux déclarations du même paquet, que le compilateur tient pour distinctes.
+
+Observé le 2026-10-23 sur T8a, en passant le terrain de jeu à Apollo Sandbox :
+`Type 'ApolloServerPlugin<BaseContext>[]' is not assignable to type 'ApolloServerPlugin<any>[]'`,
+avec des noms identiques des deux côtés. `tsc --traceResolution` montre les deux chemins.
+
+Ce qui rend le piège difficile à voir : le message compare un type à lui-même, et tout
+fonctionne à l'exécution. Le plugin n'est qu'un objet de crochets, et les tests de bout en bout
+voient la page Sandbox servie.
+
+Ce qui protège maintenant : `graphqlLandingPagePlugins`, dans
+`apps/api/src/modules/graphql/utils/graphql-playground.utils.ts`, rend le type du pilote,
+`NonNullable<ApolloDriverConfig["plugins"]>`, et convertit le plugin une fois, avec ce
+commentaire. Tout plugin Apollo ajouté plus tard passe par le même chemin.

@@ -17,7 +17,9 @@ packages:
 # compilent des extensions de surveillance de fichiers.
 # Refusés jusqu'à constatation du contraire : les dépendances de Testcontainers, et
 # `msgpackr-extract` que BullMQ traîne : toutes compilent des optimisations natives dont
-# leur bibliothèque sait se passer, en JS pur.
+# leur bibliothèque sait se passer, en JS pur. Refusé aussi `@apollo/protobufjs`, qu'Apollo
+# Server traîne : son script ne prépare que sa ligne de commande et avertit d'un schéma de
+# version, rien dont l'exécution dépende.
 allowBuilds:
   "@parcel/watcher": true
   "@prisma/engines": true
@@ -30,6 +32,7 @@ allowBuilds:
   protobufjs: false
   ssh2: false
   msgpackr-extract: false
+  "@apollo/protobufjs": false
 
 # pnpm installe par défaut les dépendances de pair, même optionnelles. `@prisma/client`
 # déclare ainsi `prisma` (la CLI, 40 Mo) et `typescript` (24 Mo) : sans ce réglage, ils

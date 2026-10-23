@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-22.
+Dernière mise à jour : 2026-10-23.
 
 ## Où en est le projet
 
@@ -29,8 +29,8 @@ plan, exécution, un commit.
 | T6b | Gérer les comptes et les rôles | **Livrée**, PR #13 |
 | T6c | Surveiller les commandes et débloquer | **Livrée**, PR #14 |
 | T6d | Litiges | **Livrée**, PR #15 |
-| T7 | Temps réel | **Exécutée**, en pull request #18 |
-| T8 | API GraphQL pour le mobile | à cadrer |
+| T7 | Temps réel | **Livrée**, PR #18 |
+| T8 | Le commerçant sur son téléphone, et l'API GraphQL qui le sert | **T8a exécutée**, T8b à T8f à venir |
 
 **La liste du catalogue n'est pas cacheable page entière.** La devise vit dans un cookie,
 donc la page est personnelle, et un lien partagé ne montre pas la même chose à deux
@@ -99,6 +99,137 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
+## Où en est T8, au 2026-10-23
+
+Le commerçant suivra ses commandes depuis son téléphone : une notification sonne quand une
+commande arrive, il l'accepte ou la refuse sur place, puis mène tout le suivi jusqu'à
+l'expédition, et active ou désactive ses produits. L'application vit dans Expo Go, sur l'iPhone
+du propriétaire, et parle à l'API par GraphQL. Le web ne change pas : les résolveurs appellent
+les mêmes fonctions que les server actions.
+
+La tranche a une seconde intention, qui fixe sa forme : le propriétaire apprend GraphQL en
+avançant, et suit Expo, qui a beaucoup changé depuis sa dernière manipulation. D'où six
+marches, chacune sa branche, son plan et sa pull request, lisibles en une séance, et deux
+pièces que le propriétaire écrit lui-même, contre des tests déjà posés.
+
+| Marche | Objet | État |
+| --- | --- | --- |
+| T8a | GraphQL entre dans l'API : `/graphql`, le terrain de jeu, le schéma versionné, `me` | **Exécutée**, branche `feat/graphql-foundations` poussée, sans PR |
+| T8b | L'application naît : Expo Go, connexion, nom de la boutique | à planifier |
+| T8c | Les lectures : commandes, détail, produits (pièce du propriétaire) | à planifier |
+| T8d | Les écritures : avancer une commande, pointer un paiement, activer un produit (pièce du propriétaire) | à planifier |
+| T8e | Le temps réel dans l'application ouverte | à planifier |
+| T8f | Les notifications application fermée, non prouvées sur un appareil | à planifier |
+
+La spec : `docs/superpowers/specs/2026-10-23-t8-mobile-vendeur-design.md`. Le plan de T8a :
+`docs/superpowers/plans/2026-10-23-t8a-graphql-api.md`. Le guide qui grandit avec la tranche :
+`docs/graphql.md`.
+
+### Ce que T8a livre
+
+- `/graphql`, par `@nestjs/graphql` et le pilote Apollo, schéma décrit par des classes, tenu en
+  mémoire et trié.
+- Une requête, `me` : le compte connecté et sa boutique, ou `null`. La boutique est lue par
+  `readVendorForMember`, la fonction de l'espace vendeur web, donc une boutique supprimée ne s'y
+  montre pas non plus.
+- Le terrain de jeu Apollo Sandbox et l'introspection, allumés hors production par un seul
+  prédicat, `graphqlPlaygroundEnabled`. Sandbox à la demande du propriétaire, à la place du
+  GraphiQL du pilote, télémétrie coupée.
+- Le filtre d'origine de `/graphql`, `GraphqlOriginMiddleware` : une requête sans origine passe,
+  celle du téléphone ; hors production, l'origine de l'API aussi, celle du terrain de jeu ; tout
+  le reste reçoit 403, `null` et les fronts web compris.
+- `apps/api/src/modules/graphql/schema.gql`, imprimé par `schema:print` et gardé par
+  `test/graphql-schema.e2e-spec.ts`, qui imprime le schéma de l'application ENTIÈRE.
+- `docs/graphql.md`, ses sept premières notions.
+
+### Les décisions qui engagent la suite
+
+**Un seul `SessionGuard` pour REST et GraphQL.** Il ne diffère que par l'accès à la requête,
+rangée par le pilote dans le contexte GraphQL sous `req`. Un garde par transport aurait écrit
+deux fois la règle de session.
+
+**Un résolveur vit dans son module métier**, `MeResolver` dans `auth` à côté de
+`MeController`. Le module `graphql` ne porte que la configuration du point d'entrée et son
+filtre. Les types GraphQL sont des DTO de réponse, `MeDto` publié sous `Me`.
+`docs/conventions/nestjs.md` et `docs/conventions/code.md` le disent désormais, avec les
+dossiers `resolvers/` et `middlewares/`.
+
+**Le fichier de schéma vit dans `src/`**, parce que c'est le dossier que le conteneur de l'API
+monte : `schema:print` l'écrit depuis le conteneur, et il apparaît sur la machine. Il y
+appartient à `root`, ce qui est sans gêne : on ne l'édite jamais à la main.
+
+**Apollo Sandbox envoie ses requêtes depuis la page de l'API**, et non depuis son iframe : la
+bibliothèque d'intégration (`@apollo/sandbox`) relaie chaque requête à la page hôte, qui fait le
+`fetch`. C'est ce qui laisse passer la session et garde le filtre d'origine tel quel. Le plugin
+est converti vers le type du pilote : l'API lit les types CommonJS d'`@apollo/server`, le
+pilote ses types ESM, deux déclarations du même paquet. Voir `docs/pieges.md`.
+
+**La protection CSRF d'Apollo reste active**, et un test la garde. Voir `docs/pieges.md` : un
+400 seul ne la prouvait pas.
+
+**Le filtre d'origine couvre tous les sous-chemins de `/graphql`**, par
+`forRoutes({ path: "graphql{/*rest}" })`. Posé sur `"graphql"` seul, il laissait `/graphql/x`
+exécuter une requête d'une origine étrangère, session comprise : Nest lie `forRoutes` à une
+route exacte, le pilote monte Apollo par préfixe. Trouvé par la relecture finale, reproduit
+sur l'API vivante, corrigé contre un test vu rouge. Voir `docs/pieges.md`.
+
+**Les erreurs ne sont pas encore traduites.** `me` sans session rend `UNAUTHENTICATED`, que le
+téléphone traitera en revenant à l'écran de connexion. Le filtre qui traduit selon
+`docs/conventions/erreurs.md` arrive avec les écritures, en T8d.
+
+**`@apollo/protobufjs` est refusé dans `allowBuilds`** : son script d'installation ne prépare
+que sa ligne de commande.
+
+### Ce que la vérification a établi
+
+- La suite unitaire de l'API : 225 tests sur 225, couverture 100 % sur les quatre axes.
+- La couche e2e de l'API, dans le conteneur : 15 sur 15, dont 11 sur `/graphql` avec de vraies
+  sessions Better Auth et de vraies boutiques, et la page Sandbox servie sans télémétrie.
+- Trois mutations, chacune vue rouge puis restaurée : le filtre d'origine retiré fait rougir le
+  cas des origines refusées ; `csrfPrevention: false` fait rougir le cas `text/plain` ; un
+  espace ajouté à `schema.gql` fait rougir le test du schéma, avec le nom du script.
+- **La preuve du propriétaire**, le 2026-10-23 : connecté sur la boutique web avec un compte
+  vendeur de test, il a lu son compte et sa boutique par `me` dans Apollo Sandbox, et la même
+  requête refusée une fois déconnecté.
+- `pnpm schema:print`, lancé dans le conteneur après reconstruction des images, réimprime un
+  fichier identique. `package.json` n'étant pas monté, un script neuf n'y existe qu'après
+  `pnpm docker:up`.
+
+### Ce que la vérification n'a PAS établi
+
+- **La CI**, qui n'a pas encore vu la branche.
+- **Le terrain de jeu sans accès à Internet** : l'interface de Sandbox se charge depuis le
+  réseau d'Apollo.
+
+### Ce qui reste ouvert après T8a
+
+Relevé par la relecture finale ou en route, jugé mineur, laissé en l'état :
+
+- `GET /graphql` sans origine, avec un cookie, n'est gardé que par la protection CSRF
+  d'Apollo, sans test dédié ; le commentaire de `graphqlOriginAllowed` n'argumente que le `POST`.
+- Le message d'échec du test du schéma et l'en-tête de `schema.gql` nomment la commande hôte,
+  qui ne tourne que dans le conteneur ; `docs/graphql.md`, section 5, donne la bonne forme.
+- Une session expirée n'a pas son test, le cookie forgé suit le même chemin.
+- Dans `graphql.e2e-spec.ts`, le cas des origines refusées se rabat sur une chaîne vide quand
+  `NEXT_PUBLIC_STOREFRONT_URL` manque, au lieu d'échouer.
+- `contexteGraphql`, dans `session.guard.spec.ts`, est un identifiant français, calqué sur les
+  anciens noms du fichier.
+- `users.name` est nullable en base, `Account.name` ne l'est pas : un compte sans nom ferait
+  échouer `me`. Aucun en développement, et Better Auth exige le nom à l'inscription.
+- Le dernier tutoiement du guide, « et toi pour lire le contrat ».
+
+### Reprendre
+
+1. La branche `feat/graphql-foundations` est poussée, sans pull request. La suite : ouvrir la
+   pull request avec l'accord du propriétaire, corps de moins de 1500 caractères, obtenir une
+   CI verte, la fusionner, puis planifier T8b depuis la spec, section 3.
+2. Sur une autre machine : `pnpm install`, `pnpm turbo run build --filter='./packages/*'`, puis
+   `pnpm docker:up`. Les dépendances neuves de l'API sont `@nestjs/graphql`, `@nestjs/apollo`,
+   `@apollo/server`, `@as-integrations/express5` et `graphql` 16. Aucune migration, aucune
+   variable d'environnement neuve. Un poste resté sur un `main` antérieur à T7 doit faire les
+   deux premières commandes avant tout test : sans elles, `@clemperl/core` n'a ni `bullmq` ni
+   `E_REALTIME_EVENT`, et seize tests de l'API échouent sans rapport avec ce qu'on touche.
+
 ## T7 est livrée, au 2026-10-21
 
 Ce qui change ailleurs s'affiche de soi-même chez la personne concernée, avec une alerte, où
@@ -110,14 +241,14 @@ commande de l'acheteur, jamais rechargée, passe à « Acceptée », à « Expé
 dans un second onglet pendant que l'acheteur paie en ligne passe à « Payé » quand le
 fournisseur répond, avec l'alerte, et la page du vendeur à « Reçu », avec la sienne.
 
-**Exécutée, en pull request #18.** Un commit de chantier sur la branche `feat/realtime`,
-partie de `main` après la fusion de T6d, passé avec l'accord du propriétaire. Huit tâches,
-exécutées dans une même session sans commit d'étape, chacune relue par un relecteur neuf,
-puis une revue de toute la branche et sa vague de correctifs. Sur ce commit, `84f4728`, la
-CI de la pull request est passée verte, neuf tâches sur neuf, avec la vérification de
-CodeRabbit en plus, puis CodeRabbit l'a relu. Ses constats et les décisions du propriétaire
-sont traités sur la même branche, avant la fusion, par des corrections que la CI n'a pas
-encore jouées : voir « La revue de la pull request ».
+**Livrée, PR #18, fusionnée le 2026-10-23.** `main` porte ses trois commits, `6e6f11b`,
+`e069b01` et `3bc7f49`, et la CI de `main` est passée verte sur `3bc7f49`, `e2e` compris :
+les corrections de la revue y ont donc tourné aussi. Un commit de chantier sur la branche
+`feat/realtime`, partie de `main` après la fusion de T6d, passé avec l'accord du
+propriétaire. Huit tâches, exécutées dans une même session sans commit d'étape, chacune relue
+par un relecteur neuf, puis une revue de toute la branche et sa vague de correctifs.
+CodeRabbit l'a relu ; ses constats et les décisions du propriétaire ont été traités avant la
+fusion : voir « La revue de la pull request ».
 
 La spec : `docs/superpowers/specs/2026-10-20-t7-temps-reel-design.md`. Le plan :
 `docs/superpowers/plans/2026-10-20-t7-temps-reel.md`.
@@ -571,11 +702,7 @@ suite, build ou pile.
 
 ### Reprendre
 
-1. Ce qui reste : pousser les corrections de la revue sur la pull request #18, puis obtenir
-   une CI verte sur cette nouvelle tête, `e2e` en particulier, qui n'a encore tourné ni avec
-   le secours d'une minute ni avec le dépôt des paiements corrigé ; enfin la fusion, en
-   squash, une fois que le propriétaire l'approuve. CodeRabbit ne relit que sur un
-   commentaire `@coderabbitai review`.
+1. Plus rien : les corrections sont sur `main`, et sa CI est verte.
 2. Sur une autre machine : `pnpm install`, puis `pnpm turbo run build --filter='./packages/*'`,
    puis `pnpm docker:up`, qui reconstruit les images. Les dépendances neuves sont
    `socket.io-client` dans les deux fronts, avec `@testing-library/react`, `jsdom` et
