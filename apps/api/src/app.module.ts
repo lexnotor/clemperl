@@ -2,6 +2,7 @@ import { redisConnectionOptions, type IRedisConnection } from "@clemperl/core";
 import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
 import { AuthModule } from "./modules/auth/auth.module";
+import { ApiGraphqlModule } from "./modules/graphql/graphql.module";
 import { HealthModule } from "./modules/health/health.module";
 import { MediaModule } from "./modules/media/media.module";
 import { PaymentsModule } from "./modules/payments/payments.module";
@@ -27,6 +28,7 @@ function redisConnection(): IRedisConnection {
         BullModule.forRoot({ connection: redisConnection() }),
         HealthModule,
         AuthModule,
+        ApiGraphqlModule,
         MediaModule,
         PaymentsModule,
         RealtimeModule,
