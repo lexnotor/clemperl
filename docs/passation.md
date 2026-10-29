@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-23.
+Dernière mise à jour : 2026-10-26.
 
 ## Où en est le projet
 
@@ -30,7 +30,7 @@ plan, exécution, un commit.
 | T6c | Surveiller les commandes et débloquer | **Livrée**, PR #14 |
 | T6d | Litiges | **Livrée**, PR #15 |
 | T7 | Temps réel | **Livrée**, PR #18 |
-| T8 | Le commerçant sur son téléphone, et l'API GraphQL qui le sert | **T8a exécutée**, T8b à T8f à venir |
+| T8 | Le commerçant sur son téléphone, et l'API GraphQL qui le sert | **T8a livrée**, T8b exécutée, T8c à T8f à venir |
 
 **La liste du catalogue n'est pas cacheable page entière.** La devise vit dans un cookie,
 donc la page est personnelle, et un lien partagé ne montre pas la même chose à deux
@@ -99,7 +99,7 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
-## Où en est T8, au 2026-10-23
+## Où en est T8, au 2026-10-26
 
 Le commerçant suivra ses commandes depuis son téléphone : une notification sonne quand une
 commande arrive, il l'accepte ou la refuse sur place, puis mène tout le suivi jusqu'à
@@ -114,16 +114,145 @@ pièces que le propriétaire écrit lui-même, contre des tests déjà posés.
 
 | Marche | Objet | État |
 | --- | --- | --- |
-| T8a | GraphQL entre dans l'API : `/graphql`, le terrain de jeu, le schéma versionné, `me` | **Exécutée**, branche `feat/graphql-foundations` poussée, sans PR |
-| T8b | L'application naît : Expo Go, connexion, nom de la boutique | à planifier |
+| T8a | GraphQL entre dans l'API : `/graphql`, le terrain de jeu, le schéma versionné, `me` | **Livrée**, PR #19 |
+| T8b | L'application naît : Expo Go, connexion, nom de la boutique | **Exécutée**, branche `feat/vendor-mobile-app` poussée, sans PR |
 | T8c | Les lectures : commandes, détail, produits (pièce du propriétaire) | à planifier |
 | T8d | Les écritures : avancer une commande, pointer un paiement, activer un produit (pièce du propriétaire) | à planifier |
 | T8e | Le temps réel dans l'application ouverte | à planifier |
 | T8f | Les notifications application fermée, non prouvées sur un appareil | à planifier |
 
-La spec : `docs/superpowers/specs/2026-10-23-t8-mobile-vendeur-design.md`. Le plan de T8a :
-`docs/superpowers/plans/2026-10-23-t8a-graphql-api.md`. Le guide qui grandit avec la tranche :
-`docs/graphql.md`.
+La spec : `docs/superpowers/specs/2026-10-23-t8-mobile-vendeur-design.md`. Les plans :
+`docs/superpowers/plans/2026-10-23-t8a-graphql-api.md` et
+`docs/superpowers/plans/2026-10-26-t8b-vendor-mobile-app.md`. Les guides qui grandissent avec la
+tranche : `docs/graphql.md` et `docs/expo.md`.
+
+**T8a est livrée**, PR #19, fusionnée le 2026-10-24 : l'arbre fusionné est identique à celui du
+commit poussé, la CI est passée verte sur la pull request puis sur `main`, et CodeRabbit n'a fait
+aucune remarque à traiter.
+
+### Ce que T8b livre
+
+- `apps/vendor-mobile`, une application Expo SDK 58 avec Expo Router, en français et en anglais
+  selon la langue du téléphone, aux couleurs de ClemPerl, clair ou sombre comme le téléphone.
+- La connexion par courriel et mot de passe, avec le compte du web, par le client Expo de Better
+  Auth ; la session dans le stockage sécurisé du téléphone.
+- L'accueil : le nom de la boutique, l'avis d'une boutique suspendue, l'écran qui renvoie au web
+  un compte sans boutique, l'écran « ClemPerl est injoignable » avec « Réessayer », le retour à
+  la connexion quand le serveur refuse la session, et la déconnexion.
+- Le client GraphQL, Apollo Client 4, et les types de ses requêtes générés depuis `schema.gql` ;
+  le `lint` de l'application échoue quand ils ne suivent plus le schéma.
+- Côté serveur, `mobileOriginPlugin` dans `packages/auth`, et l'origine `clemperl-vendor://` parmi
+  les origines de confiance.
+- `docs/expo.md`, et la section 8 de `docs/graphql.md`.
+
+### Les décisions de T8b qui engagent la suite
+
+**Le côté serveur du module Expo de Better Auth est réécrit dans `packages/auth`**, en
+`mobileOriginPlugin`, au lieu d'utiliser `expo()` de `@better-auth/expo`. pnpm résolvait les pairs
+facultatives Expo de ce module depuis l'application mobile, et Expo entrait jusque dans l'image de
+production de l'API. Le contrat entre les deux côtés, l'en-tête `expo-origin`, est tenu par
+l'e2e `apps/api/test/mobile-session.e2e-spec.ts` côté serveur et par
+`src/lib/auth-client.spec.ts` côté application. À relire à chaque montée de `@better-auth/expo`.
+
+**L'application reste hors des images Docker**, par deux réglages qui vont ensemble :
+`.dockerignore` ne laisse passer que son `package.json`, et le stage `dev` des quatre Dockerfiles
+installe avec `--filter "!@clemperl/vendor-mobile"`. Mesuré : l'image de développement de l'API
+passe de 1,4 à 1,1 Go, et le verrou élagué de chaque image de production n'a aucune ligne Expo.
+
+**Les adresses du téléphone se lisent par accès statique**, `process.env.EXPO_PUBLIC_API_URL`,
+dans `src/lib/runtime.ts` : Metro les inscrit à l'assemblage, et `process.env` est vide à
+l'exécution. Une variable absente arrête l'application en la nommant.
+
+**Les écrans reçoivent la connexion et la déconnexion en propriété**, et `meState` est une
+fonction pure qui range la réponse de `me` en états d'écran. Toute erreur autre
+qu'`UNAUTHENTICATED` y est « injoignable » : la session reste, et réessayer est le bon geste.
+
+**`jest.config.js` étend le préréglage de `jest-expo`** pour les paquets ESM du client Better
+Auth, et pour l'extension `.mjs`, que le préréglage ne transforme pas.
+
+**Metro tourne dans Docker**, dans un service `mobile` du compose, sous un profil, avec sa propre
+image (`apps/vendor-mobile/Dockerfile`) : `pnpm mobile:up`. Lancé hors conteneur, Metro n'était
+pas joignable depuis le téléphone, et `--tunnel` exige un compte Expo depuis le SDK 58. Docker
+publie ses ports sur le réseau local. Le compose tire de `DEV_HOST` l'adresse que Metro
+annonce et les deux adresses de l'application ; un `DEV_HOST` vide arrête le conteneur en le
+nommant. Le port est 8082 (`METRO_PORT`), le 8081 de Metro étant souvent occupé par d'autres
+projets Expo. `pnpm docker:down` arrête aussi ce service.
+
+### Ce que la vérification de T8b a établi
+
+- L'application : 33 tests sur 33, `lint` (ESLint et contrôle de la génération) et typage propres.
+- `packages/auth` : 15 tests, couverture 100 % ; l'API : 225 tests unitaires, couverture 100 %,
+  et 19 tests de bout en bout sur 19 dans le conteneur, dont les 4 du chemin du téléphone.
+- Le refus d'une origine Expo inconnue a été vu rouge avant le plugin : sans lui, Better Auth
+  laissait passer la connexion.
+- Le contrôle de la génération mord : `suspended` renommé dans `schema.gql` fait échouer le
+  `lint` de l'application.
+- Metro assemble l'application iOS dans l'installation isolée de pnpm (`expo export`), les deux
+  adresses inscrites.
+- Metro dans son conteneur annonce `exp://<DEV_HOST>:8082`, se déclare sain, et répond depuis
+  la machine par son adresse sur le réseau local ; `DEV_HOST` vide arrête le conteneur
+  avec son nom ; un `docker:down` à blanc arrête bien `clemperl_dev_mobile`.
+
+### Ce que la relecture finale de T8b a changé
+
+Un relecteur neuf a lu la branche entière : prête, avec des correctifs, aucun critique. Six
+constats ont été corrigés avant le commit, chacun contre un test vu rouge :
+
+- le cache de turbo rejouait un `lint` vert quand seul `schema.gql` changeait : le schéma est
+  désormais une entrée de la tâche (`apps/vendor-mobile/turbo.json`) ;
+- les refus de connexion étaient classés par statut, et une origine refusée (403) s'affichait
+  « adresse non vérifiée » : ils le sont par le code de Better Auth ;
+- la déconnexion ne faisait rien quand la boutique était injoignable, alors que le client avait
+  déjà oublié le cookie : l'écran revient maintenant à la connexion ;
+- l'écran « injoignable » n'avait aucune sortie : il propose aussi de se déconnecter ;
+- `expo start` aurait réécrit `tsconfig.json`, versionné, au premier lancement de Metro : les
+  entrées qu'Expo retire sans routes typées n'y sont plus ;
+- l'avis de boutique suspendue omettait que les commandes en cours restent à traiter : il reprend
+  la phrase de l'espace vendeur web.
+
+### Ce qui reste ouvert après T8b
+
+Relevé par la relecture, jugé mineur, laissé en l'état :
+
+- aucun délai sur les requêtes : une adresse du réseau local injoignable fait attendre de l'ordre
+  de soixante secondes sur « Chargement… » ;
+- le cookie gardé par le téléphone ne glisse pas : le vendeur est déconnecté sept jours après sa
+  connexion, faute d'appeler `getSession` au démarrage ;
+- `clemperl-vendor://` est une origine de confiance en production aussi, ce qui élargit les
+  adresses de retour admises ; risque faible, propre au motif du module amont ;
+- trois commentaires à reprendre : « le plugin `expo()` » dans `mobile-session.e2e-spec.ts`,
+  « tirait » au passé dans `mobile-origin.plugin.ts`, et `_layout.tsx` qui explique Expo Router ;
+- `TSignIn` déclaré dans un `.tsx`, et trois types partagés hors de `types/` ou `interfaces/` ;
+- le verrou fait résoudre à `next` `babel-plugin-react-compiler`, tiré par Expo, sans effet tant
+  que le compilateur React est éteint ;
+- aucun `.prettierignore` pour les types générés.
+
+- **La preuve du propriétaire**, le 2026-10-29, sur son iPhone dans Expo Go, Metro dans Docker :
+  connexion avec un compte vendeur de test, nom de la boutique à l'accueil, l'API arrêtée
+  affichant « ClemPerl est injoignable », puis « Réessayer » ramenant la boutique une fois l'API
+  relancée ; l'iPhone passé en anglais, l'application l'a suivi.
+
+### Ce que la preuve a demandé en route
+
+- **Metro dans Docker.** Lancé hors conteneur, il n'était pas joignable depuis le téléphone, et
+  `--tunnel` exige un compte Expo : d'où le service `mobile` du compose.
+- **`EXPO_TOKEN`.** Sur un iPhone, Expo Go exige une CLI connectée au même compte Expo que lui ;
+  le jeton, personnel, vit dans le `.env` racine. Voir `docs/pieges.md`.
+- **Une relance de l'API bloquée sur `TS2306`**, une course au démarrage du conteneur, sans
+  rapport avec T8b, levée par un `docker restart`. Voir `docs/pieges.md`.
+
+### Ce que la vérification de T8b n'a PAS établi
+
+- **La CI**, qui n'a pas encore vu la branche.
+
+### Reprendre T8b
+
+1. La preuve sur iPhone est faite. La suite : la pull request avec l'accord du propriétaire,
+   corps de moins de 1500 caractères, une CI verte, la fusion, puis le plan de T8c.
+2. Sur une autre machine : `pnpm install`, `pnpm turbo run build --filter='./packages/*'`, puis
+   `pnpm docker:up`, qui reconstruit les images avec le filtre. Pour le téléphone : `DEV_HOST`
+   dans le `.env` racine à l'adresse de la machine, puis `pnpm mobile:up`, et suivre
+   `apps/vendor-mobile/README.md`.
 
 ### Ce que T8a livre
 
@@ -220,9 +349,7 @@ Relevé par la relecture finale ou en route, jugé mineur, laissé en l'état :
 
 ### Reprendre
 
-1. La branche `feat/graphql-foundations` est poussée, sans pull request. La suite : ouvrir la
-   pull request avec l'accord du propriétaire, corps de moins de 1500 caractères, obtenir une
-   CI verte, la fusionner, puis planifier T8b depuis la spec, section 3.
+1. Fait : PR #19 fusionnée le 2026-10-24.
 2. Sur une autre machine : `pnpm install`, `pnpm turbo run build --filter='./packages/*'`, puis
    `pnpm docker:up`. Les dépendances neuves de l'API sont `@nestjs/graphql`, `@nestjs/apollo`,
    `@apollo/server`, `@as-integrations/express5` et `graphql` 16. Aucune migration, aucune

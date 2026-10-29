@@ -1,0 +1,12 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "lint": {
+      // Le `lint` de l'application lance `graphql-codegen --check`, qui compare les types
+      // générés au schéma de l'API. Ce schéma vit hors de l'application : sans cette entrée,
+      // turbo rejouerait un `lint` vert depuis son cache quand seul `schema.gql` a changé.
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/api/src/modules/graphql/schema.gql"]
+    }
+  }
+}

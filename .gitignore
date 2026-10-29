@@ -18,6 +18,10 @@ certs/
 .vscode/*
 !.vscode/settings.json
 generated/
+# Sauf les types GraphQL de l'application mobile : versionnés comme `schema.gql`, dont ils
+# découlent, et gardés d'accord avec lui par `graphql-codegen --check`, dans le `lint` de
+# l'application. Le client Prisma, lui, se régénère à chaque construction.
+!apps/vendor-mobile/src/graphql/generated/
 dist/
 
 # Artefacts de compilation produits à côté des sources : `tsc` a émis un jour du JS

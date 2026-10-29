@@ -288,6 +288,71 @@ services:
       retries: 10
       start_period: 90s
 
+  # Metro, pour l'application vendeur dans Expo Go. Sous un profil : `pnpm docker:up` ne le
+  # démarre pas, `pnpm mobile:up` si. Voir `apps/vendor-mobile/README.md`.
+  mobile:
+    container_name: clemperl_dev_mobile
+    profiles: ["mobile"]
+    # Le même numéro des deux côtés : Metro annonce SON port dans le code QR, et le téléphone
+    # le joint tel quel sur la machine. 8082 et non 8081, le port par défaut de Metro, que
+    # d'autres projets Expo du poste occupent souvent.
+    ports:
+      - "${METRO_PORT:-8082}:${METRO_PORT:-8082}"
+    build:
+      context: ..
+      dockerfile: apps/vendor-mobile/Dockerfile
+      target: dev
+    environment:
+      # L'adresse que Metro annonce dans le code QR. Sans elle, il annoncerait l'adresse
+      # interne du conteneur, injoignable depuis le téléphone, sans le moindre message.
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${DEV_HOST:-}
+      RCT_METRO_PORT: ${METRO_PORT:-8082}
+      # Les adresses que l'APPLICATION utilise, celles de la machine sur le réseau local : sur
+      # le téléphone, `localhost` désigne le téléphone.
+      EXPO_PUBLIC_API_URL: http://${DEV_HOST:-}:${API_PORT:-3003}
+      EXPO_PUBLIC_STOREFRONT_URL: http://${DEV_HOST:-}:${STOREFRONT_PORT:-3000}
+      # Sur un iPhone physique, Expo Go n'ouvre un projet que si la CLI est connectée au MÊME
+      # compte Expo que lui : la CLI inscrit son compte dans le manifeste, et Expo Go le compare
+      # au sien. Dans un conteneur, la CLI n'est connectée à rien, sauf par ce jeton, un jeton
+      # PERSONNEL du compte (un jeton robot s'annonce « <nom> (robot) », et la comparaison
+      # échoue). Il vit dans le `.env` racine, que Git ignore ; ne jamais l'écrire ici.
+      EXPO_TOKEN: ${EXPO_TOKEN:-}
+    # Les sources et la configuration, en lecture seule : Metro les lit, n'y écrit rien, et le
+    # rechargement à chaud suit les modifications faites sur la machine. Le dossier entier n'est
+    # pas monté : Expo y écrirait `.expo/` au nom de root, côté machine.
+    volumes:
+      - ../apps/vendor-mobile/src:/app/apps/vendor-mobile/src:ro
+      - ../apps/vendor-mobile/app.json:/app/apps/vendor-mobile/app.json:ro
+      - ../apps/vendor-mobile/tsconfig.json:/app/apps/vendor-mobile/tsconfig.json:ro
+      - ../packages/i18n/messages:/app/packages/i18n/messages:ro
+    # `DEV_HOST` vide fait échouer le démarrage en le nommant, plutôt qu'un code QR qui ne
+    # mène nulle part. `$$` : le compose ne doit pas lire ces variables, le conteneur si.
+    command:
+      - sh
+      - -c
+      - >-
+        test -n "$$REACT_NATIVE_PACKAGER_HOSTNAME" || {
+        echo "DEV_HOST est vide dans le .env racine : y mettre l'adresse de la machine sur le réseau local.";
+        exit 1; };
+        exec pnpm exec expo start --port "$$RCT_METRO_PORT"
+    # Le code QR et les raccourcis de Metro (r, m, j...) vivent dans son terminal :
+    # `docker attach clemperl_dev_mobile`, puis Ctrl+P Ctrl+Q pour s'en détacher.
+    stdin_open: true
+    tty: true
+    depends_on:
+      api: { condition: service_healthy }
+      storefront: { condition: service_healthy }
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:' + process.env.RCT_METRO_PORT + '/status').then(r => r.text()).then(t => process.exit(t.includes('running') ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
 volumes:
   storage_data:
     name: clemperl_dev_storage_data
