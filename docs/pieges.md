@@ -1963,3 +1963,89 @@ Ce qui protège maintenant : `graphqlLandingPagePlugins`, dans
 `apps/api/src/modules/graphql/utils/graphql-playground.utils.ts`, rend le type du pilote,
 `NonNullable<ApolloDriverConfig["plugins"]>`, et convertit le plugin une fois, avec ce
 commentaire. Tout plugin Apollo ajouté plus tard passe par le même chemin.
+
+---
+
+**pnpm résout une dépendance de pair facultative dès que le paquet existe ailleurs dans le
+workspace : `@better-auth/expo` ajouté à `packages/auth` y tirait Expo et React Native, donc
+jusque dans l'image de production de l'API.**
+
+`@better-auth/expo` déclare `expo-constants`, `expo-linking` et `expo-secure-store` en pairs
+facultatives. Tant qu'aucun projet ne les installe, elles restent absentes. Dès que
+`apps/vendor-mobile` les installe, pnpm les rattache aussi à la copie de `packages/auth`, qui
+n'en importe pourtant aucune.
+
+Observé le 2026-10-26 sur T8b : `packages/auth/node_modules/@better-auth/expo` pointait vers un
+dossier du magasin qui contenait `expo-constants`, `expo-linking` et `expo-secure-store`, et
+l'image de développement de l'API portait `expo` et `react-native`, environ 260 Mo sur 1,4 Go.
+
+Ce qui rend le piège difficile à voir : rien n'échoue. Les tests passent, les images se
+construisent, seules leur taille et `ls node_modules/.pnpm` le montrent.
+
+Ce qui protège maintenant : le serveur n'utilise plus ce module. Son côté serveur est réécrit
+dans `packages/auth/src/plugins/mobile-origin.plugin.ts`, et seul `apps/vendor-mobile` dépend de
+`@better-auth/expo`, pour son client. Avant d'ajouter à un paquet serveur une dépendance qui a
+des pairs facultatives, lire lesquelles, et vérifier le verrou.
+
+---
+
+**Exclure un dossier par `.dockerignore` n'empêche pas `pnpm install --frozen-lockfile` d'en
+installer les dépendances : pnpm installe chaque importeur que le verrou inscrit.**
+
+Le stage `dev` des Dockerfiles copie le dépôt puis installe le workspace d'après le verrou. Un
+projet dont le dossier est absent de l'image y reste inscrit, et ses dépendances sont
+installées quand même. Et `--filter "!<projet>"` ne l'écarte que si le projet existe sur le
+disque : sans son `package.json`, le filtre n'a rien à exclure.
+
+Observé le 2026-10-26 sur T8b : `apps/vendor-mobile` exclu par `.dockerignore`, l'image de l'API
+contenait pourtant `apps/vendor-mobile/node_modules` ; avec le filtre seul, toujours. Avec le
+`package.json` laissé passer ET le filtre, `vendor-mobile` n'a plus de `node_modules` dans
+l'image.
+
+Ce qui protège maintenant : `.dockerignore` exclut `apps/vendor-mobile/*` sauf son
+`package.json`, et le stage `dev` des quatre Dockerfiles installe avec
+`--filter "!@clemperl/vendor-mobile"`. Les deux vont ensemble : retirer l'un rend l'autre inutile.
+
+---
+
+**Sur un iPhone, Expo Go refuse un projet dont la CLI n'est pas connectée au même compte Expo
+que lui : « You're signed in to Expo Go as "…", but not signed in to Expo CLI ».**
+
+La CLI inscrit dans le manifeste le nom du compte auquel elle est connectée
+(`extra.expoGo.username`, dans `ManifestMiddleware.js` d'`@expo/cli`), et Expo Go, sur un
+appareil iOS physique, le compare au sien. Une CLI lancée dans un conteneur n'est connectée à
+rien : le nom manque, et Expo Go refuse. Un jeton robot ne suffit pas, la CLI s'annonçant alors
+« <nom> (robot) ».
+
+Observé le 2026-10-29 sur T8b, à la première ouverture de l'application dans Expo Go, Metro
+tournant dans Docker. La configuration du projet n'y est pour rien : sans `extra.eas.projectId`,
+la CLI sert de toute façon un manifeste non signé ; c'est l'état d'Expo Go sur l'appareil qui
+décide. La CLI ne signale rien dans son terminal ; l'erreur n'apparaît que sur le téléphone.
+
+Ce qui protège maintenant : le service `mobile` du compose reçoit `EXPO_TOKEN`, un jeton
+personnel, depuis le `.env` racine, que Git ignore. Voir `apps/vendor-mobile/README.md`. La doc
+d'Expo : « expo-go-sign-in-required », dans sa section de dépannage.
+
+---
+
+**Relancé par `docker start` ou `docker restart`, le conteneur de l'API peut rester arrêté sur
+`TS2306: File '/app/packages/auth/dist/index.d.ts' is not a module`, alors que le fichier est
+complet.**
+
+Le conteneur lance `turbo run dev` : la compilation surveillée de chaque paquet et celle de
+l'API démarrent ensemble. Au démarrage, `tsc --watch` réécrit le `dist` de `packages/auth` ; si
+la compilation de l'API lit `index.d.ts` pendant cette réécriture, elle le trouve vide, échoue,
+et Nest ne démarre pas. Le fichier, ensuite complet, ne la relance pas : sa surveillance ne suit
+que les sources de l'API.
+
+Observé le 2026-10-29 sur T8b, pendant la preuve sur téléphone : après un `docker stop` puis un
+`docker start` de l'API, « Found 3 errors », le port 3003 refusé, la santé « unhealthy ». Un
+`touch` sur une source de l'API, depuis le conteneur, n'a rien relancé. Le premier démarrage par
+`pnpm docker:up` passe, les `dist` venant de l'image.
+
+Ce qui rend le piège difficile à voir : les paquets affichent « Found 0 errors », et le fichier
+que l'erreur accuse est correct quand on va le lire.
+
+Ce qui protège maintenant : rien dans l'outillage. Relancer le conteneur
+(`docker restart clemperl_dev_api`) et attendre « Nest application successfully started ». La
+correction durable, faire attendre à l'API la première compilation des paquets, reste à faire.

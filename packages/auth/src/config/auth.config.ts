@@ -2,6 +2,7 @@ import { createSmtpSender } from "@clemperl/core";
 import { isPendingAdministratorInvitation, prisma } from "@clemperl/db";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { mobileOriginPlugin } from "../plugins/index.js";
 import {
     RESET_PASSWORD_TOKEN_EXPIRES_IN,
     buildAdministratorInvitationMessage,
@@ -54,11 +55,23 @@ export const auth = betterAuth({
 
     // Les trois fronts montent le gestionnaire : chacun doit être reconnu comme une
     // origine légitime, sinon les requêtes venues des deux autres sont rejetées.
+    //
+    // S'y ajoute le schéma d'adresse de l'application vendeur, `clemperl-vendor://`, que
+    // `app.json` déclare et qu'un test de l'application tient d'accord. `mobileOriginPlugin`
+    // fait confiance de lui-même à `exp://` en développement, l'origine d'Expo Go ; le schéma
+    // sert à toute version construite de l'application.
     trustedOrigins: [
         process.env["NEXT_PUBLIC_STOREFRONT_URL"] ?? "",
         process.env["NEXT_PUBLIC_VENDOR_URL"] ?? "",
         process.env["NEXT_PUBLIC_ADMIN_URL"] ?? "",
+        "clemperl-vendor://",
     ],
+
+    // Le téléphone n'envoie pas d'`Origin` : son client annonce la sienne dans `expo-origin`,
+    // que ce plugin recopie en `Origin` avant le contrôle des origines de confiance. Sans lui,
+    // l'en-tête n'est lu par personne, et une connexion sans origine passe sans contrôle.
+    // Pourquoi un plugin à nous et non `expo()` de `@better-auth/expo` : voir son fichier.
+    plugins: [mobileOriginPlugin()],
 
     emailAndPassword: {
         enabled: true,

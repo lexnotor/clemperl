@@ -1,0 +1,31 @@
+{
+  "common": {
+    "loading": "Chargement…",
+    "retry": "Réessayer"
+  },
+  "signIn": {
+    "title": "Connexion",
+    "intro": "Connectez-vous avec le compte de votre boutique.",
+    "email": "Adresse électronique",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "submitting": "Connexion…",
+    "invalidCredentials": "Adresse ou mot de passe incorrect.",
+    "emailNotVerified": "Votre adresse n'est pas encore vérifiée. Ouvrez le lien reçu par courriel, puis réessayez.",
+    "failed": "La connexion a échoué. Réessayez dans un instant."
+  },
+  "home": {
+    "shop": "Votre boutique",
+    "signedInAs": "Connecté en tant que {email}",
+    "suspended": "Votre boutique n'apparaît pas au catalogue, et ses articles ne sont pas achetables. Vos commandes en cours restent à traiter normalement.",
+    "signOut": "Se déconnecter"
+  },
+  "noShop": {
+    "title": "Aucune boutique",
+    "body": "Ce compte n'est membre d'aucune boutique. Ouvrez la vôtre depuis le site ClemPerl."
+  },
+  "unreachable": {
+    "title": "ClemPerl est injoignable",
+    "body": "L'application ne parvient pas à joindre ClemPerl. Vérifiez votre connexion, puis réessayez."
+  }
+}

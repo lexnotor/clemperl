@@ -1,0 +1,31 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "retry": "Try again"
+  },
+  "signIn": {
+    "title": "Sign in",
+    "intro": "Sign in with your shop's account.",
+    "email": "Email address",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "invalidCredentials": "Incorrect email address or password.",
+    "emailNotVerified": "Your email address is not verified yet. Open the link we sent you, then try again.",
+    "failed": "Sign-in failed. Please try again in a moment."
+  },
+  "home": {
+    "shop": "Your shop",
+    "signedInAs": "Signed in as {email}",
+    "suspended": "Your shop does not appear in the catalogue, and its items cannot be bought. Your ongoing orders are still to be handled as usual.",
+    "signOut": "Sign out"
+  },
+  "noShop": {
+    "title": "No shop",
+    "body": "This account is not a member of any shop. Open yours on the ClemPerl website."
+  },
+  "unreachable": {
+    "title": "ClemPerl is unreachable",
+    "body": "The app cannot reach ClemPerl. Check your connection, then try again."
+  }
+}

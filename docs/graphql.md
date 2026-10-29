@@ -293,3 +293,41 @@ exécutée, c'est un **champ** qui a échoué. La réponse arrive donc en 200, a
 Tester une erreur GraphQL sur le statut HTTP. Il faut tester `errors[0].extensions.code`.
 Les erreurs traduites pour le commerçant arrivent avec les écritures, en T8d, selon
 `docs/conventions/erreurs.md`.
+
+---
+
+## 8. Le client : des requêtes typées par le schéma
+
+### Pourquoi
+
+Le téléphone envoie des requêtes GraphQL et lit leurs réponses. Écrites à la main, ces réponses
+n'auraient aucun type : une faute de frappe sur un champ ne se verrait qu'à l'écran. Le client
+s'appuie donc sur le fichier de schéma de l'API, `schema.gql`, pour **générer** le type de
+chaque requête qu'il écrit.
+
+### Exemple
+
+1. `apps/vendor-mobile/src/features/session/me.query.ts` écrit la requête par `graphql(...)` :
+   `query Me { me { user { email } shop { name suspended } } }`.
+2. `pnpm --filter @clemperl/vendor-mobile codegen` lit `schema.gql` et cette requête, et écrit
+   dans `src/graphql/generated/` le type `MeQuery`.
+3. `useQuery(ME_QUERY)` rend alors `data` typé : `data.me.shop` est `{ name, suspended } | null`.
+
+Le client lui-même est Apollo Client (`src/lib/apollo-client.ts`), qui envoie `POST /graphql`
+avec le cookie de session en en-tête.
+
+### Trois choses à retenir
+
+1. **Le `lint` de l'application vérifie la génération** (`graphql-codegen --check`). Un champ
+   renommé dans le schéma fait échouer la CI : `Cannot query field "suspended" on type "Shop"`.
+2. **Seules les requêtes écrites ont des types.** Un type ajouté au schéma sans requête qui
+   l'emploie ne change rien au code généré : c'est voulu.
+3. **Les erreurs se lisent par leur code.** `meState`
+   (`src/features/session/me-state.ts`) renvoie à la connexion sur `UNAUTHENTICATED`, et traite
+   toute autre erreur comme une API injoignable, avec « Réessayer ».
+
+### Le piège
+
+Changer dans l'API un champ que l'application demande, réimprimer `schema.gql`, et oublier
+l'application : son `lint` échoue, alors qu'on n'a rien touché de son côté. Relancer `codegen`,
+puis adapter la requête si le champ a changé de nom.

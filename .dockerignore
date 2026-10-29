@@ -18,3 +18,9 @@ certs
 .env.*
 !.env.example
 *.log
+# L'application mobile tourne dans Expo Go, jamais dans une image. Ses sources restent
+# dehors, mais PAS son `package.json` : pnpm installe chaque importeur que le verrou inscrit,
+# dossier présent ou non, et seul un projet présent peut être écarté par le filtre
+# `--filter "!@clemperl/vendor-mobile"` du stage `dev` des Dockerfiles.
+apps/vendor-mobile/*
+!apps/vendor-mobile/package.json
