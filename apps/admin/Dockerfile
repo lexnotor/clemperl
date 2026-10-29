@@ -9,7 +9,10 @@ WORKDIR /app
 # --- Développement : le monorepo entier, installé dans le conteneur ---
 FROM base AS dev
 COPY . .
-RUN pnpm install --frozen-lockfile
+# L'application mobile est exclue : `.dockerignore` ne laisse passer que son `package.json`,
+# et pnpm installerait sinon chaque importeur que le verrou inscrit. Sans ce filtre, Expo et
+# React Native, quelque 260 Mo, entreraient dans l'image.
+RUN pnpm install --frozen-lockfile --filter "!@clemperl/vendor-mobile"
 # Les packages compilés (`core`, `db`, `auth`) exposent `dist/`, pas leurs sources : sans
 # une construction initiale, l'application démarre sur des modules introuvables. Le
 # `tsc --watch` lancé ensuite entretient ces `dist`, mais ne les crée pas à temps.
