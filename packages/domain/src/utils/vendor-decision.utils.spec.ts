@@ -32,7 +32,11 @@ describe("validité d'une décision", () => {
 
     it("accepte un refus motivé", () => {
         expect(() =>
-            validateDecision({ ...BASE, outcome: "REJECTED", reason: "INCOMPLETE_FILE" }),
+            validateDecision({
+                ...BASE,
+                outcome: "REJECTED",
+                reason: "INCOMPLETE_FILE",
+            }),
         ).not.toThrow();
     });
 
@@ -41,7 +45,12 @@ describe("validité d'une décision", () => {
             keyThrownBy(() => validateDecision({ ...BASE, outcome: "REJECTED", reason: "OTHER" })),
         ).toBe("errors.vendor_application.comment_required");
         expect(() =>
-            validateDecision({ ...BASE, outcome: "REJECTED", reason: "OTHER", comment: "   " }),
+            validateDecision({
+                ...BASE,
+                outcome: "REJECTED",
+                reason: "OTHER",
+                comment: "   ",
+            }),
         ).toThrow(InvalidDecisionError);
         expect(() =>
             validateDecision({
@@ -56,7 +65,11 @@ describe("validité d'une décision", () => {
     it("interdit de décider sur son propre dossier", () => {
         expect(
             keyThrownBy(() =>
-                validateDecision({ deciderId: "usr_1", applicantId: "usr_1", outcome: "ACCEPTED" }),
+                validateDecision({
+                    deciderId: "usr_1",
+                    applicantId: "usr_1",
+                    outcome: "ACCEPTED",
+                }),
             ),
         ).toBe("errors.vendor_application.self_decision");
     });

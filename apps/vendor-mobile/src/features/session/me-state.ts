@@ -1,5 +1,5 @@
-import { CombinedGraphQLErrors } from "@apollo/client/errors";
 import type { MeQuery } from "../../graphql/generated/graphql";
+import { queryFailure } from "../../lib/query-failure";
 
 export type TMeState =
     | { kind: "loading" }
@@ -22,12 +22,11 @@ export function meState(result: IMeResult): TMeState {
         return { kind: "loading" };
     }
     if (result.error !== undefined) {
-        // Seul `UNAUTHENTICATED` renvoie à la connexion : toute autre erreur laisse la session
-        // en place, et propose de réessayer.
-        const refused =
-            CombinedGraphQLErrors.is(result.error) &&
-            result.error.errors.some((error) => error.extensions?.["code"] === "UNAUTHENTICATED");
-        return refused ? { kind: "signed-out" } : { kind: "unreachable" };
+        // `FORBIDDEN` n'arrive pas de `me`, qui ne passe pas par la garde de boutique : s'il
+        // venait, l'accueil le traiterait comme une panne, au lieu de renvoyer à lui-même.
+        return queryFailure(result.error) === "signed-out"
+            ? { kind: "signed-out" }
+            : { kind: "unreachable" };
     }
     const me = result.data?.me;
     if (me === undefined) {

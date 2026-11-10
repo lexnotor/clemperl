@@ -6,7 +6,11 @@ const DESCRIPTION = "Cuir pleine fleur, coutures à la main, doublure en lin.";
 describe("productDetailsSchema", () => {
     it("accepte un produit ordinaire", () => {
         expect(
-            productDetailsSchema.safeParse({ title: "Sac cabas", description: DESCRIPTION, category: "LEATHER_GOODS" }).success,
+            productDetailsSchema.safeParse({
+                title: "Sac cabas",
+                description: DESCRIPTION,
+                category: "LEATHER_GOODS",
+            }).success,
         ).toBe(true);
     });
 
@@ -14,13 +18,21 @@ describe("productDetailsSchema", () => {
     // casse sur l'unicité : avec un message de base que personne ne relie à sa saisie.
     it("refuse un titre dont aucun slug ne peut sortir", () => {
         expect(
-            productDetailsSchema.safeParse({ title: "!!!", description: DESCRIPTION, category: "LEATHER_GOODS" }).success,
+            productDetailsSchema.safeParse({
+                title: "!!!",
+                description: DESCRIPTION,
+                category: "LEATHER_GOODS",
+            }).success,
         ).toBe(false);
     });
 
     it("refuse une description trop courte pour dire quoi que ce soit", () => {
         expect(
-            productDetailsSchema.safeParse({ title: "Sac cabas", description: "Joli", category: "LEATHER_GOODS" }).success,
+            productDetailsSchema.safeParse({
+                title: "Sac cabas",
+                description: "Joli",
+                category: "LEATHER_GOODS",
+            }).success,
         ).toBe(false);
     });
 });

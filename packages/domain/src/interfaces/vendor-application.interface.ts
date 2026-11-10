@@ -4,8 +4,7 @@ import type {
     E_VENDOR_REJECTION_REASON,
 } from "@clemperl/db/enums";
 
-export type TDocumentKind =
-    (typeof E_VENDOR_DOCUMENT_KIND)[keyof typeof E_VENDOR_DOCUMENT_KIND];
+export type TDocumentKind = (typeof E_VENDOR_DOCUMENT_KIND)[keyof typeof E_VENDOR_DOCUMENT_KIND];
 export type TDecisionOutcome = (typeof E_VENDOR_DECISION)[keyof typeof E_VENDOR_DECISION];
 export type TRejectionReason =
     (typeof E_VENDOR_REJECTION_REASON)[keyof typeof E_VENDOR_REJECTION_REASON];

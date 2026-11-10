@@ -10,6 +10,19 @@ type Account {
   name: String!
 }
 
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+"""
+Ce qu'un litige demande encore à la boutique : absent quand rien n'est attendu.
+"""
+enum DisputeNotice {
+  OPEN
+  TO_SERVE
+}
+
 """Qui est connecté, et pour quelle boutique."""
 type Me {
   """Absente quand le compte n'est membre d'aucune boutique."""
@@ -17,9 +30,128 @@ type Me {
   user: Account!
 }
 
+"""Le détail d'une commande de la boutique."""
+type Order {
+  """Les actions que l'état de la commande permet, et aucune autre."""
+  actions: [OrderAction!]!
+
+  """Absent quand aucun litige n'attend la boutique."""
+  dispute: DisputeNotice
+  id: ID!
+  lines: [OrderLine!]!
+
+  """Le mot laissé par l'acheteur, s'il y en a un."""
+  note: String
+  paymentMethod: PaymentMethod!
+  paymentStatus: PaymentStatus!
+
+  """Le moment où la commande a été passée."""
+  placedAt: DateTime!
+
+  """La référence que la boutique et l'acheteur se citent."""
+  reference: String!
+  shipTo: ShippingAddress!
+  status: OrderStatus!
+
+  """Le total, formaté dans la devise de la commande."""
+  total: String!
+}
+
+"""
+Une action que la boutique peut faire sur une commande dans son état présent.
+"""
+enum OrderAction {
+  ACCEPT
+  CANCEL
+  SHIP
+}
+
+"""Une ligne d'une commande, telle qu'elle a été achetée."""
+type OrderLine {
+  id: ID!
+  quantity: Int!
+
+  """Le titre du produit au moment de l'achat."""
+  title: String!
+
+  """Le prix de la ligne, formaté dans la devise de la commande."""
+  total: String!
+
+  """Le libellé de la variante achetée, par exemple sa taille."""
+  variantLabel: String!
+}
+
+"""L'état d'une commande dans le parcours de la boutique."""
+enum OrderStatus {
+  ACCEPTED
+  CANCELLED
+  PLACED
+  SHIPPED
+}
+
+"""Une commande, telle qu'une liste l'affiche."""
+type OrderSummary {
+  """Le nom de la personne à qui la commande est expédiée."""
+  customerName: String!
+
+  """Absent quand aucun litige n'attend la boutique."""
+  dispute: DisputeNotice
+  id: ID!
+  paymentStatus: PaymentStatus!
+
+  """Le moment où la commande a été passée."""
+  placedAt: DateTime!
+
+  """La référence que la boutique et l'acheteur se citent."""
+  reference: String!
+  status: OrderStatus!
+
+  """Le total, formaté dans la devise de la commande."""
+  total: String!
+}
+
+"""Comment l'acheteur règle sa commande."""
+enum PaymentMethod {
+  BANK_TRANSFER
+  CARD
+  CASH_ON_DELIVERY
+  MOBILE_MONEY
+  OFF_PLATFORM
+}
+
+"""Où en est le paiement d'une commande, indépendamment de son état."""
+enum PaymentStatus {
+  FAILED
+  PENDING
+  SETTLED
+}
+
 type Query {
   """Le compte connecté et sa boutique."""
   me: Me!
+
+  """
+  Une commande de la boutique du compte, ou rien si elle n'est pas à elle.
+  """
+  order(id: ID!): Order
+
+  """Les commandes de la boutique du compte, la plus récente en tête."""
+  orders: [OrderSummary!]!
+}
+
+"""Où la commande est expédiée, et à qui."""
+type ShippingAddress {
+  city: String!
+  country: String!
+
+  """La rue et le numéro."""
+  line: String!
+
+  """Le nom de la personne qui reçoit."""
+  name: String!
+
+  """Le numéro où joindre la personne, pour la livraison."""
+  phone: String!
 }
 
 """La boutique dont le compte est membre."""

@@ -14,7 +14,12 @@ export const checkoutFields = {
     // s'enregistrent comme deux valeurs distinctes, et tout regroupement par pays se
     // scinderait en silence le jour où la livraison arrivera. Le motif ET la longueur,
     // parce que `.length(2)` seul laisserait passer « 12 ».
-    country: z.string().trim().length(2).regex(/^[A-Za-z]{2}$/u).toUpperCase(),
+    country: z
+        .string()
+        .trim()
+        .length(2)
+        .regex(/^[A-Za-z]{2}$/u)
+        .toUpperCase(),
     note: z.string().trim().max(1000).optional(),
 };
 

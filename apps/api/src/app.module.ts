@@ -5,6 +5,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { ApiGraphqlModule } from "./modules/graphql/graphql.module";
 import { HealthModule } from "./modules/health/health.module";
 import { MediaModule } from "./modules/media/media.module";
+import { OrdersModule } from "./modules/orders/orders.module";
 import { PaymentsModule } from "./modules/payments/payments.module";
 import { RealtimeModule } from "./modules/realtime/realtime.module";
 
@@ -30,6 +31,7 @@ function redisConnection(): IRedisConnection {
         AuthModule,
         ApiGraphqlModule,
         MediaModule,
+        OrdersModule,
         PaymentsModule,
         RealtimeModule,
     ],

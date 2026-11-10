@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { canDecide, canResubmit, canViewApplication, isMemberOf } from "./vendor-permissions.utils.js";
+import {
+    canDecide,
+    canResubmit,
+    canViewApplication,
+    isMemberOf,
+} from "./vendor-permissions.utils.js";
 
 const CUSTOMER = { id: "usr_1", role: "CUSTOMER" } as const;
 const OTHER = { id: "usr_2", role: "CUSTOMER" } as const;

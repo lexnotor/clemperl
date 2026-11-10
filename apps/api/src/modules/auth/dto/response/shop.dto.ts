@@ -5,7 +5,9 @@ export class ShopDto {
     @Field(() => ID)
     id!: string;
 
-    @Field({ description: "Le nom de la boutique, tel que les acheteurs le lisent." })
+    @Field({
+        description: "Le nom de la boutique, tel que les acheteurs le lisent.",
+    })
     name!: string;
 
     @Field({ description: "L'identifiant de la boutique dans ses adresses web." })

@@ -28,9 +28,6 @@ export function canResubmit(
     );
 }
 
-export function isMemberOf(
-    members: readonly { userId: string }[],
-    userId: string,
-): boolean {
+export function isMemberOf(members: readonly { userId: string }[], userId: string): boolean {
     return members.some((member) => member.userId === userId);
 }

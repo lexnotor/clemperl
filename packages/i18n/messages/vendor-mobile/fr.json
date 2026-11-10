@@ -18,7 +18,9 @@
     "shop": "Votre boutique",
     "signedInAs": "Connecté en tant que {email}",
     "suspended": "Votre boutique n'apparaît pas au catalogue, et ses articles ne sont pas achetables. Vos commandes en cours restent à traiter normalement.",
-    "signOut": "Se déconnecter"
+    "signOut": "Se déconnecter",
+    "orders": "Commandes",
+    "products": "Produits"
   },
   "noShop": {
     "title": "Aucune boutique",
@@ -27,5 +29,49 @@
   "unreachable": {
     "title": "ClemPerl est injoignable",
     "body": "L'application ne parvient pas à joindre ClemPerl. Vérifiez votre connexion, puis réessayez."
+  },
+  "orders": {
+    "title": "Mes commandes",
+    "empty": "Vous n'avez pas encore de commande.",
+    "paymentLine": "Paiement : {status}",
+    "status": {
+      "PLACED": "Reçue",
+      "ACCEPTED": "Acceptée",
+      "SHIPPED": "Expédiée",
+      "CANCELLED": "Annulée"
+    },
+    "dispute": {
+      "OPEN": "Litige ouvert, à traiter sur le site",
+      "TO_SERVE": "Litige tranché : client à servir"
+    },
+    "notFound": "Cette commande est introuvable.",
+    "placedOn": "Passée le {date}",
+    "lines": "Les articles",
+    "total": "Total : {amount}",
+    "shipTo": "Adresse de livraison",
+    "note": "Mot de l'acheteur"
+  },
+  "products": {
+    "title": "Mes produits",
+    "empty": "Vous n'avez pas encore de produit. Créez-les depuis le site ClemPerl.",
+    "status": {
+      "DRAFT": "Brouillon",
+      "PUBLISHED": "Publié"
+    }
+  },
+  "payment": {
+    "status": {
+      "PENDING": "En attente",
+      "SETTLED": "Reçu",
+      "FAILED": "Refusé"
+    },
+    "title": "Paiement",
+    "method": {
+      "CARD": "Carte bancaire",
+      "MOBILE_MONEY": "Mobile money",
+      "CASH_ON_DELIVERY": "Paiement à la livraison",
+      "BANK_TRANSFER": "Virement bancaire",
+      "OFF_PLATFORM": "Hors plateforme"
+    }
   }
 }

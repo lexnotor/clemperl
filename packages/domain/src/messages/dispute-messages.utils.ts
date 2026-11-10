@@ -94,7 +94,10 @@ export function buildDisputeOpenedMessage(
 ): IEmailMessage {
     const copy = texts(locale);
     const reasonLabel = copy.reason[input.reason] ?? input.reason;
-    return { recipient: "", ...copy.opened(input.reference, reasonLabel, input.link) };
+    return {
+        recipient: "",
+        ...copy.opened(input.reference, reasonLabel, input.link),
+    };
 }
 
 // Le commentaire part tel que l'administrateur l'a écrit, dans sa langue à lui : c'est une

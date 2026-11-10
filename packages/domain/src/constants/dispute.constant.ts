@@ -45,3 +45,9 @@ export const DISPUTE_TRANSITIONS: Readonly<
     DECIDED_FOR_VENDOR: {},
     SERVED: {},
 };
+
+// Le signal qu'une liste de commandes porte pour un litige : deux valeurs, et non le statut
+// entier, parce que la liste ne distingue que ce qui demande encore quelque chose à la boutique.
+export const E_DISPUTE_NOTICE = { OPEN: "OPEN", TO_SERVE: "TO_SERVE" } as const;
+
+export type TDisputeNotice = (typeof E_DISPUTE_NOTICE)[keyof typeof E_DISPUTE_NOTICE];

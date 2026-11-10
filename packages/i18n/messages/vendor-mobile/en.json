@@ -18,7 +18,9 @@
     "shop": "Your shop",
     "signedInAs": "Signed in as {email}",
     "suspended": "Your shop does not appear in the catalogue, and its items cannot be bought. Your ongoing orders are still to be handled as usual.",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "orders": "Orders",
+    "products": "Products"
   },
   "noShop": {
     "title": "No shop",
@@ -27,5 +29,49 @@
   "unreachable": {
     "title": "ClemPerl is unreachable",
     "body": "The app cannot reach ClemPerl. Check your connection, then try again."
+  },
+  "orders": {
+    "title": "My orders",
+    "empty": "You don't have any orders yet.",
+    "paymentLine": "Payment: {status}",
+    "status": {
+      "PLACED": "Received",
+      "ACCEPTED": "Accepted",
+      "SHIPPED": "Shipped",
+      "CANCELLED": "Cancelled"
+    },
+    "dispute": {
+      "OPEN": "Dispute open, handle it on the website",
+      "TO_SERVE": "Dispute decided: serve the customer"
+    },
+    "notFound": "This order could not be found.",
+    "placedOn": "Placed on {date}",
+    "lines": "Items",
+    "total": "Total: {amount}",
+    "shipTo": "Shipping address",
+    "note": "Buyer's note"
+  },
+  "products": {
+    "title": "My products",
+    "empty": "You have no products yet. Create them from the ClemPerl website.",
+    "status": {
+      "DRAFT": "Draft",
+      "PUBLISHED": "Published"
+    }
+  },
+  "payment": {
+    "status": {
+      "PENDING": "Pending",
+      "SETTLED": "Received",
+      "FAILED": "Declined"
+    },
+    "title": "Payment",
+    "method": {
+      "CARD": "Bank card",
+      "MOBILE_MONEY": "Mobile money",
+      "CASH_ON_DELIVERY": "Cash on delivery",
+      "BANK_TRANSFER": "Bank transfer",
+      "OFF_PLATFORM": "Off platform"
+    }
   }
 }

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { E_ORDER_ACTION } from "../constants/order-transitions.constant.js";
-import {
-    advanceOrder,
-    allowedOrderActions,
-    canAdvanceOrder,
-} from "./order-transitions.utils.js";
+import { advanceOrder, allowedOrderActions, canAdvanceOrder } from "./order-transitions.utils.js";
 
 describe("les transitions d'une commande", () => {
     it("accepte ou annule une commande qui vient d'être passée", () => {

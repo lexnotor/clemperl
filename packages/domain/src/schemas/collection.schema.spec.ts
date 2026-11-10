@@ -11,7 +11,9 @@ describe("collectionDetailsSchema", () => {
     });
 
     it("accepte une collection sans description", () => {
-        expect(collectionDetailsSchema.parse({ title: "Soldes d'été" }).description).toBeUndefined();
+        expect(
+            collectionDetailsSchema.parse({ title: "Soldes d'été" }).description,
+        ).toBeUndefined();
     });
 
     // Sans deux caractères latins, le slug est vide et la deuxième collection du genre

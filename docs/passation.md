@@ -5,7 +5,7 @@
 > (`docs/conventions/`), ni les faits du dépôt (`CLAUDE.md`), ni la mise en route
 > (`README.md`, `docker/README.md`).
 
-Dernière mise à jour : 2026-10-26.
+Dernière mise à jour : 2026-11-10.
 
 ## Où en est le projet
 
@@ -30,7 +30,7 @@ plan, exécution, un commit.
 | T6c | Surveiller les commandes et débloquer | **Livrée**, PR #14 |
 | T6d | Litiges | **Livrée**, PR #15 |
 | T7 | Temps réel | **Livrée**, PR #18 |
-| T8 | Le commerçant sur son téléphone, et l'API GraphQL qui le sert | **T8a livrée**, T8b exécutée, T8c à T8f à venir |
+| T8 | Le commerçant sur son téléphone, et l'API GraphQL qui le sert | **T8a et T8b livrées**, T8c en cours, T8d à T8f à venir |
 
 **La liste du catalogue n'est pas cacheable page entière.** La devise vit dans un cookie,
 donc la page est personnelle, et un lien partagé ne montre pas la même chose à deux
@@ -99,7 +99,7 @@ T1b a tenu la décision de T1a : le rôle vendeur est une **relation**
 cette décision et sa raison ; `docs/superpowers/specs/2026-09-19-t1b-vendeurs-design.md`
 porte le modèle qui en découle.
 
-## Où en est T8, au 2026-10-26
+## Où en est T8, au 2026-11-10
 
 Le commerçant suivra ses commandes depuis son téléphone : une notification sonne quand une
 commande arrive, il l'accepte ou la refuse sur place, puis mène tout le suivi jusqu'à
@@ -115,8 +115,8 @@ pièces que le propriétaire écrit lui-même, contre des tests déjà posés.
 | Marche | Objet | État |
 | --- | --- | --- |
 | T8a | GraphQL entre dans l'API : `/graphql`, le terrain de jeu, le schéma versionné, `me` | **Livrée**, PR #19 |
-| T8b | L'application naît : Expo Go, connexion, nom de la boutique | **Exécutée**, branche `feat/vendor-mobile-app` poussée, sans PR |
-| T8c | Les lectures : commandes, détail, produits (pièce du propriétaire) | à planifier |
+| T8b | L'application naît : Expo Go, connexion, nom de la boutique | **Livrée**, PR #20 |
+| T8c | Les lectures : commandes, détail, produits (pièce du propriétaire) | **En cours**, branche `feat/vendor-mobile-reads` poussée, pièce du propriétaire à écrire |
 | T8d | Les écritures : avancer une commande, pointer un paiement, activer un produit (pièce du propriétaire) | à planifier |
 | T8e | Le temps réel dans l'application ouverte | à planifier |
 | T8f | Les notifications application fermée, non prouvées sur un appareil | à planifier |
@@ -129,6 +129,93 @@ tranche : `docs/graphql.md` et `docs/expo.md`.
 **T8a est livrée**, PR #19, fusionnée le 2026-10-24 : l'arbre fusionné est identique à celui du
 commit poussé, la CI est passée verte sur la pull request puis sur `main`, et CodeRabbit n'a fait
 aucune remarque à traiter.
+
+**T8b est livrée**, PR #20, fusionnée le 2026-11-10 par « Rebase and merge » : `1208fd0`, sur
+`main`, porte un arbre identique à celui du commit poussé, `d0b0702`, et la CI est passée verte sur
+la pull request puis sur `main`, neuf tâches sur neuf chaque fois. CodeRabbit ne relit plus de
+lui-même un dépôt de moins de dix étoiles ; lancé à la main par `@coderabbitai review`, il a jugé le
+risque minimal et n'a fait aucune remarque sur le code. Son seul avertissement, une couverture de
+docstrings de 58 % pour un seuil de 80 %, est écarté : `docs/conventions/code.md` réserve le
+commentaire au pourquoi. Son ESLint n'a pas fini de s'installer et LanguageTool n'a lu qu'une
+partie du plan ; le `lint` de la CI, lui, est vert.
+
+### T8c en cours, au 2026-11-10
+
+Le plan : `docs/superpowers/plans/2026-11-10-t8c-vendor-mobile-reads.md`, six tâches. Ses huit
+décisions, en tête, ont été acceptées par le propriétaire avant l'exécution. La branche
+`feat/vendor-mobile-reads` porte un commit d'étape, poussé pour reprendre sur un autre poste ;
+la règle du commit unique se rattrape à la fusion, par « Squash and merge » ou par un commit
+réécrit avec l'accord du propriétaire.
+
+**Les tâches 1 à 4 sont faites.** Chacune a été écrite par un sous-agent, puis relue contre sa
+consigne par un relecteur neuf : approuvée chaque fois, sans constat critique ni important.
+
+- Tâche 1 : `ShopGuard` dans `auth`, après `SessionGuard`, qui lit la boutique par
+  `readVendorForMember` et rend `FORBIDDEN` à un compte sans boutique ; `requestOf` partagé dans
+  `auth/utils` ; le module `orders` et la requête `orders` ; `disputeNotice` dans le domaine, que
+  la liste web appelle désormais ; `docs/graphql.md`, sections 9 à 11.
+- Tâche 2 : l'écran « Mes commandes » ; `queryFailure`, dont `meState` se sert désormais ;
+  `QueryGate`, `useHeaderOptions`, `Screen underHeader`, `useLocale`, `formatDate` ; les boutons
+  « Commandes » et « Produits » de l'accueil ; codegen avec `enumsAsTypes` et `DateTime` en
+  chaîne ; `docs/expo.md`, sections 7 et 8.
+- Tâche 3 : `order(id: ID!): Order`, qui rend `null` pour un identifiant inventé ou une commande
+  d'une autre boutique ; `docs/graphql.md`, section 12.
+- Tâche 4 : l'écran de détail, route `orders/[id].tsx` ; `docs/expo.md`, section 9.
+
+Ce que les sous-agents ont rapporté, et que les relecteurs ont lu sans le rejouer : API, 236 tests
+unitaires, couverture 100 % ; e2e de l'API dans le conteneur, 25 sur 25 avant les tests de la
+tâche 5 ; domaine 264 ; espace vendeur 38 ; application 55 ; `e2e/disputes.spec.ts` vert, pour
+le badge de la liste web. Le typage de l'application a été relancé par le contrôleur après la
+tâche 4 : vert.
+
+**La tâche 5, la pièce du propriétaire, attend son étape 3.** Le constructeur a posé les tests et
+l'écran, relus et approuvés : `products.resolver.spec.ts`, le `describe("products")` de
+`vendor-reads.e2e-spec.ts`, `product-row.spec.tsx`, `products-screen.tsx` et son test, la route
+`products.tsx`, les clés `products.*` des deux catalogues. Ils sont rouges exprès, faute du code
+du propriétaire : une suite unitaire de l'API, deux cas e2e, deux suites de l'application, et
+le typage de l'API et de l'application. Le propriétaire écrit, dans l'ordre de l'étape 3 du
+plan : `product-summary.dto.ts` et son `index.ts`, `products.resolver.ts`, `products.module.ts`
+et son import dans `AppModule`, la réimpression du schéma, `products.query.ts` puis `codegen`,
+`product-row.tsx`. Il a choisi d'être guidé fichier par fichier ; il en est au premier.
+
+**Prettier a désormais une configuration**, `.prettierrc.json` (4 espaces, 100 colonnes) et
+`.prettierignore` (`schema.gql`, les types générés de l'application, le verrou). Un sous-agent
+avait lancé Prettier sans configuration sur des dossiers entiers, ce qui a repassé 87 fichiers
+en 2 espaces ; le propriétaire a gardé le principe et choisi une configuration au style du
+dépôt. Prettier repassé avec elle, une trentaine de fichiers de `packages/domain` et d'`auth`
+gardent une différence de pure mise en forme avec `main`, et quelques-uns restent repliés à 80
+colonnes. Désormais, Prettier se passe sur chaque fichier de code touché, nommé un par un.
+
+**Constats mineurs reportés à la relecture finale**, aucun ne bloque :
+
+- `paymentStatus` typé en ligne dans `order-summary.dto.ts` et `order.dto.ts`, faute de
+  `TPaymentStatus` ;
+- le mappage du statut, du paiement, du total et du litige écrit deux fois dans
+  `orders.resolver.ts`, à extraire si T8d en ajoute un troisième ;
+- `vendor-reads.e2e-spec.ts` : un identifiant de boutique poussé après les deux créations, un
+  compteur incrémenté dans un gabarit, l'ordre de création des produits non commenté ;
+- la liste web compare l'avis à `"OPEN"` au lieu de `E_DISPUTE_NOTICE.OPEN` ;
+- `ShopGuard` sans `SessionGuard` devant lève une `TypeError` et non `UNAUTHENTICATED`, ce que
+  le piège de la section 11 de `docs/graphql.md` dit ;
+- `QueryGate` : aucun test d'une erreur avec `loading` vrai, l'état d'un « Réessayer » d'Apollo ;
+  une ligne de commentaire au-delà de 100 colonnes ; `useHeaderOptions` sans type de retour ;
+- l'écran de détail : seul l'avis de litige `OPEN` testé ; `id` de la route typé `string` alors
+  qu'Expo Router peut rendre un tableau ; une date de test qui dépend du fuseau ; un titre
+  d'en-tête générique ; des gardes `undefined` redondantes ;
+- des casts `as never` non commentés dans les tests de l'écran des produits, et un constructeur
+  sans argument imposé par le test du résolveur.
+
+### Reprendre T8c
+
+1. Sur l'autre poste : récupérer la branche, puis `pnpm install`,
+   `pnpm turbo run build --filter='./packages/*'` et `pnpm docker:up`, qui reconstruit les
+   images. Ouvrir l'éditeur sur ce clone-là, et non sur une autre copie.
+2. Le propriétaire écrit sa pièce, étape 3 de la tâche 5 ; Claude relit chaque fichier.
+3. Étape 4 de la tâche 5 : tous les tests, et la relecture de la pièce à deux.
+4. Une relecture de toute la branche, par un relecteur neuf sur le modèle le plus capable, avec
+   les constats mineurs ci-dessus ; une seule vague de correctifs.
+5. La tâche 6 : vérification complète, passation, preuve sur l'iPhone, commit et pull request
+   avec l'accord du propriétaire.
 
 ### Ce que T8b livre
 
@@ -225,7 +312,9 @@ Relevé par la relecture, jugé mineur, laissé en l'état :
 - `TSignIn` déclaré dans un `.tsx`, et trois types partagés hors de `types/` ou `interfaces/` ;
 - le verrou fait résoudre à `next` `babel-plugin-react-compiler`, tiré par Expo, sans effet tant
   que le compilateur React est éteint ;
-- aucun `.prettierignore` pour les types générés.
+- aucun `.prettierignore` pour les types générés ;
+- aucun `.coderabbit.yaml` : CodeRabbit garde son contrôle de couverture des docstrings, que
+  `docs/conventions/code.md` contredit, et le signalera à chaque pull request.
 
 - **La preuve du propriétaire**, le 2026-10-29, sur son iPhone dans Expo Go, Metro dans Docker :
   connexion avec un compte vendeur de test, nom de la boutique à l'accueil, l'API arrêtée
@@ -241,14 +330,15 @@ Relevé par la relecture, jugé mineur, laissé en l'état :
 - **Une relance de l'API bloquée sur `TS2306`**, une course au démarrage du conteneur, sans
   rapport avec T8b, levée par un `docker restart`. Voir `docs/pieges.md`.
 
-### Ce que la vérification de T8b n'a PAS établi
+### Ce que la CI de T8b a établi
 
-- **La CI**, qui n'a pas encore vu la branche.
+Verte sur la pull request, sur `d0b0702`, puis sur `main`, sur `1208fd0` : neuf tâches sur neuf
+chaque fois, `e2e` et les quatre images comprises.
 
 ### Reprendre T8b
 
-1. La preuve sur iPhone est faite. La suite : la pull request avec l'accord du propriétaire,
-   corps de moins de 1500 caractères, une CI verte, la fusion, puis le plan de T8c.
+1. Fait : PR #20 fusionnée le 2026-11-10. La suite est le plan de T8c, sur la branche
+   `feat/vendor-mobile-reads`, partie de `main` après la fusion.
 2. Sur une autre machine : `pnpm install`, `pnpm turbo run build --filter='./packages/*'`, puis
    `pnpm docker:up`, qui reconstruit les images avec le filtre. Pour le téléphone : `DEV_HOST`
    dans le `.env` racine à l'adresse de la machine, puis `pnpm mobile:up`, et suivre
@@ -326,7 +416,8 @@ que sa ligne de commande.
 
 ### Ce que la vérification n'a PAS établi
 
-- **La CI**, qui n'a pas encore vu la branche.
+- **La CI**, au moment de cette vérification. Elle est passée verte depuis, sur la pull request
+  puis sur `main`.
 - **Le terrain de jeu sans accès à Internet** : l'interface de Sandbox se charge depuis le
   réseau d'Apollo.
 

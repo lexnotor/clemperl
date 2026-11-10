@@ -12,7 +12,10 @@ describe("validateModerationDecision", () => {
         expect(() => validateModerationDecision({ reason: "OTHER" })).toThrow();
         expect(() => validateModerationDecision({ reason: "OTHER", comment: "   " })).toThrow();
         expect(() =>
-            validateModerationDecision({ reason: "OTHER", comment: "Photo d'une autre marque." }),
+            validateModerationDecision({
+                reason: "OTHER",
+                comment: "Photo d'une autre marque.",
+            }),
         ).not.toThrow();
     });
 

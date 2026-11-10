@@ -6,8 +6,7 @@ export const E_APPLICATION_ACTION = {
     RESUBMIT: "RESUBMIT",
 } as const;
 
-export type TApplicationAction =
-    (typeof E_APPLICATION_ACTION)[keyof typeof E_APPLICATION_ACTION];
+export type TApplicationAction = (typeof E_APPLICATION_ACTION)[keyof typeof E_APPLICATION_ACTION];
 
 // Une donnée plutôt qu'une cascade de `if` : la lire suffit à connaître tout le système.
 // Un état sans entrée est terminal.

@@ -48,9 +48,7 @@ describe("checkoutSchema", () => {
     });
 
     it("refuse un mot démesuré", () => {
-        expect(
-            checkoutSchema.safeParse({ ...valide, note: "a".repeat(1001) }).success,
-        ).toBe(false);
+        expect(checkoutSchema.safeParse({ ...valide, note: "a".repeat(1001) }).success).toBe(false);
     });
 });
 

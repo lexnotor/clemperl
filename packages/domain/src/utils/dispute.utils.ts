@@ -3,8 +3,10 @@ import {
     DISPUTE_REASONS,
     DISPUTE_SILENCE_DAYS,
     DISPUTE_TRANSITIONS,
+    E_DISPUTE_NOTICE,
     MAX_DISPUTE_MESSAGE_LENGTH,
     type TDisputeAction,
+    type TDisputeNotice,
     type TDisputeStatus,
 } from "../constants/index.js";
 import { ForbiddenDisputeTransitionError } from "../errors/index.js";
@@ -50,6 +52,16 @@ export function advanceDispute(from: TDisputeStatus, action: TDisputeAction): TD
 // grisée, elle ne s'affiche pas.
 export function allowedDisputeActions(from: TDisputeStatus): TDisputeAction[] {
     return Object.keys(DISPUTE_TRANSITIONS[from]) as TDisputeAction[];
+}
+
+// Un litige tranché pour le client reste signalé : la boutique a encore à le servir, et la
+// plateforme n'en saura rien tant que le client ne l'aura pas dit. Les autres états n'attendent
+// plus rien de la boutique.
+export function disputeNotice(status: TDisputeStatus | null): TDisputeNotice | null {
+    if (status === "OPEN") {
+        return E_DISPUTE_NOTICE.OPEN;
+    }
+    return status === "DECIDED_FOR_BUYER" ? E_DISPUTE_NOTICE.TO_SERVE : null;
 }
 
 function violation(key: string, args?: Record<string, unknown>): IDisputeViolation {

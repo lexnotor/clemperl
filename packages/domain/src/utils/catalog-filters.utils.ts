@@ -49,9 +49,7 @@ export function readCatalogFilters(
 
     return {
         search: brut.length === 0 ? null : brut.slice(0, MAX_SEARCH_LENGTH),
-        category: (PRODUCT_CATEGORIES as readonly string[]).includes(categorie)
-            ? categorie
-            : null,
+        category: (PRODUCT_CATEGORIES as readonly string[]).includes(categorie) ? categorie : null,
         sort: (CATALOG_SORTS as readonly string[]).includes(tri) ? (tri as TCatalogSort) : "newest",
         page: Number.isFinite(page) && page >= 1 ? Math.min(page, MAX_PAGE) : 1,
     };

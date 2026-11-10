@@ -46,13 +46,14 @@ export function groupByShop<T extends { shopSlug: string }>(
             groups.set(line.shopSlug, [line]);
         }
     }
-    return [...groups].map(([shopSlug, shopLines]) => ({ shopSlug, lines: shopLines }));
+    return [...groups].map(([shopSlug, shopLines]) => ({
+        shopSlug,
+        lines: shopLines,
+    }));
 }
 
 // En unité mineure ENTIÈRE, sans jamais diviser : une division introduirait un flottant,
 // et un centime perdu dans un total est un centime que personne ne retrouve.
-export function sumLines(
-    lines: readonly { unitAmount: number; quantity: number }[],
-): number {
+export function sumLines(lines: readonly { unitAmount: number; quantity: number }[]): number {
     return lines.reduce((total, line) => total + line.unitAmount * line.quantity, 0);
 }

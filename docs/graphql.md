@@ -331,3 +331,155 @@ avec le cookie de session en en-tête.
 Changer dans l'API un champ que l'application demande, réimprimer `schema.gql`, et oublier
 l'application : son `lint` échoue, alors qu'on n'a rien touché de son côté. Relancer `codegen`,
 puis adapter la requête si le champ a changé de nom.
+
+---
+
+## 9. Une liste, et ses deux points d'exclamation
+
+### Pourquoi
+
+Une liste de commandes est le premier champ qui rend plusieurs objets. Son type se lit
+`[OrderSummary!]!`, et chaque point d'exclamation répond à une question différente. Les
+confondre revient à croire que le téléphone doit tester `null` là où il ne peut pas arriver.
+
+### Exemple
+
+`apps/api/src/modules/orders/resolvers/orders.resolver.ts` déclare la requête, et le schéma
+imprime `orders: [OrderSummary!]!`. Du dedans vers le dehors :
+
+1. `OrderSummary!` : chaque élément de la liste est un objet, jamais `null`.
+2. `[...]!` : la liste elle-même est toujours là. Une boutique sans commande reçoit `[]`,
+   pas `null`.
+
+Sans le point d'exclamation de l'extérieur, `null` voudrait dire « je n'ai pas pu lire », et
+le téléphone devrait distinguer ce cas de la liste vide.
+
+### Trois choses à retenir
+
+1. **`[]` est une réponse, `null` n'en est pas une.** Le téléphone affiche la phrase « aucune
+   commande » sur `[]`.
+2. **Le résolveur construit chaque élément champ par champ**, comme `me` : la ligne du dépôt
+   porte `paymentMethod`, et rien ne l'envoie au téléphone.
+3. **Le total arrive déjà formaté**, dans la devise de la commande : le nombre de décimales
+   dépend de la devise, et le téléphone ne recopie pas cette règle.
+
+### Le piège
+
+Déclarer la liste `nullable` « par prudence ». Le contrat devient plus faible, et chaque écran
+doit tester un `null` que l'API ne produit jamais.
+
+---
+
+## 10. Une énumération dans le schéma
+
+### Pourquoi
+
+Un état de commande est une valeur parmi quelques-unes connues : `PLACED`, `ACCEPTED`,
+`SHIPPED`, `CANCELLED`. Le schéma les publie comme une **énumération**, et le téléphone sait
+ainsi, avant d'exécuter quoi que ce soit, quelles valeurs il peut recevoir.
+
+### Exemple
+
+`apps/api/src/modules/orders/dto/response/order-enums.dto.ts` publie les énumérations par
+`registerEnumType`, à partir des constantes que le reste du dépôt emploie déjà
+(`E_ORDER_STATUS`, `E_PAYMENT_STATUS`, `E_DISPUTE_NOTICE`). Le schéma imprime :
+
+```graphql
+enum OrderStatus {
+  ACCEPTED
+  CANCELLED
+  PLACED
+  SHIPPED
+}
+```
+
+Le téléphone ne montre pas `PLACED` : il en fait la **clé** de son catalogue de traduction, et
+affiche la phrase qui s'y trouve.
+
+### Trois choses à retenir
+
+1. **Les valeurs ne sont jamais recopiées.** Un état ajouté à la base arrive au schéma de lui-même.
+2. **Chaque énumération est enregistrée une fois**, dans un seul fichier. Deux enregistrements
+   sous le même nom font échouer la construction du schéma.
+3. **Une valeur n'est pas du français.** L'écran traduit par la clé, jamais par la valeur brute.
+
+### Le piège
+
+Afficher `order.status` tel quel : l'écran parle alors la langue de la base. Il faut passer par
+le catalogue, indexé par la valeur de l'énumération.
+
+---
+
+## 11. Deux gardes en chaîne, et l'erreur `FORBIDDEN`
+
+### Pourquoi
+
+Lire les commandes demande deux choses : un compte connecté, et une boutique à ce compte. Ce
+sont deux vérifications distinctes, parce que `me` doit répondre à un compte sans boutique
+alors que les lectures de boutique ne le peuvent pas.
+
+### Exemple
+
+```typescript
+@Query(() => [OrderSummaryDto], { name: "orders" })
+@UseGuards(SessionGuard, ShopGuard)
+async orders(@Context("req") request: IShopRequest): Promise<OrderSummaryDto[]> {
+    return listOrdersForVendor(prisma, request.shop.id) /* ... */;
+}
+```
+
+1. `SessionGuard` attache la session, ou répond `UNAUTHENTICATED`.
+2. `ShopGuard` (`apps/api/src/modules/auth/guards/shop.guard.ts`) lit la boutique du compte,
+   l'attache sous `request.shop`, ou répond `FORBIDDEN`.
+3. Le résolveur borne sa lecture à `request.shop.id` : il n'accepte jamais l'identifiant d'une
+   boutique de la part du téléphone.
+
+### Trois choses à retenir
+
+1. **L'ordre compte.** `ShopGuard` lit la session que `SessionGuard` vient d'attacher.
+2. **`FORBIDDEN` et non une liste vide**, pour un compte sans boutique : une liste vide se lirait
+   « aucune commande » et cacherait que l'appartenance a disparu.
+3. **Le code est dans `extensions.code`**, comme pour `UNAUTHENTICATED` (section 7). Le test
+   `apps/api/test/vendor-reads.e2e-spec.ts` les vérifie tous deux contre la vraie base.
+
+### Le piège
+
+Poser `ShopGuard` avant `SessionGuard`, ou sans lui : `request.session` n'existe pas encore, et
+la garde échoue sur une lecture de `undefined` au lieu de répondre `UNAUTHENTICATED`.
+
+---
+
+## 12. Un argument, et une réponse qui peut manquer
+
+### Pourquoi
+
+Le détail d'une commande est le premier champ qui reçoit une donnée du téléphone : un
+identifiant. Cet identifiant peut être inventé, mal formé, ou celui d'une commande d'une autre
+boutique. L'API doit répondre aux trois de la même façon.
+
+### Exemple
+
+`apps/api/src/modules/orders/resolvers/orders.resolver.ts` déclare la requête, et le schéma
+imprime `order(id: ID!): Order`. Lue de gauche à droite :
+
+1. `id: ID!` : l'argument est obligatoire. Le téléphone ne peut pas appeler `order` sans lui.
+2. `Order` sans point d'exclamation : la réponse peut être `null`. C'est voulu, et c'est
+   l'inverse de `orders`.
+
+Le dépôt filtre par boutique dans sa signature. Une commande d'une autre boutique, un
+identifiant inventé et une commande absente rendent donc tous `null`, sans erreur.
+
+### Trois choses à retenir
+
+1. **`null` vaut mieux qu'une erreur ici.** « Interdit » confirmerait que la commande existe, ce
+   qui renseigne déjà quelqu'un qui devine des identifiants.
+2. **L'argument est une valeur, jamais une autorisation.** La boutique vient de `ShopGuard`, pas
+   du téléphone : l'identifiant ne désigne qu'une commande parmi celles de cette boutique.
+3. **`actions` vient du domaine**, par `allowedOrderActions`, comme les boutons de la page web.
+   Le téléphone ne recalcule aucune transition.
+
+### Le piège
+
+Rendre une erreur `NOT_FOUND` ou `FORBIDDEN` pour la commande d'une autre boutique. Le contrat
+parlerait alors de ce que le compte n'a pas le droit de savoir. Test :
+`apps/api/test/vendor-reads.e2e-spec.ts`.

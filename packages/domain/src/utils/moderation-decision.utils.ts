@@ -20,6 +20,9 @@ export function validateModerationDecision(decision: IModerationDecision): void 
     // « Autre » ne dit rien au vendeur. Le commentaire est ce qui rend le retrait
     // actionnable, donc il est exigé, et des espaces ne sont pas un commentaire.
     if (decision.reason === "OTHER" && (decision.comment ?? "").trim() === "") {
-        throw new InvalidDecisionError("comment_required", "Un motif « autre » exige un commentaire.");
+        throw new InvalidDecisionError(
+            "comment_required",
+            "Un motif « autre » exige un commentaire.",
+        );
     }
 }

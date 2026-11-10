@@ -19,8 +19,17 @@ describe("readCatalogFilters", () => {
 
     it("lit une recherche, une catégorie et un tri valides", () => {
         expect(
-            readCatalogFilters({ q: "cabas", category: "JEWELLERY", sort: "price_asc" }),
-        ).toEqual({ search: "cabas", category: "JEWELLERY", sort: "price_asc", page: 1 });
+            readCatalogFilters({
+                q: "cabas",
+                category: "JEWELLERY",
+                sort: "price_asc",
+            }),
+        ).toEqual({
+            search: "cabas",
+            category: "JEWELLERY",
+            sort: "price_asc",
+            page: 1,
+        });
     });
 
     // Rien de ce qui vient de l'URL n'est digne de confiance, et rien n'y lève : une page

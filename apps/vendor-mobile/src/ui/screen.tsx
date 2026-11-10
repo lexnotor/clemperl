@@ -5,14 +5,20 @@ import { useTheme } from "./use-theme";
 
 interface ScreenProps {
     children: ReactNode;
+    // L'écran est sous l'en-tête natif, qui couvre déjà le bord du haut : y ajouter la marge
+    // de sécurité laisserait une bande vide sous le titre.
+    underHeader?: boolean;
 }
 
 // Le cadre de chaque écran : les marges de sécurité du téléphone, le fond du thème, et un
 // défilement pour les petits écrans ou le clavier ouvert.
-export function Screen({ children }: ScreenProps): JSX.Element {
+export function Screen({ children, underHeader = false }: ScreenProps): JSX.Element {
     const theme = useTheme();
     return (
-        <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+        <SafeAreaView
+            edges={underHeader ? ["right", "bottom", "left"] : undefined}
+            style={[styles.safe, { backgroundColor: theme.background }]}
+        >
             <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
                 {children}
             </ScrollView>

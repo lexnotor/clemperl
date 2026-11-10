@@ -10,7 +10,13 @@ const config: CodegenConfig = {
     generates: {
         "src/graphql/generated/": {
             preset: "client",
-            config: { useTypeImports: true },
+            config: {
+                useTypeImports: true,
+                // `DateTime` arrive en chaîne ISO, que l'écran met en forme ; et une énumération
+                // GraphQL devient une union de chaînes, qui indexe une clé du catalogue.
+                scalars: { DateTime: "string" },
+                enumsAsTypes: true,
+            },
         },
     },
 };

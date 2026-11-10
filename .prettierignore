@@ -1,0 +1,4 @@
+# Produits par un outil et comparés tels quels : les reformater ferait échouer leur contrôle.
+apps/api/src/modules/graphql/schema.gql
+apps/vendor-mobile/src/graphql/generated/
+pnpm-lock.yaml

@@ -7,7 +7,10 @@ import { ME_QUERY } from "./me.query";
 jest.mock("expo-localization", () => ({ getLocales: () => [{ languageCode: "fr" }] }));
 
 const mockReplace = jest.fn();
-jest.mock("expo-router", () => ({ useRouter: () => ({ replace: mockReplace }) }));
+const mockPush = jest.fn();
+jest.mock("expo-router", () => ({
+    useRouter: () => ({ replace: mockReplace, push: mockPush }),
+}));
 
 type TShop = { name: string; suspended: boolean } | null;
 
@@ -30,7 +33,10 @@ async function renderHome(mocks: object[], signOut = jest.fn(async () => undefin
     return { signOut };
 }
 
-beforeEach(() => mockReplace.mockReset());
+beforeEach(() => {
+    mockReplace.mockReset();
+    mockPush.mockReset();
+});
 
 describe("HomeScreen", () => {
     it("affiche le nom de la boutique", async () => {
@@ -38,7 +44,11 @@ describe("HomeScreen", () => {
 
         expect(await screen.findByText("Atelier Awa")).toBeTruthy();
         expect(screen.getByText("Connecté en tant que awa@atelier.test")).toBeTruthy();
-        expect(screen.queryByText("Votre boutique n'apparaît pas au catalogue, et ses articles ne sont pas achetables. Vos commandes en cours restent à traiter normalement.")).toBeNull();
+        expect(
+            screen.queryByText(
+                "Votre boutique n'apparaît pas au catalogue, et ses articles ne sont pas achetables. Vos commandes en cours restent à traiter normalement.",
+            ),
+        ).toBeNull();
     });
 
     // La phrase même de l'espace vendeur web (`ShopOffline`) : sur le téléphone, fait pour
@@ -47,8 +57,21 @@ describe("HomeScreen", () => {
         await renderHome([answers({ name: "Atelier Awa", suspended: true })]);
 
         expect(
-            await screen.findByText("Votre boutique n'apparaît pas au catalogue, et ses articles ne sont pas achetables. Vos commandes en cours restent à traiter normalement."),
+            await screen.findByText(
+                "Votre boutique n'apparaît pas au catalogue, et ses articles ne sont pas achetables. Vos commandes en cours restent à traiter normalement.",
+            ),
         ).toBeTruthy();
+    });
+
+    it("ouvre les commandes et les produits", async () => {
+        const user = userEvent.setup();
+        await renderHome([answers({ name: "Atelier Awa", suspended: false })]);
+
+        await user.press(await screen.findByRole("button", { name: "Commandes" }));
+        expect(mockPush).toHaveBeenLastCalledWith("/orders");
+
+        await user.press(screen.getByRole("button", { name: "Produits" }));
+        expect(mockPush).toHaveBeenLastCalledWith("/products");
     });
 
     it("renvoie au web un compte sans boutique", async () => {
@@ -56,7 +79,9 @@ describe("HomeScreen", () => {
 
         expect(await screen.findByText("Aucune boutique")).toBeTruthy();
         expect(
-            screen.getByText("Ce compte n'est membre d'aucune boutique. Ouvrez la vôtre depuis le site ClemPerl."),
+            screen.getByText(
+                "Ce compte n'est membre d'aucune boutique. Ouvrez la vôtre depuis le site ClemPerl.",
+            ),
         ).toBeTruthy();
     });
 
@@ -79,7 +104,10 @@ describe("HomeScreen", () => {
         await renderHome([
             {
                 request: { query: ME_QUERY },
-                result: { data: null, errors: [{ message: "refus", extensions: { code: "UNAUTHENTICATED" } }] },
+                result: {
+                    data: null,
+                    errors: [{ message: "refus", extensions: { code: "UNAUTHENTICATED" } }],
+                },
             },
         ]);
 

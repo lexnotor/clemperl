@@ -62,7 +62,11 @@ export function HomeScreen({ signOut }: HomeScreenProps): JSX.Element {
                     <Button label={t("common.retry")} onPress={() => void result.refetch()} />
                     {/* Une sortie, même ici : une erreur durable du serveur laisserait sinon le
                         vendeur devant « Réessayer », sans pouvoir changer de compte. */}
-                    <Button label={t("home.signOut")} onPress={() => void leave()} variant="outline" />
+                    <Button
+                        label={t("home.signOut")}
+                        onPress={() => void leave()}
+                        variant="outline"
+                    />
                 </>
             );
         case "no-shop":
@@ -70,7 +74,11 @@ export function HomeScreen({ signOut }: HomeScreenProps): JSX.Element {
                 <>
                     <Text style={title}>{t("noShop.title")}</Text>
                     <Text style={body}>{t("noShop.body")}</Text>
-                    <Button label={t("home.signOut")} onPress={() => void leave()} variant="outline" />
+                    <Button
+                        label={t("home.signOut")}
+                        onPress={() => void leave()}
+                        variant="outline"
+                    />
                 </>
             );
         case "ready":
@@ -79,8 +87,14 @@ export function HomeScreen({ signOut }: HomeScreenProps): JSX.Element {
                     <Text style={body}>{t("home.shop")}</Text>
                     <Text style={title}>{state.shop.name}</Text>
                     {state.shop.suspended && <Notice text={t("home.suspended")} />}
+                    <Button label={t("home.orders")} onPress={() => router.push("/orders")} />
+                    <Button label={t("home.products")} onPress={() => router.push("/products")} />
                     <Text style={body}>{t("home.signedInAs", { email: state.email })}</Text>
-                    <Button label={t("home.signOut")} onPress={() => void leave()} variant="outline" />
+                    <Button
+                        label={t("home.signOut")}
+                        onPress={() => void leave()}
+                        variant="outline"
+                    />
                 </>
             );
     }

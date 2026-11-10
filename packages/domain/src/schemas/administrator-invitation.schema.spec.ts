@@ -17,25 +17,41 @@ describe("l'invitation d'un administrateur", () => {
     // l'adresse : sans ce schéma, une chaîne vide entrerait en base et le compte serait
     // injoignable pour toujours.
     it("refuse une adresse qui n'en est pas une", () => {
-        expect(administratorInvitationSchema.safeParse({
-            name: "Awa", email: "awa", role: "ADMIN",
-        }).success).toBe(false);
-        expect(administratorInvitationSchema.safeParse({
-            name: "Awa", email: "", role: "ADMIN",
-        }).success).toBe(false);
+        expect(
+            administratorInvitationSchema.safeParse({
+                name: "Awa",
+                email: "awa",
+                role: "ADMIN",
+            }).success,
+        ).toBe(false);
+        expect(
+            administratorInvitationSchema.safeParse({
+                name: "Awa",
+                email: "",
+                role: "ADMIN",
+            }).success,
+        ).toBe(false);
     });
 
     it("refuse un nom vide ou réduit à des espaces", () => {
-        expect(administratorInvitationSchema.safeParse({
-            name: "   ", email: "awa@clemperl.test", role: "ADMIN",
-        }).success).toBe(false);
+        expect(
+            administratorInvitationSchema.safeParse({
+                name: "   ",
+                email: "awa@clemperl.test",
+                role: "ADMIN",
+            }).success,
+        ).toBe(false);
     });
 
     // `CUSTOMER` n'est pas un niveau qu'on accorde : le refuser ICI évite que le
     // formulaire serve à créer des clients.
     it("n'accepte que les deux niveaux d'administration", () => {
-        expect(administratorInvitationSchema.safeParse({
-            name: "Awa", email: "awa@clemperl.test", role: "CUSTOMER",
-        }).success).toBe(false);
+        expect(
+            administratorInvitationSchema.safeParse({
+                name: "Awa",
+                email: "awa@clemperl.test",
+                role: "CUSTOMER",
+            }).success,
+        ).toBe(false);
     });
 });

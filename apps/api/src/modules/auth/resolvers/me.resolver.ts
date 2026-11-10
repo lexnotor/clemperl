@@ -10,7 +10,10 @@ export class MeResolver {
     // La boutique est lue par la fonction même dont `requireVendorMembership` se sert sur
     // l'espace vendeur web : le téléphone et le web ne peuvent pas désigner deux boutiques
     // différentes pour un même compte, ni montrer une boutique supprimée.
-    @Query(() => MeDto, { name: "me", description: "Le compte connecté et sa boutique." })
+    @Query(() => MeDto, {
+        name: "me",
+        description: "Le compte connecté et sa boutique.",
+    })
     @UseGuards(SessionGuard)
     async me(@Context("req") request: ISessionRequest): Promise<MeDto> {
         const { id, email, name } = request.session.user;

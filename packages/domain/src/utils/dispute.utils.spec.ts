@@ -5,6 +5,7 @@ import {
     advanceDispute,
     allowedDisputeActions,
     canOpenDispute,
+    disputeNotice,
     disputeOpeningCutoff,
     isDisputeRipe,
     validateDisputeDecision,
@@ -42,7 +43,11 @@ describe("ouvrir un litige", () => {
     it("refuse une commande qui n'est pas expédiée", () => {
         expect(
             canOpenDispute(
-                { status: "ACCEPTED", shippedAt: new Date("2026-10-18T12:00:00.000Z"), hasDispute: false },
+                {
+                    status: "ACCEPTED",
+                    shippedAt: new Date("2026-10-18T12:00:00.000Z"),
+                    hasDispute: false,
+                },
                 NOW,
             ),
         ).toBe(false);
@@ -72,7 +77,9 @@ describe("un litige à trancher", () => {
 describe("les transitions d'un litige", () => {
     it("laisse l'administration trancher un litige ouvert, dans un sens ou dans l'autre", () => {
         expect(advanceDispute("OPEN", E_DISPUTE_ACTION.DECIDE_FOR_BUYER)).toBe("DECIDED_FOR_BUYER");
-        expect(advanceDispute("OPEN", E_DISPUTE_ACTION.DECIDE_FOR_VENDOR)).toBe("DECIDED_FOR_VENDOR");
+        expect(advanceDispute("OPEN", E_DISPUTE_ACTION.DECIDE_FOR_VENDOR)).toBe(
+            "DECIDED_FOR_VENDOR",
+        );
     });
 
     // L'acheteur peut se dire servi avant toute décision : un vendeur qui répare dès sa
@@ -86,12 +93,12 @@ describe("les transitions d'un litige", () => {
     });
 
     it("refuse de trancher deux fois", () => {
-        expect(() => advanceDispute("DECIDED_FOR_VENDOR", E_DISPUTE_ACTION.DECIDE_FOR_BUYER)).toThrow(
-            ForbiddenDisputeTransitionError,
-        );
-        expect(() => advanceDispute("DECIDED_FOR_BUYER", E_DISPUTE_ACTION.DECIDE_FOR_VENDOR)).toThrow(
-            ForbiddenDisputeTransitionError,
-        );
+        expect(() =>
+            advanceDispute("DECIDED_FOR_VENDOR", E_DISPUTE_ACTION.DECIDE_FOR_BUYER),
+        ).toThrow(ForbiddenDisputeTransitionError);
+        expect(() =>
+            advanceDispute("DECIDED_FOR_BUYER", E_DISPUTE_ACTION.DECIDE_FOR_VENDOR),
+        ).toThrow(ForbiddenDisputeTransitionError);
     });
 
     it("ferme un litige tranché pour le vendeur, et un litige servi", () => {
@@ -100,9 +107,11 @@ describe("les transitions d'un litige", () => {
     });
 
     it("offre les trois actions sur un litige ouvert", () => {
-        expect(allowedDisputeActions("OPEN").sort()).toEqual(
-            ["DECIDE_FOR_BUYER", "DECIDE_FOR_VENDOR", "SERVE"],
-        );
+        expect(allowedDisputeActions("OPEN").sort()).toEqual([
+            "DECIDE_FOR_BUYER",
+            "DECIDE_FOR_VENDOR",
+            "SERVE",
+        ]);
     });
 });
 
@@ -204,7 +213,9 @@ describe("valider une décision", () => {
         expect(keys(validateDisputeDecision({ comment: "   " }))).toEqual([
             "errors.dispute.comment_required",
         ]);
-        expect(validateDisputeDecision({ comment: "La photo montre un fermoir cassé." })).toEqual([]);
+        expect(validateDisputeDecision({ comment: "La photo montre un fermoir cassé." })).toEqual(
+            [],
+        );
     });
 });
 
@@ -213,5 +224,21 @@ describe("l'erreur de transition", () => {
         const error = new ForbiddenDisputeTransitionError("SERVED", E_DISPUTE_ACTION.SERVE);
         expect(error.i18nKey).toBe("errors.dispute.forbidden_transition");
         expect(error.i18nArgs).toEqual({ from: "SERVED", action: "SERVE" });
+    });
+});
+
+describe("signaler un litige sur une liste", () => {
+    it("signale un litige ouvert", () => {
+        expect(disputeNotice("OPEN")).toBe("OPEN");
+    });
+
+    it("signale un litige tranché pour le client, qui reste à servir", () => {
+        expect(disputeNotice("DECIDED_FOR_BUYER")).toBe("TO_SERVE");
+    });
+
+    it("ne signale ni un litige tranché pour la boutique, ni un litige servi, ni l'absence de litige", () => {
+        expect(disputeNotice("DECIDED_FOR_VENDOR")).toBeNull();
+        expect(disputeNotice("SERVED")).toBeNull();
+        expect(disputeNotice(null)).toBeNull();
     });
 });

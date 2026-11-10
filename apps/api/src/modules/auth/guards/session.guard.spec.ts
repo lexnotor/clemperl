@@ -33,7 +33,10 @@ describe("SessionGuard", () => {
         const module = await Test.createTestingModule({
             providers: [
                 SessionGuard,
-                { provide: AUTH_TOKEN, useValue: { api: { getSession: async () => null } } },
+                {
+                    provide: AUTH_TOKEN,
+                    useValue: { api: { getSession: async () => null } },
+                },
             ],
         }).compile();
 
@@ -41,7 +44,9 @@ describe("SessionGuard", () => {
     });
 
     it("refuse une requête sans cookie de session", async () => {
-        const garde = new SessionGuard({ api: { getSession: async () => null } } as never);
+        const garde = new SessionGuard({
+            api: { getSession: async () => null },
+        } as never);
 
         await expect(garde.canActivate(contexteAvecEnTetes({}))).rejects.toBeInstanceOf(
             UnauthorizedException,
@@ -50,19 +55,25 @@ describe("SessionGuard", () => {
 
     it("accepte une requête dont la session est valide", async () => {
         const garde = new SessionGuard({
-            api: { getSession: async () => ({ user: { id: "u1", email: "a@b.test" } }) },
+            api: {
+                getSession: async () => ({ user: { id: "u1", email: "a@b.test" } }),
+            },
         } as never);
 
-        await expect(
-            garde.canActivate(contexteAvecEnTetes({ cookie: "session=x" })),
-        ).resolves.toBe(true);
+        await expect(garde.canActivate(contexteAvecEnTetes({ cookie: "session=x" }))).resolves.toBe(
+            true,
+        );
     });
 
     it("attache la session à la requête pour les contrôleurs", async () => {
         const garde = new SessionGuard({
-            api: { getSession: async () => ({ user: { id: "u1", email: "a@b.test" } }) },
+            api: {
+                getSession: async () => ({ user: { id: "u1", email: "a@b.test" } }),
+            },
         } as never);
-        const request: Record<string, unknown> = { headers: { cookie: "session=x" } };
+        const request: Record<string, unknown> = {
+            headers: { cookie: "session=x" },
+        };
         const contexte = {
             getType: () => "http",
             switchToHttp: () => ({ getRequest: () => request }),
@@ -72,26 +83,36 @@ describe("SessionGuard", () => {
 
         // Sans cela, chaque contrôleur redemanderait à la base ce qui vient d'être
         // vérifié, à chaque requête.
-        expect(request["session"]).toEqual({ user: { id: "u1", email: "a@b.test" } });
+        expect(request["session"]).toEqual({
+            user: { id: "u1", email: "a@b.test" },
+        });
     });
 
     it("accepte une requête GraphQL dont la session est valide, et l'y attache", async () => {
         const garde = new SessionGuard({
-            api: { getSession: async () => ({ user: { id: "u1", email: "a@b.test" } }) },
+            api: {
+                getSession: async () => ({ user: { id: "u1", email: "a@b.test" } }),
+            },
         } as never);
-        const request: Record<string, unknown> = { headers: { cookie: "session=x" } };
+        const request: Record<string, unknown> = {
+            headers: { cookie: "session=x" },
+        };
 
         await expect(garde.canActivate(contexteGraphql(request))).resolves.toBe(true);
         // Le résolveur lit la session là, comme un contrôleur : sans elle, il n'aurait
         // aucun compte à qui rendre sa boutique.
-        expect(request["session"]).toEqual({ user: { id: "u1", email: "a@b.test" } });
+        expect(request["session"]).toEqual({
+            user: { id: "u1", email: "a@b.test" },
+        });
     });
 
     it("refuse une requête GraphQL sans session", async () => {
-        const garde = new SessionGuard({ api: { getSession: async () => null } } as never);
+        const garde = new SessionGuard({
+            api: { getSession: async () => null },
+        } as never);
 
-        await expect(
-            garde.canActivate(contexteGraphql({ headers: {} })),
-        ).rejects.toBeInstanceOf(UnauthorizedException);
+        await expect(garde.canActivate(contexteGraphql({ headers: {} }))).rejects.toBeInstanceOf(
+            UnauthorizedException,
+        );
     });
 });

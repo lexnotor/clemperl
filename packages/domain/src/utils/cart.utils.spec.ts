@@ -85,7 +85,13 @@ describe("groupByShop", () => {
         ];
 
         expect(groupByShop(lignes)).toEqual([
-            { shopSlug: "b", lines: [{ shopSlug: "b", id: 1 }, { shopSlug: "b", id: 3 }] },
+            {
+                shopSlug: "b",
+                lines: [
+                    { shopSlug: "b", id: 1 },
+                    { shopSlug: "b", id: 3 },
+                ],
+            },
             { shopSlug: "a", lines: [{ shopSlug: "a", id: 2 }] },
         ]);
     });
@@ -97,9 +103,12 @@ describe("groupByShop", () => {
 
 describe("sumLines", () => {
     it("somme le prix unitaire multiplié par la quantité", () => {
-        expect(sumLines([{ unitAmount: 1850, quantity: 2 }, { unitAmount: 500, quantity: 1 }])).toBe(
-            4200,
-        );
+        expect(
+            sumLines([
+                { unitAmount: 1850, quantity: 2 },
+                { unitAmount: 500, quantity: 1 },
+            ]),
+        ).toBe(4200);
     });
 
     it("rend zéro pour aucune ligne", () => {

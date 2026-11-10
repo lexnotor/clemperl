@@ -245,7 +245,117 @@ langue du système qui a fui dans le test, faute de l'avoir fixée.
 
 ---
 
-## 7. Ce qui a changé dans Expo, et depuis quand
+## 7. L'en-tête natif d'un écran
+
+### Pourquoi
+
+Un écran de liste a besoin d'un titre et d'un retour. Expo Router les fournit par l'en-tête
+natif de la pile (`Stack`) : sur iOS comme sur Android, c'est la barre du système, avec son
+bouton retour et le geste de retour (glisser depuis le bord sur iOS, retour du système sur
+Android). Le réécrire à la main perdrait ce geste.
+
+### Exemple
+
+`src/app/_layout.tsx` masque l'en-tête de tous les écrans (`headerShown: false`), et
+`src/app/orders/index.tsx` le rend visible pour le sien :
+
+```tsx
+<Stack.Screen options={useHeaderOptions(t("orders.title"))} />
+<Screen underHeader>...</Screen>
+```
+
+`useHeaderOptions` (`src/ui/use-header-options.ts`) renvoie les options : en-tête visible,
+titre, couleurs du thème.
+
+### Trois choses à retenir
+
+1. **L'écran règle son propre en-tête**, par `Stack.Screen` posé dans son JSX : le titre peut
+   alors dépendre de la langue ou des données, ce que le layout ne sait pas.
+2. **`Screen underHeader`** retire le bord du haut des marges de sécurité : l'en-tête le couvre
+   déjà, et la marge laisserait une bande vide sous le titre.
+3. **Le retour vient de la navigation**, pas du code : on arrive par `router.push`, on repart
+   par le retour. `router.replace` n'en laisse pas, ce qui convient à la connexion.
+
+### Le piège
+
+Oublier `underHeader` : le contenu démarre trop bas, d'une marge de sécurité que personne n'a
+voulue. Et poser `Stack.Screen` dans une fonction de rendu conditionnelle : l'en-tête
+disparaît avec la condition.
+
+---
+
+## 8. Une liste courte se rend par `map`
+
+### Pourquoi
+
+`FlatList` ne rend que les lignes visibles, ce qui compte pour des milliers de lignes. Mais
+placée dans un `ScrollView`, elle perd ce bénéfice et React Native avertit : deux défilements
+imbriqués dans le même sens. Or `Screen` enveloppe déjà chaque écran dans un `ScrollView`.
+
+### Exemple
+
+`src/features/orders/orders-screen.tsx` rend ses lignes par `orders.map(...)`, chacune avec sa
+`key`, dans le défilement de `Screen`. Les listes d'une boutique sont courtes (spec T8,
+section 5).
+
+### Trois choses à retenir
+
+1. **Une `key` stable par ligne**, l'identifiant de la commande, pas l'indice.
+2. **Le commentaire dit pourquoi** : sans lui, quelqu'un « corrigera » en `FlatList`.
+3. **`FlatList` devient nécessaire** quand une liste peut compter des centaines de lignes ou
+   davantage : l'écran cesse alors d'utiliser `Screen`, et la liste devient elle-même le
+   défilement.
+
+### Le piège
+
+Passer à `FlatList` sans quitter `ScrollView` : l'avertissement paraît, et la liste ne
+virtualise rien.
+
+---
+
+## 9. Une route à paramètre : `orders/[id].tsx`
+
+### Pourquoi
+
+Le détail d'une commande existe en autant d'exemplaires qu'il y a de commandes, mais c'est un
+seul écran. Expo Router le dit par le nom du fichier : un segment entre crochets est un
+paramètre, et l'écran lit sa valeur au lieu de la recevoir en propriété.
+
+### Exemple
+
+`src/app/orders/[id].tsx` lit l'identifiant et le passe à l'écran de la feature :
+
+```tsx
+const { id } = useLocalSearchParams<{ id: string }>();
+<OrderScreen id={id} />
+```
+
+La liste (`src/features/orders/orders-screen.tsx`) y mène par
+`router.push({ pathname: "/orders/[id]", params: { id: order.id } })`. `OrderScreen`
+(`src/features/orders/order-screen.tsx`) envoie ensuite l'identifiant à la requête
+`order(id)`.
+
+### Trois choses à retenir
+
+1. **Le fichier route reste mince** : il lit le paramètre, règle l'en-tête, et laisse la
+   feature faire le reste. L'écran reçoit `id` en propriété, ce qui le rend testable sans
+   routeur.
+2. **`pathname` garde le motif**, `"/orders/[id]"`, et la valeur va dans `params` : Expo
+   Router vérifie le chemin contre les fichiers, et l'identifiant n'a pas à être écrit à la
+   main dans une chaîne.
+3. **Un identifiant venu d'une URL est un texte quelconque** : l'API répond `null` pour un
+   inconnu ou pour la commande d'une autre boutique, et l'écran dit « introuvable » sans
+   distinguer les deux.
+
+### Le piège
+
+Lire le paramètre avec `useGlobalSearchParams` : il suit la route active, pas celle de
+l'écran, et un écran resté dans la pile change d'identifiant quand on en ouvre un autre
+par-dessus.
+
+---
+
+## 10. Ce qui a changé dans Expo, et depuis quand
 
 Ce qui surprend quand on revient à Expo après quelques versions. Chaque ligne dit la version où
 c'est arrivé ; « constaté » veut dire vu dans ce dépôt, sur le SDK 58, sans en savoir la version

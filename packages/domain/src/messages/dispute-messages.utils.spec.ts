@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildDisputeDecisionMessage, buildDisputeOpenedMessage } from "./dispute-messages.utils.js";
+import {
+    buildDisputeDecisionMessage,
+    buildDisputeOpenedMessage,
+} from "./dispute-messages.utils.js";
 
 const REFERENCE = "CMD-2026-ABC123";
 const LINK = "http://localhost:3001/orders/o1";
@@ -26,14 +29,18 @@ describe("le courriel d'ouverture, au vendeur", () => {
         expect(message.subject).toContain(REFERENCE);
         expect(message.text.toLowerCase()).toContain("wrong item");
         expect(message.subject).not.toBe(
-            buildDisputeOpenedMessage({ reference: REFERENCE, reason: "WRONG_ITEM", link: LINK }, "fr")
-                .subject,
+            buildDisputeOpenedMessage(
+                { reference: REFERENCE, reason: "WRONG_ITEM", link: LINK },
+                "fr",
+            ).subject,
         );
     });
 
     it("retombe sur le français pour une langue inconnue", () => {
         const args = { reference: REFERENCE, reason: "NOT_RECEIVED", link: LINK };
-        expect(buildDisputeOpenedMessage(args, "de")).toEqual(buildDisputeOpenedMessage(args, "fr"));
+        expect(buildDisputeOpenedMessage(args, "de")).toEqual(
+            buildDisputeOpenedMessage(args, "fr"),
+        );
     });
 
     // Le dépôt refuse un motif hors vocabulaire en amont, mais ce constructeur est pur et ne
@@ -53,7 +60,11 @@ describe("le courriel de décision, aux deux parties", () => {
         outcome: "DECIDED_FOR_BUYER" | "DECIDED_FOR_VENDOR",
         party: "BUYER" | "VENDOR",
         locale = "fr",
-    ) => buildDisputeDecisionMessage({ reference: REFERENCE, outcome, party, comment: COMMENT, link: LINK }, locale);
+    ) =>
+        buildDisputeDecisionMessage(
+            { reference: REFERENCE, outcome, party, comment: COMMENT, link: LINK },
+            locale,
+        );
 
     it("porte la référence, le commentaire tel quel et le lien", () => {
         const message = decision("DECIDED_FOR_BUYER", "BUYER");

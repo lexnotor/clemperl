@@ -8,25 +8,41 @@ describe("destinataires d'un événement temps réel", () => {
 
     it("prévient seulement l'acheteur quand le vendeur fait avancer sa commande", () => {
         expect(
-            realtimeRecipients({ kind: "order.status_changed", orderId: "o1", by: "VENDOR" }),
+            realtimeRecipients({
+                kind: "order.status_changed",
+                orderId: "o1",
+                by: "VENDOR",
+            }),
         ).toEqual(["BUYER"]);
     });
 
     it("prévient les deux quand l'administration fait avancer une commande", () => {
         expect(
-            realtimeRecipients({ kind: "order.status_changed", orderId: "o1", by: "ADMIN" }),
+            realtimeRecipients({
+                kind: "order.status_changed",
+                orderId: "o1",
+                by: "ADMIN",
+            }),
         ).toEqual(["BUYER", "SHOP"]);
     });
 
     it("prévient seulement l'acheteur quand le vendeur règle le paiement", () => {
         expect(
-            realtimeRecipients({ kind: "payment.status_changed", orderId: "o1", by: "VENDOR" }),
+            realtimeRecipients({
+                kind: "payment.status_changed",
+                orderId: "o1",
+                by: "VENDOR",
+            }),
         ).toEqual(["BUYER"]);
     });
 
     it("prévient les deux quand le prestataire règle le paiement", () => {
         expect(
-            realtimeRecipients({ kind: "payment.status_changed", orderId: "o1", by: "PROVIDER" }),
+            realtimeRecipients({
+                kind: "payment.status_changed",
+                orderId: "o1",
+                by: "PROVIDER",
+            }),
         ).toEqual(["BUYER", "SHOP"]);
     });
 
@@ -42,13 +58,21 @@ describe("destinataires d'un événement temps réel", () => {
 
     it("prévient la boutique d'un message de l'acheteur", () => {
         expect(
-            realtimeRecipients({ kind: "dispute.message_posted", disputeId: "d1", by: "BUYER" }),
+            realtimeRecipients({
+                kind: "dispute.message_posted",
+                disputeId: "d1",
+                by: "BUYER",
+            }),
         ).toEqual(["SHOP"]);
     });
 
     it("prévient l'acheteur d'un message du vendeur", () => {
         expect(
-            realtimeRecipients({ kind: "dispute.message_posted", disputeId: "d1", by: "VENDOR" }),
+            realtimeRecipients({
+                kind: "dispute.message_posted",
+                disputeId: "d1",
+                by: "VENDOR",
+            }),
         ).toEqual(["BUYER"]);
     });
 

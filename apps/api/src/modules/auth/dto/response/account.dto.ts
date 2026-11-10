@@ -1,6 +1,8 @@
 import { Field, ID, ObjectType } from "@nestjs/graphql";
 
-@ObjectType("Account", { description: "Le compte connecté, tel que le téléphone l'affiche." })
+@ObjectType("Account", {
+    description: "Le compte connecté, tel que le téléphone l'affiche.",
+})
 export class AccountDto {
     @Field(() => ID)
     id!: string;

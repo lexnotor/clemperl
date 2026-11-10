@@ -20,7 +20,10 @@ describe("schéma de dépôt d'un dossier", () => {
     });
 
     it("met le pays en majuscules et coupe les espaces de bordure", () => {
-        const parsed = applicationSubmissionSchema.parse({ ...VALID, shopName: "  Chez Clem  " });
+        const parsed = applicationSubmissionSchema.parse({
+            ...VALID,
+            shopName: "  Chez Clem  ",
+        });
         expect(parsed.country).toBe("BE");
         expect(parsed.shopName).toBe("Chez Clem");
     });
@@ -44,30 +47,43 @@ describe("schéma de dépôt d'un dossier", () => {
     });
 
     it("exige au moins une catégorie", () => {
-        expect(applicationSubmissionSchema.safeParse({ ...VALID, categories: [] }).success).toBe(false);
+        expect(applicationSubmissionSchema.safeParse({ ...VALID, categories: [] }).success).toBe(
+            false,
+        );
     });
 
     it("refuse une catégorie hors énumération", () => {
         expect(
-            applicationSubmissionSchema.safeParse({ ...VALID, categories: ["MEUBLES"] }).success,
+            applicationSubmissionSchema.safeParse({
+                ...VALID,
+                categories: ["MEUBLES"],
+            }).success,
         ).toBe(false);
     });
 
     it("refuse une adresse de contact malformée", () => {
-        expect(applicationSubmissionSchema.safeParse({ ...VALID, contactEmail: "clem" }).success).toBe(
-            false,
-        );
+        expect(
+            applicationSubmissionSchema.safeParse({ ...VALID, contactEmail: "clem" }).success,
+        ).toBe(false);
     });
 
     it("refuse une description trop courte pour dire quoi que ce soit", () => {
-        expect(applicationSubmissionSchema.safeParse({ ...VALID, shopDescription: "Sacs." }).success).toBe(
-            false,
-        );
+        expect(
+            applicationSubmissionSchema.safeParse({
+                ...VALID,
+                shopDescription: "Sacs.",
+            }).success,
+        ).toBe(false);
     });
 
     it("laisse le numéro de TVA facultatif", () => {
-        const { taxNumber, ...withoutVat } = { ...VALID, taxNumber: "BE0123456789" };
+        const { taxNumber, ...withoutVat } = {
+            ...VALID,
+            taxNumber: "BE0123456789",
+        };
         expect(applicationSubmissionSchema.safeParse(withoutVat).success).toBe(true);
-        expect(applicationSubmissionSchema.parse({ ...VALID, taxNumber }).taxNumber).toBe(taxNumber);
+        expect(applicationSubmissionSchema.parse({ ...VALID, taxNumber }).taxNumber).toBe(
+            taxNumber,
+        );
     });
 });

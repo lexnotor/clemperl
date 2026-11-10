@@ -19,17 +19,26 @@ describe("contrôler des pièces, dans le navigateur comme sur le serveur", () =
     // les voit jamais, et seul le navigateur peut dire pourquoi.
     it("refuse une quatrième pièce, en disant la limite", () => {
         const violations = attachmentViolations(
-            Array.from({ length: 4 }, () => ({ mimeType: "image/jpeg", sizeBytes: 4_500_000 })),
+            Array.from({ length: 4 }, () => ({
+                mimeType: "image/jpeg",
+                sizeBytes: 4_500_000,
+            })),
         );
         expect(violations).toEqual([
-            { i18nKey: "errors.dispute.too_many_attachments", i18nArgs: { maximum: 3 } },
+            {
+                i18nKey: "errors.dispute.too_many_attachments",
+                i18nArgs: { maximum: 3 },
+            },
         ]);
     });
 
     // Une faute se dit une fois, quel que soit le nombre de pièces qui la commettent : trois
     // fois la même phrase n'aide personne, et l'écran s'en sert comme clé de liste.
     it("dit chaque faute une seule fois, même commise par plusieurs pièces", () => {
-        const oversized = { mimeType: "image/jpeg", sizeBytes: 5 * 1024 * 1024 + 1 };
+        const oversized = {
+            mimeType: "image/jpeg",
+            sizeBytes: 5 * 1024 * 1024 + 1,
+        };
         const archive = { mimeType: "application/zip", sizeBytes: 1 };
 
         expect(keys(attachmentViolations([oversized, oversized, archive]))).toEqual([

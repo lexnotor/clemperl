@@ -70,7 +70,9 @@ export const productOptionsSchema = z
         (options) =>
             options.reduce((total, option) => total * Math.max(option.values.length, 1), 1) <=
             MAX_VARIANTS_PER_PRODUCT,
-        { message: `plus de ${MAX_VARIANTS_PER_PRODUCT} déclinaisons pour un seul produit` },
+        {
+            message: `plus de ${MAX_VARIANTS_PER_PRODUCT} déclinaisons pour un seul produit`,
+        },
     );
 
 export type TProductOption = z.infer<typeof productOptionSchema>;

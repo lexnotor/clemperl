@@ -14,7 +14,9 @@ const readVendor = jest.mocked(readVendorForMember);
 // La requête telle que `SessionGuard` la laisse. `emailVerified` est là pour prouver qu'un
 // champ de la session qui n'est pas au contrat ne fuit pas dans la réponse.
 const request = {
-    session: { user: { id: "u1", email: "a@b.test", name: "Awa", emailVerified: true } },
+    session: {
+        user: { id: "u1", email: "a@b.test", name: "Awa", emailVerified: true },
+    },
 };
 
 const vendor = (suspendedAt: Date | null) =>
@@ -35,7 +37,10 @@ describe("MeResolver", () => {
 
         const me = await new MeResolver().me(request);
 
-        expect(me).toEqual({ user: { id: "u1", email: "a@b.test", name: "Awa" }, shop: null });
+        expect(me).toEqual({
+            user: { id: "u1", email: "a@b.test", name: "Awa" },
+            shop: null,
+        });
         expect(readVendor).toHaveBeenCalledWith({ marker: "prisma" }, "u1");
     });
 

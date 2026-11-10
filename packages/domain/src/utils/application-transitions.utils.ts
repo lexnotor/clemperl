@@ -2,10 +2,7 @@ import { APPLICATION_TRANSITIONS, type TApplicationAction } from "../constants/i
 import { ForbiddenTransitionError } from "../errors/index.js";
 import type { TApplicationStatus } from "../types/index.js";
 
-export function canTransition(
-    from: TApplicationStatus,
-    action: TApplicationAction,
-): boolean {
+export function canTransition(from: TApplicationStatus, action: TApplicationAction): boolean {
     return APPLICATION_TRANSITIONS[from][action] !== undefined;
 }
 
